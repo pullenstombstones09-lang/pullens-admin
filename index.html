@@ -489,6 +489,29 @@ document.documentElement.setAttribute('data-theme', APP.theme);
 /* ============================================================
    HELPERS
    ============================================================ */
+// Normalise Sheets epoch times (1899-12-30T06:30:00.000Z) → "HH:mm" SAST
+function normTime(v) {
+  if (!v) return '';
+  if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return v; // already HH:mm
+  if (typeof v === 'string' && v.includes('1899-12-30')) {
+    const d = new Date(v);
+    if (!isNaN(d)) {
+      let h = d.getUTCHours() + 2; // UTC → SAST (+2)
+      if (h >= 24) h -= 24;
+      return String(h).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+    }
+  }
+  // Try parsing any ISO datetime for time portion
+  if (typeof v === 'string' && v.includes('T')) {
+    const m = v.match(/T(\d{2}):(\d{2})/);
+    if (m) {
+      let h = parseInt(m[1]) + 2; // UTC → SAST
+      if (h >= 24) h -= 24;
+      return String(h).padStart(2,'0') + ':' + m[2];
+    }
+  }
+  return String(v);
+}
 const fmtR = n => n == null || isNaN(n) ? '—' : 'R\u00A0' + Number(n).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtD = d => d ? new Date(d).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—';
 const fmtDShort = d => d ? new Date(d).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric'}) : '—';
@@ -600,6 +623,11 @@ async function loadAll() {
     regs.forEach((reg, i) => {
       const r = results[i+1];
       if (r.ok && Array.isArray(r.data)) APP.registers[reg] = r.data;
+    });
+    // Normalise Sheets epoch times on attendance records
+    APP.registers.attendance.forEach(a => {
+      if (a.timeIn) a.timeIn = normTime(a.timeIn);
+      if (a.timeOut) a.timeOut = normTime(a.timeOut);
     });
     // Load settings from backend
     const settingsResult = results[regs.length + 1];
@@ -974,8 +1002,8 @@ function viewRegister() {
     const cells = days.map(d => {
       const a = getAtt(e.pt_code, d.date);
       const status = a ? a.status : 'unmarked';
-      const timeIn = a && a.timeIn ? a.timeIn : '';
-      const timeOut = a && a.timeOut ? a.timeOut : '';
+      const timeIn = a && a.timeIn ? normTime(a.timeIn) : '';
+      const timeOut = a && a.timeOut ? normTime(a.timeOut) : '';
       const cls = status==='p'?'p':status==='late'?'late':status==='a'?'a':status==='leave'?'leave':status==='ph'?'ph':'';
       const lbl = status==='p'?'Present':status==='late'?'Late':status==='a'?'Absent':status==='leave'?'Leave':status==='ph'?'PH':'—';
       const dockMins = a && a.dockMinutes ? a.dockMinutes : 0;
@@ -1487,8 +1515,8 @@ function modalAttendance(code, date) {
       <button class="btn primary" onclick="saveAttendance('${code}','${date}','${a.id||''}')">Save</button>
     </div>`, () => {
       const dd = dayDefaults(date);
-      document.getElementById('a_in').value = a.timeIn || dd.timeIn;
-      document.getElementById('a_out').value = a.timeOut || dd.timeOut;
+      document.getElementById('a_in').value = normTime(a.timeIn) || dd.timeIn;
+      document.getElementById('a_out').value = normTime(a.timeOut) || dd.timeOut;
       document.getElementById('a_notes').value = a.notes || '';
     });
 }
