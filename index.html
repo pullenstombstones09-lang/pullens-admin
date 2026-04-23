@@ -489,39 +489,31 @@ document.documentElement.setAttribute('data-theme', APP.theme);
 /* ============================================================
    HELPERS
    ============================================================ */
-// Normalise Sheets time values → "HH:mm"
+// Normalise Sheets time values → "HH:mm" SAST
 function normTime(v) {
   if (!v && v !== 0) return '';
+  var s = String(v).trim();
+  // Sheets epoch datetime — always first check (e.g. "1899-12-30T06:00:00.000Z")
+  if (s.includes('1899') || (s.length > 10 && s.includes('T'))) {
+    var m = s.match(/T(\d{2}):(\d{2})/);
+    if (m) {
+      var h = parseInt(m[1]) + 2; // UTC → SAST
+      if (h >= 24) h -= 24;
+      return String(h).padStart(2,'0') + ':' + m[2];
+    }
+  }
   // Already HH:mm
-  if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return v;
+  if (/^\d{2}:\d{2}$/.test(s)) return s;
   // Sheets serial fraction (0.333 = 08:00)
   if (typeof v === 'number' && v >= 0 && v < 1) {
-    const totalMin = Math.round(v * 24 * 60);
-    const h = Math.floor(totalMin / 60) % 24;
-    const m = totalMin % 60;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    var totalMin = Math.round(v * 24 * 60) + 120; // +120min for SAST
+    return String(Math.floor(totalMin/60)%24).padStart(2,'0') + ':' + String(totalMin%60).padStart(2,'0');
   }
   // Bare number like 830 or 1700
-  if (typeof v === 'number' && v >= 100 && v <= 2359) {
-    const h = Math.floor(v / 100);
-    const m = v % 100;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-  }
-  const s = String(v);
-  // String like "830" or "1700" (no colon)
   if (/^\d{3,4}$/.test(s)) {
-    const h = s.length === 3 ? s[0] : s.slice(0,2);
-    const m = s.length === 3 ? s.slice(1) : s.slice(2);
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-  }
-  // Sheets epoch datetime (1899-12-30T06:00:00.000Z) — UTC, convert to SAST (+2)
-  if (s.includes('1899-12-30') || (s.includes('T') && s.includes('Z'))) {
-    const m2 = s.match(/T(\d{2}):(\d{2})/);
-    if (m2) {
-      let h = parseInt(m2[1]) + 2;
-      if (h >= 24) h -= 24;
-      return String(h).padStart(2,'0') + ':' + m2[2];
-    }
+    var hh = s.length === 3 ? s[0] : s.slice(0,2);
+    var mm = s.length === 3 ? s.slice(1) : s.slice(2);
+    return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
   }
   return s;
 }
