@@ -490,25 +490,9 @@ document.documentElement.setAttribute('data-theme', APP.theme);
    HELPERS
    ============================================================ */
 const fmtR = n => n == null || isNaN(n) ? '—' : 'R\u00A0' + Number(n).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
-/* Normalize Sheets time values — "1899-12-30T06:30:00.000Z" → "08:30" (SAST), "08:00" → "08:00" */
-function fmtTime(v) {
-  if (!v) return '';
-  var s = String(v);
-  if (s.match(/^\d{2}:\d{2}/)) return s.slice(0,5); // already HH:MM
-  if (s.includes('1899-12-30') || s.includes('1899-12-31') || s.includes('T')) {
-    var d = new Date(s);
-    if (!isNaN(d)) {
-      var h = d.getUTCHours(); var m = d.getUTCMinutes();
-      // Add SAST offset (+2)
-      h += 2; if (h >= 24) h -= 24;
-      return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-    }
-  }
-  return s;
-}
 const fmtD = d => d ? new Date(d).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—';
 const fmtDShort = d => d ? new Date(d).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric'}) : '—';
-const today = () => new Date().toISOString().slice(0,10);
+const today = () => { const d = new Date(); return iso(d); }; // local date, not UTC
 const iso = d => {
   if (!d) return '';
   if (typeof d === 'string') {
@@ -520,8 +504,7 @@ const iso = d => {
   const y = dt.getFullYear(), mo = String(dt.getMonth()+1).padStart(2,'0'), da = String(dt.getDate()).padStart(2,'0');
   return `${y}-${mo}-${da}`;
 };
-// Align today() with local-date iso() (was UTC — would flip after midnight SAST)
-const _today_local = () => { const d = new Date(); return iso(d); };
+// _today_local removed — today() now uses local date directly
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const initials = n => (n||'??').split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const greeting = () => { const h=new Date().getHours(); return h<12?'Good morning':h<17?'Good afternoon':'Good evening'; };
@@ -552,6 +535,12 @@ function weekDays(start) {
   });
 }
 APP.weekStart = lastFriday();
+// Friday = 08:00–16:00 (7.25hrs), Mon–Thu = 08:00–17:00 (8.25hrs)
+function isFriday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 5; }
+function dayDefaults(dateStr) {
+  const fri = isFriday(dateStr);
+  return { timeIn: '08:00', timeOut: fri ? '16:00' : '17:00', hoursWorked: fri ? 7.25 : 8.25 };
+}
 
 /* ============================================================
    BACKEND
@@ -788,7 +777,7 @@ function render() {
   else if (v==='employees') tab.innerHTML = viewEmployees();
   else if (v==='register') tab.innerHTML = viewRegister();
   else if (v==='overtime') tab.innerHTML = viewReg('Overtime','Pre-approved OT entries','overtime', 'modalOT', 'Log overtime');
-  else if (v==='loans') tab.innerHTML = viewLoans();
+  else if (v==='loans') tab.innerHTML = viewReg('Loans','Active loans · weekly deductions','loans', 'modalLoan', 'Grant loan');
   else if (v==='warnings') tab.innerHTML = viewReg('Warnings','Disciplinary record','warnings', 'modalWarning', 'Issue warning');
   else if (v==='leave') tab.innerHTML = viewReg('Leave','Annual · Sick · Family','leave', 'modalLeave', 'Log leave');
   else if (v==='medical') tab.innerHTML = viewReg('Doctor\'s notes','With photo · auto-filed','medical', 'modalMedical', 'Log certificate');
@@ -869,9 +858,26 @@ function viewOverview() {
         <div class="kpi-val">${(function(){
           const ws = iso(APP.weekStart);
           const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
-          return APP.registers.overtime.filter(o => { const d=iso(o.date||''); return d>=ws && d<=we; })
-            .reduce((s,o)=>s+Number(o.hours||0),0).toFixed(1);
+          const WEEKLY_ORD = 40.25;
+          let totalOT = 0;
+          APP.employees.forEach(e => {
+            const weekHrs = APP.registers.attendance
+              .filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we)
+              .reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+            if (weekHrs > WEEKLY_ORD) totalOT += weekHrs - WEEKLY_ORD;
+          });
+          return totalOT.toFixed(1);
         })()}<span class="unit">hr</span></div>
+      </div>
+      <div class="kpi tint-cream">
+        <div class="kpi-ico">⏱</div>
+        <div class="kpi-label">Late this week</div>
+        <div class="kpi-val">${(function(){
+          const ws = iso(APP.weekStart);
+          const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+          return APP.registers.attendance.filter(a => { const d=iso(a.date||''); return a.status==='late' && d>=ws && d<=we; }).length;
+        })()}</div>
+        <div class="kpi-sub">instances</div>
       </div>
     </div>
     <div class="qa-grid">
@@ -962,13 +968,17 @@ function viewRegister() {
     const cells = days.map(d => {
       const a = getAtt(e.pt_code, d.date);
       const status = a ? a.status : 'unmarked';
-      const timeIn = a && a.timeIn ? fmtTime(a.timeIn) : '';
-      const timeOut = a && a.timeOut ? fmtTime(a.timeOut) : '';
+      const timeIn = a && a.timeIn ? a.timeIn : '';
+      const timeOut = a && a.timeOut ? a.timeOut : '';
       const cls = status==='p'?'p':status==='late'?'late':status==='a'?'a':status==='leave'?'leave':status==='ph'?'ph':'';
       const lbl = status==='p'?'Present':status==='late'?'Late':status==='a'?'Absent':status==='leave'?'Leave':status==='ph'?'PH':'—';
+      const dockMins = a && a.dockMinutes ? a.dockMinutes : 0;
+      const otMins = a && a.overtimeMinutes ? a.overtimeMinutes : 0;
+      const extraInfo = status==='late' && dockMins ? `<div style="font-size:9px;color:var(--amber);font-weight:700;">−${dockMins}m</div>` : otMins ? `<div style="font-size:9px;color:var(--blue);font-weight:700;">+${otMins}m OT</div>` : '';
       return `<div class="reg-cell ${cls}" onclick="modalAttendance('${e.pt_code}','${d.date}')">
         <div class="reg-cell-time">${timeIn || '—'}</div>
         <div class="reg-cell-status">${lbl}</div>
+        ${extraInfo}
       </div>`;
     }).join('');
     return `<div class="reg-name">${e.full_name.split(' ').slice(0,2).join(' ')}</div>${cells}`;
@@ -994,8 +1004,8 @@ function viewRegister() {
       <div class="panel-title">Late-coming rules</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; font-size:12px;">
         <div class="flag ok" style="padding:10px; text-align:center;">08:00–08:05<br>On time</div>
-        <div class="flag warn" style="padding:10px; text-align:center;">08:06–08:30<br>−30 min</div>
-        <div class="flag warn" style="padding:10px; text-align:center;">08:31–09:00<br>−1 hour</div>
+        <div class="flag warn" style="padding:10px; text-align:center;">08:06–08:30<br>Dock 30 min</div>
+        <div class="flag warn" style="padding:10px; text-align:center;">08:31–09:00<br>Dock 1 hour</div>
         <div class="flag alert" style="padding:10px; text-align:center;">After 09:00<br>Supervisor decides</div>
       </div>
     </div>
@@ -1024,149 +1034,57 @@ function jumpToToday() {
 async function markAllPresent(date) {
   if (!confirm('Mark all active employees as Present for ' + fmtD(date) + '?')) return;
   toast('Marking all present...', 'success');
-  var active = APP.employees.filter(function(e){ return e.status === 'Active' });
-  var toMark = active.filter(function(e){
-    var existing = APP.registers.attendance.find(function(a){ return a.employee === e.pt_code && iso(a.date||'') === date });
+  const active = APP.employees.filter(e => e.status === 'Active');
+  const toMark = active.filter(e => {
+    const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
     return !existing || (existing.status !== 'p' && existing.status !== 'late');
   });
-  var failed = [];
-  // Send one at a time to avoid overloading Apps Script
-  for (var i = 0; i < toMark.length; i++) {
-    var e = toMark[i];
-    toast('Marking ' + (i+1) + '/' + toMark.length + ' — ' + e.full_name, 'success');
-    var existing = APP.registers.attendance.find(function(a){ return a.employee === e.pt_code && iso(a.date||'') === date });
-    var entry = {
-      date: date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: ''
-    };
-    if (existing) entry.id = existing.id;
-    var action = existing ? 'updateEntry' : 'addEntry';
-    try {
-      var r = await api(action, { register: 'attendance', entry: entry });
-      if (r && r.ok) {
-        if (existing) {
-          Object.assign(existing, { status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0 });
-        } else {
-          APP.registers.attendance.push({ id: (r.data ? r.data.id : null) || uid(), date: date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: '' });
-        }
+  // Send in batches of 5 to avoid overloading Apps Script
+  for (let i = 0; i < toMark.length; i += 5) {
+    const batch = toMark.slice(i, i + 5);
+    const results = await Promise.all(batch.map(e => {
+      const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
+      const dd = dayDefaults(date);
+      const entry = {
+        ...(existing ? {id: existing.id} : {}),
+        date, employee: e.pt_code, status: 'p', timeIn: dd.timeIn, timeOut: dd.timeOut, hoursWorked: dd.hoursWorked, lateMinutes: 0, notes: ''
+      };
+      return api(existing ? 'updateEntry' : 'addEntry', { register: 'attendance', entry });
+    }));
+    results.forEach((r, j) => {
+      if (!r || !r.ok) return;
+      const e = batch[j];
+      const dd2 = dayDefaults(date);
+      const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
+      if (existing) {
+        Object.assign(existing, { status: 'p', timeIn: dd2.timeIn, timeOut: dd2.timeOut, hoursWorked: dd2.hoursWorked, lateMinutes: 0 });
       } else {
-        failed.push(e.full_name);
+        APP.registers.attendance.push({ id: (r.data?r.data.id:null) || uid(), date, employee: e.pt_code, status: 'p', timeIn: dd2.timeIn, timeOut: dd2.timeOut, hoursWorked: dd2.hoursWorked, lateMinutes: 0, notes: '' });
       }
-    } catch(err) {
-      failed.push(e.full_name);
-    }
+    });
+    toast(`Marking... ${Math.min(i+5, toMark.length)}/${toMark.length}`, 'success');
   }
-  if (failed.length > 0) {
-    toast('Done but ' + failed.length + ' failed: ' + failed.join(', '), 'danger');
-  } else {
-    toast('All ' + toMark.length + ' marked present', 'success');
-  }
+  toast('All marked present', 'success');
   renderSidebar(); render();
 }
 async function quickTick(code, date) {
   const existing = APP.registers.attendance.find(a => a.employee === code && iso(a.date||'') === date);
   if (existing && existing.status === 'p') return; // already present
+  const dd = dayDefaults(date);
   const entry = {
     ...(existing ? {id: existing.id} : {}),
-    date, employee: code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: ''
+    date, employee: code, status: 'p', timeIn: dd.timeIn, timeOut: dd.timeOut, hoursWorked: dd.hoursWorked, lateMinutes: 0, notes: ''
   };
   const action = existing ? 'updateEntry' : 'addEntry';
   const r = await api(action, { register: 'attendance', entry });
   if (r.ok) {
     if (existing) {
-      Object.assign(existing, { status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0 });
+      Object.assign(existing, { status: 'p', timeIn: dd.timeIn, timeOut: dd.timeOut, hoursWorked: dd.hoursWorked, lateMinutes: 0 });
     } else {
       APP.registers.attendance.push({ id: (r.data?r.data.id:null) || uid(), ...entry });
     }
     render();
   } else toast('Failed', 'danger');
-}
-
-function viewLoans() {
-  var loans = APP.registers.loans || [];
-  var active = loans.filter(function(l){ return Number(l.outstanding) > 0 });
-  var closed = loans.filter(function(l){ return Number(l.outstanding) <= 0 });
-  var totalOut = active.reduce(function(s,l){ return s + (Number(l.outstanding)||0) }, 0);
-  var html = '';
-
-  html += '<div class="helper-text">Loans are deducted weekly from wages. Tap a loan to change the weekly amount. When outstanding reaches R0, it auto-closes.</div>';
-  html += '<div class="panel-head" style="margin-bottom:14px;">'
-    + '<div><div class="panel-title">Loans</div><div class="panel-sub">' + active.length + ' active &middot; ' + fmtR(totalOut) + ' total outstanding</div></div>'
-    + '<button class="btn primary" onclick="modalLoan()">+ Grant loan</button>'
-    + '</div>';
-
-  // KPIs
-  html += '<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">'
-    + '<div class="kpi"><div class="kpi-label">Active loans</div><div class="kpi-val">' + active.length + '</div></div>'
-    + '<div class="kpi tint-rose"><div class="kpi-label">Total outstanding</div><div class="kpi-val">' + fmtR(totalOut) + '</div></div>'
-    + '<div class="kpi tint-sage"><div class="kpi-label">Closed</div><div class="kpi-val">' + closed.length + '</div></div>'
-    + '</div>';
-
-  if (active.length === 0 && closed.length === 0) {
-    html += '<div class="panel"><div class="empty"><div class="empty-ico">+</div><h3>No loans</h3><p>Tap <strong>+ Grant loan</strong> to issue one. A Loan Agreement Form will be generated.</p></div></div>';
-  }
-
-  // Active loans
-  if (active.length > 0) {
-    html += '<div class="panel" style="margin-bottom:14px;"><div class="panel-head"><div><div class="panel-title">Active</div></div></div>';
-    for (var i=0; i<active.length; i++) {
-      var l = active[i];
-      var emp = APP.empMap[l.employee] || {};
-      var pct = Number(l.loanAmount) > 0 ? Math.round((1 - Number(l.outstanding)/Number(l.loanAmount)) * 100) : 0;
-      var weeksLeft = Number(l.weeklyDeduction) > 0 ? Math.ceil(Number(l.outstanding) / Number(l.weeklyDeduction)) : '?';
-      html += '<div style="padding:14px 16px;border-bottom:1px solid var(--line);">'
-        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-        + '<div style="flex:1;"><div style="font-weight:700;font-size:15px;">' + (emp.full_name || l.employee) + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);">' + fmtD(l.dateAdvanced || l.createdAt) + ' &middot; ' + (l.purpose||'No reason') + '</div></div>'
-        + '<div style="text-align:right;"><div style="font-size:11px;color:var(--muted);">OUTSTANDING</div><div style="font-family:var(--f-mono);font-weight:700;font-size:18px;color:var(--red);">' + fmtR(l.outstanding) + '</div></div>'
-        + '</div>'
-        // Progress bar
-        + '<div style="background:var(--line);border-radius:4px;height:6px;margin-bottom:8px;overflow:hidden;">'
-        + '<div style="background:var(--green);height:100%;width:' + pct + '%;border-radius:4px;transition:width .3s;"></div>'
-        + '</div>'
-        + '<div style="display:flex;gap:12px;font-size:12px;color:var(--muted);">'
-        + '<div>Loan: <strong class="mono">' + fmtR(l.loanAmount) + '</strong></div>'
-        + '<div>Weekly: <strong class="mono">' + fmtR(l.weeklyDeduction) + '</strong></div>'
-        + '<div>Paid: <strong class="mono">' + pct + '%</strong></div>'
-        + '<div>~' + weeksLeft + ' weeks left</div>'
-        + '</div>'
-        + '<div style="display:flex;gap:6px;margin-top:8px;">'
-        + '<button class="btn" onclick="editLoanWeekly(\'' + l.id + '\',' + (Number(l.weeklyDeduction)||0) + ')" style="font-size:11px;padding:6px 10px;min-height:32px;">Change weekly</button>'
-        + '<button class="btn" onclick="deleteEntry(\'loans\',\'' + l.id + '\')" style="font-size:11px;padding:6px 10px;min-height:32px;color:var(--red);">Cancel loan</button>'
-        + '</div>'
-        + '</div>';
-    }
-    html += '</div>';
-  }
-
-  // Closed loans
-  if (closed.length > 0) {
-    html += '<div class="panel"><div class="panel-head"><div><div class="panel-title">Closed</div><div class="panel-sub">Fully repaid</div></div></div>';
-    for (var j=0; j<closed.length; j++) {
-      var c = closed[j];
-      var cemp = APP.empMap[c.employee] || {};
-      html += '<div style="padding:10px 16px;border-bottom:1px solid var(--line);opacity:0.6;">'
-        + '<div style="display:flex;align-items:center;gap:10px;">'
-        + '<div style="flex:1;"><span style="font-weight:600;">' + (cemp.full_name || c.employee) + '</span> <span style="color:var(--muted);font-size:12px;">' + fmtR(c.loanAmount) + '</span></div>'
-        + '<span class="flag ok" style="font-size:10px;">Paid up</span>'
-        + '</div></div>';
-    }
-    html += '</div>';
-  }
-
-  return html;
-}
-
-function editLoanWeekly(loanId, currentWeekly) {
-  var newAmount = prompt('Change weekly deduction from R' + currentWeekly + ' to:', currentWeekly);
-  if (!newAmount || isNaN(newAmount) || Number(newAmount) <= 0) return;
-  api('updateEntry', { register:'loans', entry: { id:loanId, weeklyDeduction: Number(newAmount) } }).then(function(r) {
-    if (r.ok) {
-      var loan = APP.registers.loans.find(function(l){ return l.id === loanId });
-      if (loan) loan.weeklyDeduction = Number(newAmount);
-      toast('Weekly deduction updated to R' + newAmount, 'success');
-      render();
-    } else toast('Failed: ' + (r.error||''), 'danger');
-  });
 }
 
 function viewReg(title, sub, regKey, modalFn, addLabel) {
@@ -1256,120 +1174,70 @@ function viewPettyCash() {
     `}`;
 }
 
-function checkRegisterComplete() {
-  var days = weekDays(APP.weekStart);
-  // Only check working days: Fri(0), Mon(2), Tue(3), Wed(4), Thu(5) — skip Sat(OT only)
-  var workDays = [days[0], days[2], days[3], days[4], days[5]];
-  var active = APP.employees.filter(function(e){ return e.status==='Active' });
-  var missing = [];
-  for (var i=0; i<active.length; i++) {
-    var e = active[i];
-    var missingDays = [];
-    for (var j=0; j<workDays.length; j++) {
-      var d = workDays[j];
-      var a = APP.registers.attendance.find(function(a){ return a.employee===e.pt_code && iso(a.date||'')===d.date });
-      if (!a || !a.status) missingDays.push(d.label);
-    }
-    if (missingDays.length > 0) missing.push({ name: e.full_name, pt: e.pt_code, days: missingDays });
-  }
-  return { complete: missing.length === 0, missing: missing, total: active.length, filled: active.length - missing.length };
-}
-
 function viewPayroll() {
-  var total = APP.employees.reduce(function(s,e){ return s+(e.weekly_wage||0) }, 0);
-  var weekStart = iso(APP.weekStart);
-  var active = APP.employees.filter(function(e){ return e.status==='Active' });
-  var lastRun = APP._lastPayroll;
-  var hasResults = lastRun && lastRun.week && lastRun.week.start === weekStart;
-  var reg = checkRegisterComplete();
-  var html = '';
-
-  // Header
-  html += '<div class="panel-head" style="margin-bottom:14px;">'
-    + '<div><div class="panel-title">Weekly payroll</div><div class="panel-sub">Fri ' + fmtDShort(weekStart) + ' &rarr; Thu &middot; ' + active.length + ' employees</div></div>'
-    + '</div>';
-
-  // Register status
-  if (!reg.complete && !hasResults) {
-    html += '<div style="background:var(--red-soft);border:1px solid var(--red);border-radius:var(--r-md);padding:14px 16px;margin-bottom:14px;">'
-      + '<div style="font-weight:700;color:var(--red);font-size:14px;margin-bottom:8px;">Register incomplete — ' + reg.missing.length + ' of ' + reg.total + ' employees missing</div>'
-      + '<div style="font-size:12px;color:var(--ink-2);margin-bottom:8px;">Complete the attendance register before running payroll. Missing entries:</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;">';
-    for (var i=0; i<reg.missing.length; i++) {
-      var m = reg.missing[i];
-      html += '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--line);"><strong>' + m.name + '</strong> <span style="color:var(--muted);">(' + m.pt + ')</span> — ' + m.days.join(', ') + '</div>';
-    }
-    html += '</div>'
-      + '<button class="btn primary" onclick="openView(\'register\')" style="margin-top:10px;font-size:13px;">Go to register</button>'
-      + '</div>';
-  } else if (reg.complete && !hasResults) {
-    html += '<div style="background:var(--green-soft);border:1px solid var(--green);border-radius:var(--r-md);padding:14px 16px;margin-bottom:14px;">'
-      + '<div style="font-weight:700;color:var(--green);font-size:14px;">Register complete — ready to run payroll</div>'
-      + '<div style="font-size:12px;color:var(--ink-2);margin-top:4px;">All ' + reg.total + ' employees have been marked for every working day this week.</div>'
-      + '</div>';
-  }
-
-  // KPIs
-  html += '<div class="kpis" style="grid-template-columns:repeat(3,1fr);">'
-    + '<div class="kpi"><div class="kpi-label">Gross (est.)</div><div class="kpi-val">' + fmtR(total) + '</div></div>'
-    + '<div class="kpi"><div class="kpi-label">UIF (1%)</div><div class="kpi-val">' + fmtR(total * 0.01) + '</div></div>'
-    + '<div class="kpi tint-sage"><div class="kpi-label">Net (est.)</div><div class="kpi-val">' + fmtR(total * 0.99) + '</div></div>'
-    + '</div>';
-
-  // Run button
-  if (!hasResults) {
-    html += '<div style="margin-top:14px;text-align:center;">'
-      + '<button class="btn primary" onclick="runPayroll()" style="font-size:15px;padding:14px 32px;"' + (reg.complete ? '' : ' disabled style="font-size:15px;padding:14px 32px;opacity:0.5;cursor:not-allowed;"') + '>&#9654; Run payroll &amp; generate payslips</button>'
-      + '</div>';
-  }
-
-  // Results
-  if (hasResults) {
-    var printable = lastRun.results.filter(function(r){ return r.net > 0 });
-    var zeroPay = lastRun.results.filter(function(r){ return r.net <= 0 });
-
-    html += '<div class="panel" style="margin-top:14px;">'
-      + '<div class="panel-head"><div><div class="panel-title">Payslip breakdown</div><div class="panel-sub">Total net: ' + fmtR(lastRun.total) + '</div></div>'
-      + '<button class="btn primary" onclick="printAllPayslips()" style="font-size:12px;">Print all (' + printable.length + ')</button>'
-      + '</div>'
-      + '<div style="overflow-x:auto;">'
-      + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-      + '<thead><tr style="background:var(--paper);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);">'
-      + '<th style="padding:10px 8px;text-align:left;">Employee</th>'
-      + '<th style="padding:10px 8px;text-align:right;">Hours</th>'
-      + '<th style="padding:10px 8px;text-align:right;">OT</th>'
-      + '<th style="padding:10px 8px;text-align:right;">Gross</th>'
-      + '<th style="padding:10px 8px;text-align:right;">Deductions</th>'
-      + '<th style="padding:10px 8px;text-align:right;font-weight:700;">Net</th>'
-      + '<th style="padding:10px 8px;text-align:center;">Print</th>'
-      + '</tr></thead><tbody>';
-
-    for (var j=0; j<lastRun.results.length; j++) {
-      var r = lastRun.results[j];
-      var isZero = r.net <= 0;
-      html += '<tr style="border-bottom:1px solid var(--line);' + (isZero ? 'opacity:0.5;' : '') + '">'
-        + '<td style="padding:8px;"><div style="font-weight:600;">' + r.fullName + '</div><div style="font-size:11px;color:var(--muted);">' + r.ptCode + ' &middot; ' + (r.occupation||'') + '</div></td>'
-        + '<td style="padding:8px;text-align:right;" class="mono">' + r.ordinaryHours + '</td>'
-        + '<td style="padding:8px;text-align:right;" class="mono">' + (r.otHours > 0 ? r.otHours+'h' : '&mdash;') + '</td>'
-        + '<td style="padding:8px;text-align:right;" class="mono">' + fmtR(r.gross) + '</td>'
-        + '<td style="padding:8px;text-align:right;" class="mono">' + fmtR(r.uif + r.loanDeduction + r.garnishee) + '</td>'
-        + '<td style="padding:8px;text-align:right;font-weight:700;" class="mono">' + fmtR(r.net) + '</td>'
-        + '<td style="padding:8px;text-align:center;">' + (isZero ? '<span style="font-size:10px;color:var(--muted);">R0 saved</span>' : '<button class="btn" onclick="printPayslip('+j+')" style="font-size:11px;padding:4px 8px;min-height:30px;">Print</button>') + '</td>'
-        + '</tr>';
-    }
-
-    html += '<tr style="background:var(--blue-soft);font-weight:700;">'
-      + '<td style="padding:10px 8px;" colspan="5">TOTAL</td>'
-      + '<td style="padding:10px 8px;text-align:right;" class="mono">' + fmtR(lastRun.total) + '</td>'
-      + '<td></td></tr></tbody></table></div></div>';
-
-    if (zeroPay.length > 0) {
-      html += '<div class="helper-text" style="margin-top:8px;">' + zeroPay.length + ' employee(s) with R0 net pay — digital copy saved to Drive, not included in print batch.</div>';
-    }
-    html += '<div class="helper-text" style="margin-top:8px;">PDFs saved to each employee payslips folder in Drive.</div>';
-  }
-
-  return html;
+  const total = APP.employees.reduce((s,e)=>s+(e.weekly_wage||0),0);
+  const weekStart = iso(APP.weekStart);
+  const active = APP.employees.filter(e=>e.status==='Active');
+  const lastRun = APP._lastPayroll;
+  const hasResults = lastRun && lastRun.week && lastRun.week.start === weekStart;
+  return `
+    <div class="helper-text">This runs payroll for the selected week. It calculates each employee's pay based on attendance, overtime, loans, and deductions, then generates PDF payslips to Drive.</div>
+    <div class="panel-head" style="margin-bottom:14px;">
+      <div><div class="panel-title">Weekly payroll</div><div class="panel-sub">Fri ${fmtDShort(weekStart)} → Thu · ${active.length} employees</div></div>
+      <button class="btn primary" onclick="runPayroll()">▶ Run payroll</button>
+    </div>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr);">
+      <div class="kpi"><div class="kpi-label">Gross (est.)</div><div class="kpi-val">${fmtR(total)}</div></div>
+      <div class="kpi"><div class="kpi-label">UIF (1%)</div><div class="kpi-val">${fmtR(total * 0.01)}</div></div>
+      <div class="kpi tint-sage"><div class="kpi-label">Net (est.)</div><div class="kpi-val">${fmtR(total * 0.99)}</div></div>
+    </div>
+    ${hasResults ? `
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-head"><div><div class="panel-title">Payslip breakdown</div><div class="panel-sub">Total net: ${fmtR(lastRun.total)}</div></div></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr style="background:var(--paper); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted);">
+            <th style="padding:10px 8px; text-align:left;">Employee</th>
+            <th style="padding:10px 8px; text-align:right;">Hours</th>
+            <th style="padding:10px 8px; text-align:right;">OT</th>
+            <th style="padding:10px 8px; text-align:right;">Gross</th>
+            <th style="padding:10px 8px; text-align:right;">Deductions</th>
+            <th style="padding:10px 8px; text-align:right; font-weight:700;">Net</th>
+          </tr></thead>
+          <tbody>
+            ${lastRun.results.map(r => `<tr style="border-bottom:1px solid var(--line);">
+              <td style="padding:8px;"><div style="font-weight:600;">${r.fullName}</div><div style="font-size:11px;color:var(--muted);">${r.ptCode} · ${r.occupation||''}</div></td>
+              <td style="padding:8px; text-align:right;" class="mono">${r.ordinaryHours}</td>
+              <td style="padding:8px; text-align:right;" class="mono">${r.otHours > 0 ? r.otHours+'h' : '—'}</td>
+              <td style="padding:8px; text-align:right;" class="mono">${fmtR(r.gross)}</td>
+              <td style="padding:8px; text-align:right;" class="mono" style="color:var(--amber);">${fmtR(r.uif + r.loanDeduction + r.garnishee)}</td>
+              <td style="padding:8px; text-align:right; font-weight:700;" class="mono">${fmtR(r.net)}</td>
+            </tr>`).join('')}
+            <tr style="background:var(--blue-soft); font-weight:700;">
+              <td style="padding:10px 8px;" colspan="5">TOTAL</td>
+              <td style="padding:10px 8px; text-align:right;" class="mono">${fmtR(lastRun.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="helper-text" style="margin-top:12px;">PDFs saved to each employee payslips folder in Drive. Print from PC.</div>
+    ` : `
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-head"><div><div class="panel-title">Preview — ${active.length} employees</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        ${active.map(e => {
+          const wage = e.weekly_wage || 0;
+          const uif = wage * 0.01;
+          return `<div style="display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line);">
+            <div style="flex:1;"><span style="font-weight:600;">${e.full_name}</span> <span style="font-size:11px;color:var(--muted);">${e.pt_code}</span></div>
+            <div class="mono" style="font-size:13px;">${fmtR(wage - uif)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    `}
+  `;
 }
 
 let signIdx=0; const signSigned=new Set();
@@ -1583,61 +1451,64 @@ function modalAttendance(code, date) {
       </div>
     </div>
     <div class="modal-foot">
-      ${a.id ? `<button class="btn" onclick="deleteAttendance('${a.id}');closeModal();" style="color:var(--red);">Delete</button>` : '<div></div>'}
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn primary" onclick="saveAttendance('${code}','${date}','${a.id||''}')">Save</button>
     </div>`, () => {
-      document.getElementById('a_in').value = fmtTime(a.timeIn) || '08:00';
-      document.getElementById('a_out').value = fmtTime(a.timeOut) || '17:00';
+      const dd = dayDefaults('${date}');
+      document.getElementById('a_in').value = a.timeIn || dd.timeIn;
+      document.getElementById('a_out').value = a.timeOut || dd.timeOut;
       document.getElementById('a_notes').value = a.notes || '';
     });
 }
-async function deleteAttendance(id) {
-  if (!confirm('Delete this attendance entry?')) return;
-  var r = await api('deleteEntry', { register:'attendance', id:id });
-  if (r.ok) {
-    APP.registers.attendance = APP.registers.attendance.filter(function(a){ return a.id !== id });
-    toast('Deleted','success');
-    renderSidebar(); render();
-  } else toast('Delete failed','danger');
-}
-
 async function saveAttendance(code, date, existingId) {
   // #16 Duplicate guard — if another entry for same emp+date exists, reuse its id
   if (!existingId) {
     const dup = APP.registers.attendance.find(a => a.employee===code && iso(a.date||'')===date);
     if (dup) existingId = dup.id;
   }
-  const status = document.getElementById('a_status').value;
+  let status = document.getElementById('a_status').value;
   const timeIn = document.getElementById('a_in').value;
   const timeOut = document.getElementById('a_out').value;
   const notes = document.getElementById('a_notes').value;
-  // Calc hours + late mins
+  // Late-coming rules: start 08:00, grace to 08:05, dock 30min 08:06–08:30, dock 1hr 08:31–09:00, supervisor decides after 09:00
   let lateMin = 0;
-  if (timeIn) {
+  let dockMin = 0;
+  if (timeIn && (status === 'p' || status === 'late')) {
     const [h,m] = timeIn.split(':').map(Number);
     const mins = h*60+m;
-    if (mins > 485) lateMin = Math.min(mins - 480, 60); // 08:05 grace, cap at 60
+    if (mins > 485) { // after 08:05 grace
+      lateMin = mins - 480;
+      status = 'late';
+      if (mins <= 510) { // 08:06–08:30 → dock 30 min
+        dockMin = 30;
+      } else if (mins <= 540) { // 08:31–09:00 → dock 1 hour
+        dockMin = 60;
+      } else { // after 09:00 → supervisor decides (work or go home)
+        dockMin = 60;
+      }
+    }
   }
+  // Calc hours worked
   let hoursWorked = 0;
+  const BREAK_HRS = 0.75; // 45-min unpaid break
+  const WEEKLY_ORD = 40.25;
+  let overtimeMin = 0;
   if (timeIn && timeOut) {
     const [h1,m1] = timeIn.split(':').map(Number); const [h2,m2] = timeOut.split(':').map(Number);
-    hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - 0.75; // subtract unpaid breaks
+    hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - BREAK_HRS;
     if (hoursWorked < 0) hoursWorked = 0;
+    // Calculate weekly total to check against 40.25 threshold
+    const ws = iso(APP.weekStart);
+    const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+    const otherHrs = APP.registers.attendance
+      .filter(a => a.employee===code && iso(a.date||'')>=ws && iso(a.date||'')<=we && iso(a.date||'')!==date)
+      .reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const weekTotal = otherHrs + hoursWorked;
+    if (weekTotal > WEEKLY_ORD) overtimeMin = Math.round((weekTotal - WEEKLY_ORD) * 60);
   }
-  // Early leaving deduction: if out before 17:00 (16:00 on Fri), deduct those hours
-  let earlyMin = 0;
-  if (timeOut && (status === 'p' || status === 'late')) {
-    const [oh,om] = timeOut.split(':').map(Number);
-    const outMins = oh*60+om;
-    const dayOfWeek = new Date(date+'T12:00').getDay(); // 0=Sun, 5=Fri
-    const expectedOut = dayOfWeek === 5 ? 960 : 1020; // Fri 16:00=960, else 17:00=1020
-    if (outMins < expectedOut) earlyMin = expectedOut - outMins;
-  }
-
   const entry = {
     ...(existingId?{id:existingId}:{}),
-    date, employee:code, status, timeIn, timeOut, hoursWorked, lateMinutes:lateMin, earlyMinutes:earlyMin, notes
+    date, employee:code, status, timeIn, timeOut, hoursWorked: Math.round(hoursWorked*100)/100, lateMinutes:lateMin, dockMinutes:dockMin, overtimeMinutes:overtimeMin, notes
   };
   const action = existingId ? 'updateEntry' : 'addEntry';
   const r = await api(action, { register:'attendance', entry });
@@ -1648,49 +1519,20 @@ async function saveAttendance(code, date, existingId) {
     } else {
       APP.registers.attendance.push({ ...entry, id: r.data.id || uid() });
     }
-
-    // Auto-create OT entry if Saturday or if hours > 8.25 on a weekday
-    if (status === 'p' || status === 'late') {
-      const dayOfWeek = new Date(date+'T12:00').getDay();
-      const isSaturday = dayOfWeek === 6;
-      const isSunday = dayOfWeek === 0;
-
-      if (isSaturday && hoursWorked > 0) {
-        // Saturday = all hours are OT at 1.5x
-        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
-        if (!existingOT) {
-          const otEntry = { date, employee:code, hours:hoursWorked, rate:'1.5×', reason:'Saturday work (auto)', authorisedBy:APP.currentUser.name };
-          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
-          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 1.5×','success'); }
+    // Auto-log overtime to OT register if detected
+    if (overtimeMin > 0) {
+      const otHours = Math.round(overtimeMin / 60 * 100) / 100;
+      const existingOT = APP.registers.overtime.find(o => o.employee === code && iso(o.date||'') === date);
+      const otEntry = { ...(existingOT ? {id: existingOT.id} : {}), date, employee: code, hours: otHours, rate: '1.5x', authorisedBy: APP.currentUser.name, reason: 'Auto from attendance' };
+      const otAction = existingOT ? 'updateEntry' : 'addEntry';
+      api(otAction, { register: 'overtime', entry: otEntry }).then(otR => {
+        if (otR.ok) {
+          if (existingOT) Object.assign(existingOT, otEntry);
+          else APP.registers.overtime.push({ ...otEntry, id: otR.data?.id || uid() });
+          renderSidebar();
         }
-      } else if (isSunday && hoursWorked > 0) {
-        // Sunday = all hours at 2x
-        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
-        if (!existingOT) {
-          const otEntry = { date, employee:code, hours:hoursWorked, rate:'2× (Sun)', reason:'Sunday work (auto)', authorisedBy:APP.currentUser.name };
-          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
-          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 2× Sun','success'); }
-        }
-      } else if (status === 'ph' && hoursWorked > 0) {
-        // Public holiday = all hours at 2x
-        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
-        if (!existingOT) {
-          const otEntry = { date, employee:code, hours:hoursWorked, rate:'2× (PH)', reason:'Public holiday work (auto)', authorisedBy:APP.currentUser.name };
-          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
-          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 2× PH','success'); }
-        }
-      } else if (!isSaturday && !isSunday && hoursWorked > 8.25) {
-        // Weekday overtime: hours beyond 8.25
-        const otHours = Math.round((hoursWorked - 8.25) * 100) / 100;
-        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
-        if (!existingOT && otHours > 0) {
-          const otEntry = { date, employee:code, hours:otHours, rate:'1.5×', reason:'Weekday overtime (auto)', authorisedBy:APP.currentUser.name };
-          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
-          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+otHours+'h @ 1.5×','success'); }
-        }
-      }
+      });
     }
-
     closeModal(); toast('Saved','success');
     renderSidebar(); render();
   } else toast('Save failed: '+(r.error||''), 'danger');
@@ -1975,121 +1817,13 @@ async function deleteEntry(register, id) {
    PAYROLL
    ============================================================ */
 async function runPayroll() {
-  var reg = checkRegisterComplete();
-  if (!reg.complete) {
-    toast('Register incomplete — fill in all attendance first', 'danger');
-    openView('register');
-    return;
-  }
-  var ws = iso(APP.weekStart);
-  var active = APP.employees.filter(function(e){ return (e.status||'Active')==='Active' }).length;
-  if (!confirm('Run payroll for week starting ' + ws + '?\nThis generates ' + active + ' PDF payslips in Drive.')) return;
-  toast('Running payroll...', 'success'); setSync('syncing');
-  var r = await api('runPayroll', { weekStart: ws });
-  if (r.ok) {
-    APP._lastPayroll = r.data;
-    var printable = r.data.results.filter(function(x){ return x.net > 0 }).length;
-    var zero = r.data.results.length - printable;
-    toast(printable + ' payslips ready to print' + (zero > 0 ? ' (' + zero + ' R0 saved only)' : '') + ' — Net ' + fmtR(r.data.total), 'success');
-    render();
-  } else toast('Payroll failed: ' + (r.error||''), 'danger');
-}
-
-function printPayslip(idx) {
-  if (!APP._lastPayroll) return;
-  var r = APP._lastPayroll.results[idx];
-  if (!r) return;
-  var w = window.open('', '_blank');
-  w.document.write(buildPayslipHTML(r));
-  w.document.close();
-  setTimeout(function(){ w.print(); }, 300);
-}
-
-function printAllPayslips() {
-  if (!APP._lastPayroll) return;
-  var printable = APP._lastPayroll.results.filter(function(r){ return r.net > 0 });
-  if (printable.length === 0) { toast('No payslips to print', 'danger'); return; }
-  var html = '<!DOCTYPE html><html><head><style>'
-    + '@page { size: A5; margin: 12mm; }'
-    + '@media print { .payslip { page-break-after: always; } .payslip:last-child { page-break-after: avoid; } }'
-    + 'body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #1C1917; margin: 0; }'
-    + '.hdr { border-bottom: 2px solid #1E3A8A; padding-bottom: 6px; margin-bottom: 8px; }'
-    + '.hdr h1 { font-size: 14px; color: #1E3A8A; margin: 0 0 2px; }'
-    + '.hdr .meta { font-size: 8px; color: #78716C; margin-top: 4px; line-height: 1.3; }'
-    + 'h2 { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #1E3A8A; margin: 10px 0 4px; border-bottom: 1px solid #E7E0D2; padding-bottom: 3px; }'
-    + 'table { width: 100%; border-collapse: collapse; }'
-    + 'td { padding: 2px 0; font-size: 9px; }'
-    + 'td.l { color: #78716C; text-transform: uppercase; letter-spacing: 0.5px; width: 45%; }'
-    + 'td.v { font-weight: 600; }'
-    + 'td.r { text-align: right; font-family: Courier New, monospace; }'
-    + '.line-row { border-bottom: 1px dotted #E7E0D2; }'
-    + '.grand { background: #F5F1E8; padding: 4px 6px; border-radius: 3px; font-weight: 700; font-size: 11px; margin: 6px 0; }'
-    + '.grand.net { background: #E0E7F5; color: #1E3A8A; font-size: 13px; padding: 6px; }'
-    + '.sig-line { margin-top: 14px; border-top: 1px solid #78716C; padding-top: 4px; font-size: 8px; color: #78716C; }'
-    + '.footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #E7E0D2; font-size: 7px; color: #A8A29E; }'
-    + '</style></head><body>';
-  for (var i=0; i<printable.length; i++) {
-    html += '<div class="payslip">' + buildPayslipBody(printable[i]) + '</div>';
-  }
-  html += '</body></html>';
-  var w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
-}
-
-function buildPayslipHTML(r) {
-  return '<!DOCTYPE html><html><head><style>'
-    + '@page { size: A5; margin: 14mm; }'
-    + 'body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #1C1917; }'
-    + '.hdr { border-bottom: 2px solid #1E3A8A; padding-bottom: 8px; margin-bottom: 10px; }'
-    + '.hdr h1 { font-size: 16px; color: #1E3A8A; margin: 0 0 2px; }'
-    + '.hdr .meta { font-size: 9px; color: #78716C; margin-top: 6px; line-height: 1.4; }'
-    + 'h2 { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #1E3A8A; margin: 12px 0 6px; border-bottom: 1px solid #E7E0D2; padding-bottom: 4px; }'
-    + 'table { width: 100%; border-collapse: collapse; }'
-    + 'td { padding: 3px 0; }'
-    + 'td.l { color: #78716C; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; width: 45%; }'
-    + 'td.r { text-align: right; font-family: Courier New, monospace; font-size: 10px; }'
-    + '.line-row { border-bottom: 1px dotted #E7E0D2; }'
-    + '.grand { background: #F5F1E8; padding: 6px 8px; margin: 8px -8px; border-radius: 4px; font-weight: 700; font-size: 12px; }'
-    + '.grand.net { background: #E0E7F5; color: #1E3A8A; font-size: 14px; padding: 8px; }'
-    + '.sig-line { margin-top: 20px; border-top: 1px solid #78716C; padding-top: 4px; font-size: 9px; color: #78716C; }'
-    + '.footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #E7E0D2; font-size: 8px; color: #A8A29E; line-height: 1.4; }'
-    + '</style></head><body>' + buildPayslipBody(r) + '</body></html>';
-}
-
-function buildPayslipBody(r) {
-  var money = function(n) { return (Math.round(n*100)/100).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2}); };
-  return '<div class="hdr">'
-    + '<h1>Pullen\'s Tombstones</h1>'
-    + '<div style="font-size:9px;color:#78716C;font-style:italic;letter-spacing:2px;text-transform:uppercase;">&mdash; CAST IN STONE &mdash;</div>'
-    + '<div class="meta">Amazon Creek Trading (Pty) Ltd &middot; Reg 2011/105461/23 &middot; COID 990001280518 &middot; UIF 2573997/9<br>46 Allandale Drive, Pietermaritzburg, 3201 &middot; 033 387 8913</div>'
-    + '</div>'
-    + '<h2>Payslip</h2>'
-    + '<table>'
-    + '<tr><td class="l">Employee</td><td class="v">' + r.fullName + '</td></tr>'
-    + '<tr><td class="l">ID Number</td><td class="v">' + (r.idNumber || '&mdash;') + '</td></tr>'
-    + '<tr><td class="l">Employee No.</td><td class="v">' + r.ptCode + '</td></tr>'
-    + '<tr><td class="l">Occupation</td><td class="v">' + (r.occupation||'') + '</td></tr>'
-    + '<tr><td class="l">Pay Period</td><td class="v">' + r.weekStart + ' &rarr; ' + r.weekEnd + '</td></tr>'
-    + '<tr><td class="l">Pay Date</td><td class="v">' + r.payDate + '</td></tr>'
-    + '</table>'
-    + '<h2>Earnings</h2>'
-    + '<table>'
-    + '<tr class="line-row"><td class="l">Ordinary Hours (' + r.ordinaryHours + ' &times; R' + money(r.hourlyRate) + ')</td><td class="r">R ' + money(r.grossBasic) + '</td></tr>'
-    + (r.otAmount > 0 ? '<tr class="line-row"><td class="l">Overtime (' + r.otHours + ' hrs)</td><td class="r">R ' + money(r.otAmount) + '</td></tr>' : '')
-    + (r.lateDeduction > 0 ? '<tr class="line-row"><td class="l">Late coming (&minus;' + r.lateMinutes + ' min)</td><td class="r">&minus; R ' + money(r.lateDeduction) + '</td></tr>' : '')
-    + '<tr class="grand"><td class="l">GROSS</td><td class="r">R ' + money(r.gross) + '</td></tr>'
-    + '</table>'
-    + '<h2>Deductions</h2>'
-    + '<table>'
-    + '<tr class="line-row"><td class="l">UIF (1%)</td><td class="r">R ' + money(r.uif) + '</td></tr>'
-    + (r.loanDeduction > 0 ? '<tr class="line-row"><td class="l">Loan deduction</td><td class="r">R ' + money(r.loanDeduction) + '</td></tr>' : '')
-    + (r.garnishee > 0 ? '<tr class="line-row"><td class="l">Garnishee order</td><td class="r">R ' + money(r.garnishee) + '</td></tr>' : '')
-    + '</table>'
-    + '<div class="grand net"><table><tr><td style="color:#1E3A8A;text-transform:uppercase;letter-spacing:1px;font-size:10px;">NET PAY</td><td class="r" style="font-size:16px;color:#1E3A8A;">R ' + money(r.net) + '</td></tr></table></div>'
-    + '<div class="sig-line">I acknowledge receipt of the above payslip and net pay.<br>Signature: _________________________________ &nbsp;&nbsp; Date: _______________</div>'
-    + '<div class="footer">This payslip complies with s.33 of the Basic Conditions of Employment Act. Queries: contact HR on 033 387 8913 within 30 days.</div>';
+  const ws = iso(APP.weekStart);
+  const active = APP.employees.filter(e => (e.status||'Active')==='Active').length;
+  if (!confirm(`Run payroll for week starting ${ws}?\nThis generates ${active} PDFs in Drive.`)) return;
+  toast('Running…','success'); setSync('syncing');
+  const r = await api('runPayroll', { weekStart: ws });
+  if (r.ok) { APP._lastPayroll = r.data; toast(`✓ ${r.data.results.length} payslips · Net ${fmtR(r.data.total)}`,'success'); render(); }
+  else toast('Payroll failed: '+(r.error||''), 'danger');
 }
 
 /* ============================================================
