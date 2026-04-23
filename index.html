@@ -489,14 +489,14 @@ document.documentElement.setAttribute('data-theme', APP.theme);
 /* ============================================================
    HELPERS
    ============================================================ */
-// Normalise Sheets time values → "HH:mm" SAST
+// Normalise Sheets time values → "HH:mm"
 function normTime(v) {
   if (!v && v !== 0) return '';
   // Already HH:mm
   if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return v;
-  // Sheets serial fraction (0.354166 = 08:30 UTC)
+  // Sheets serial fraction (0.333 = 08:00)
   if (typeof v === 'number' && v >= 0 && v < 1) {
-    const totalMin = Math.round(v * 24 * 60) + 120; // +120 for SAST
+    const totalMin = Math.round(v * 24 * 60);
     const h = Math.floor(totalMin / 60) % 24;
     const m = totalMin % 60;
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
@@ -514,14 +514,10 @@ function normTime(v) {
     const m = s.length === 3 ? s.slice(1) : s.slice(2);
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   }
-  // Sheets epoch datetime (1899-12-30T06:30:00.000Z)
+  // Sheets epoch datetime (1899-12-30T06:00:00.000Z) — no offset, Apps Script already returns local time
   if (s.includes('1899-12-30') || s.includes('T')) {
-    const d = new Date(s);
-    if (!isNaN(d)) {
-      let h = d.getUTCHours() + 2; // UTC → SAST
-      if (h >= 24) h -= 24;
-      return String(h).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
-    }
+    const m2 = s.match(/T(\d{2}):(\d{2})/);
+    if (m2) return m2[1] + ':' + m2[2];
   }
   return s;
 }
