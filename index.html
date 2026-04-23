@@ -511,20 +511,16 @@ document.documentElement.setAttribute('data-theme', APP.theme);
 function normTime(v) {
   if (!v && v !== 0) return '';
   var s = String(v).trim();
-  // Sheets epoch datetime — always first check (e.g. "1899-12-30T06:00:00.000Z")
+  // Sheets epoch datetime — already local time, Z suffix is misleading
   if (s.includes('1899') || (s.length > 10 && s.includes('T'))) {
     var m = s.match(/T(\d{2}):(\d{2})/);
-    if (m) {
-      var h = parseInt(m[1]) + 2; // UTC → SAST
-      if (h >= 24) h -= 24;
-      return String(h).padStart(2,'0') + ':' + m[2];
-    }
+    if (m) return m[1] + ':' + m[2]; // no offset — already SAST
   }
   // Already HH:mm
   if (/^\d{2}:\d{2}$/.test(s)) return s;
   // Sheets serial fraction (0.333 = 08:00)
   if (typeof v === 'number' && v >= 0 && v < 1) {
-    var totalMin = Math.round(v * 24 * 60) + 120; // +120min for SAST
+    var totalMin = Math.round(v * 24 * 60); // already local time
     return String(Math.floor(totalMin/60)%24).padStart(2,'0') + ':' + String(totalMin%60).padStart(2,'0');
   }
   // Bare number like 830 or 1700
