@@ -908,13 +908,13 @@ function viewOverview() {
         <div class="kpi-val">${(function(){
           const ws = iso(APP.weekStart);
           const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
-          const WEEKLY_ORD = 40.25;
+          const WEEKLY_ORD = 40;
           let totalOT = 0;
           APP.employees.filter(e=>e.status==='Active').forEach(e => {
             const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
             // Saturday hours are all OT
             const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-            // Weekday hours over 40.25 threshold
+            // Weekday hours over 40 threshold
             const wkdayHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
             const wkdayOT = Math.max(0, wkdayHrs - WEEKLY_ORD);
             totalOT += satHrs + wkdayOT;
@@ -1308,11 +1308,11 @@ function viewSignOff() {
   const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
   const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
   const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
-  const hourlyRate = wage / 40.25;
+  const hourlyRate = wage / 40;
   const dockDeduction = (totalDock / 60) * hourlyRate;
   const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
   const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-  const wkdayOT = Math.max(0, wkdayHrs - 40.25);
+  const wkdayOT = Math.max(0, wkdayHrs - 40);
   const otHrs = satHrs + wkdayOT;
   const otPay = otHrs * hourlyRate * 1.5;
   const uifRate = Number(APP.settings.uif_rate || 0.01);
@@ -1578,14 +1578,14 @@ async function saveAttendance(code, date, existingId) {
   // Calc hours worked
   let hoursWorked = 0;
   const BREAK_HRS = 0.75; // 45-min unpaid break
-  const WEEKLY_ORD = 40.25;
+  const WEEKLY_ORD = 40;
   let overtimeMin = 0;
   if (timeIn && timeOut) {
     const [h1,m1] = timeIn.split(':').map(Number); const [h2,m2] = timeOut.split(':').map(Number);
     hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - BREAK_HRS;
     if (hoursWorked < 0) hoursWorked = 0;
     // dockMinutes stored separately — deducted at payroll, not from hoursWorked
-    // Saturday = all hours are OT; weekdays = check against 40.25 weekly threshold
+    // Saturday = all hours are OT; weekdays = check against 40 weekly threshold
     if (isSaturday(date)) {
       overtimeMin = Math.round(hoursWorked * 60);
     } else {
@@ -1936,8 +1936,8 @@ function printPaySheet() {
     const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
     const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
     const wage = e.weekly_wage || 0;
-    const hourlyRate = wage / 40.25;
-    const wkdayOT = Math.max(0, wkdayHrs - 40.25);
+    const hourlyRate = wage / 40;
+    const wkdayOT = Math.max(0, wkdayHrs - 40);
     const otHrs = satHrs + wkdayOT;
     const otPay = otHrs * hourlyRate * 1.5;
     const dockDed = (totalDock / 60) * hourlyRate;
@@ -1962,10 +1962,10 @@ function printPaySheet() {
   });
   const totalNet = active.reduce((s,e) => {
     const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
-    const w = e.weekly_wage||0; const hr = w/40.25;
+    const w = e.weekly_wage||0; const hr = w/40;
     const sat = weekAtt.filter(a=>isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
     const wk = weekAtt.filter(a=>!isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
-    const ot = (sat+Math.max(0,wk-40.25))*hr*1.5;
+    const ot = (sat+Math.max(0,wk-40))*hr*1.5;
     const dk = weekAtt.reduce((s,a)=>s+Number(a.dockMinutes||0),0)/60*hr;
     const g = w+ot-dk;
     const d = w*uifRate + APP.registers.loans.filter(l=>l.employee===e.pt_code&&Number(l.outstanding)>0).reduce((s,l)=>s+Number(l.weeklyDeduction||0),0) + (e.garnishee||0);
