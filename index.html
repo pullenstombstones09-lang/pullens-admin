@@ -645,11 +645,19 @@ async function loadAll() {
       const r = results[i+1];
       if (r.ok && Array.isArray(r.data)) APP.registers[reg] = r.data;
     });
-    // Normalise Sheets epoch times on attendance records
+    // Normalise Sheets epoch times on attendance records + deduplicate (keep latest per employee+date)
     APP.registers.attendance.forEach(a => {
+      if (a.date) a.date = iso(a.date); // normalise dates too
       if (a.timeIn) a.timeIn = normTime(a.timeIn);
       if (a.timeOut) a.timeOut = normTime(a.timeOut);
     });
+    // Deduplicate attendance: keep only latest entry per employee+date
+    const attMap = new Map();
+    APP.registers.attendance.forEach(a => {
+      const key = a.employee + '|' + a.date;
+      attMap.set(key, a); // last one wins
+    });
+    APP.registers.attendance = Array.from(attMap.values());
     // Load settings from backend
     const settingsResult = results[regs.length + 1];
     if (settingsResult && settingsResult.ok && settingsResult.data) {
