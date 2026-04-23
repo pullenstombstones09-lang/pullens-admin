@@ -581,7 +581,7 @@ APP.weekStart = lastFriday();
 function isFriday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 5; }
 function isSaturday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 6; }
 function dayDefaults(dateStr) {
-  if (isSaturday(dateStr)) return { timeIn: '08:00', timeOut: '13:00', hoursWorked: 5, isOT: true }; // no break on 5hr shift per BCEA
+  if (isSaturday(dateStr)) return { timeIn: '09:00', timeOut: '13:00', hoursWorked: 4, isOT: true }; // Sat OT, no break
   if (isFriday(dateStr)) return { timeIn: '08:00', timeOut: '16:00', hoursWorked: 7.25, isOT: false };
   return { timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, isOT: false };
 }
