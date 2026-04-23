@@ -1519,9 +1519,19 @@ async function saveAttendance(code, date, existingId) {
     hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - 0.75; // subtract unpaid breaks
     if (hoursWorked < 0) hoursWorked = 0;
   }
+  // Early leaving deduction: if out before 17:00 (16:00 on Fri), deduct those hours
+  let earlyMin = 0;
+  if (timeOut && (status === 'p' || status === 'late')) {
+    const [oh,om] = timeOut.split(':').map(Number);
+    const outMins = oh*60+om;
+    const dayOfWeek = new Date(date+'T12:00').getDay(); // 0=Sun, 5=Fri
+    const expectedOut = dayOfWeek === 5 ? 960 : 1020; // Fri 16:00=960, else 17:00=1020
+    if (outMins < expectedOut) earlyMin = expectedOut - outMins;
+  }
+
   const entry = {
     ...(existingId?{id:existingId}:{}),
-    date, employee:code, status, timeIn, timeOut, hoursWorked, lateMinutes:lateMin, notes
+    date, employee:code, status, timeIn, timeOut, hoursWorked, lateMinutes:lateMin, earlyMinutes:earlyMin, notes
   };
   const action = existingId ? 'updateEntry' : 'addEntry';
   const r = await api(action, { register:'attendance', entry });
@@ -1532,6 +1542,49 @@ async function saveAttendance(code, date, existingId) {
     } else {
       APP.registers.attendance.push({ ...entry, id: r.data.id || uid() });
     }
+
+    // Auto-create OT entry if Saturday or if hours > 8.25 on a weekday
+    if (status === 'p' || status === 'late') {
+      const dayOfWeek = new Date(date+'T12:00').getDay();
+      const isSaturday = dayOfWeek === 6;
+      const isSunday = dayOfWeek === 0;
+
+      if (isSaturday && hoursWorked > 0) {
+        // Saturday = all hours are OT at 1.5x
+        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
+        if (!existingOT) {
+          const otEntry = { date, employee:code, hours:hoursWorked, rate:'1.5×', reason:'Saturday work (auto)', authorisedBy:APP.currentUser.name };
+          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
+          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 1.5×','success'); }
+        }
+      } else if (isSunday && hoursWorked > 0) {
+        // Sunday = all hours at 2x
+        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
+        if (!existingOT) {
+          const otEntry = { date, employee:code, hours:hoursWorked, rate:'2× (Sun)', reason:'Sunday work (auto)', authorisedBy:APP.currentUser.name };
+          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
+          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 2× Sun','success'); }
+        }
+      } else if (status === 'ph' && hoursWorked > 0) {
+        // Public holiday = all hours at 2x
+        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
+        if (!existingOT) {
+          const otEntry = { date, employee:code, hours:hoursWorked, rate:'2× (PH)', reason:'Public holiday work (auto)', authorisedBy:APP.currentUser.name };
+          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
+          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+hoursWorked+'h @ 2× PH','success'); }
+        }
+      } else if (!isSaturday && !isSunday && hoursWorked > 8.25) {
+        // Weekday overtime: hours beyond 8.25
+        const otHours = Math.round((hoursWorked - 8.25) * 100) / 100;
+        const existingOT = APP.registers.overtime.find(o => o.employee===code && iso(o.date||'')===date);
+        if (!existingOT && otHours > 0) {
+          const otEntry = { date, employee:code, hours:otHours, rate:'1.5×', reason:'Weekday overtime (auto)', authorisedBy:APP.currentUser.name };
+          const otR = await api('addEntry', { register:'overtime', entry:otEntry });
+          if (otR.ok) { APP.registers.overtime.push(otR.data); toast('OT auto-logged: '+otHours+'h @ 1.5×','success'); }
+        }
+      }
+    }
+
     closeModal(); toast('Saved','success');
     renderSidebar(); render();
   } else toast('Save failed: '+(r.error||''), 'danger');
