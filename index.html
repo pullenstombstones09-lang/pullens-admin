@@ -561,29 +561,27 @@ function lastFriday() {
   return d;
 }
 function weekDays(start) {
-  /* Explicit Fri→Thu grid (6 cells): Fri, Sat(OT), Mon, Tue, Wed, Thu — Sunday excluded */
+  /* Explicit Fri→Thu grid (6 cells): Fri, Sat, Mon, Tue, Wed, Thu — Sunday excluded */
   const offsets = [0,1,3,4,5,6]; // days since Friday start
-  const otIx = 1; // Saturday index
   return offsets.map((off, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + off);
-    const isSat = (i === otIx);
+    const isSat = (i === 1);
     return {
       date: iso(d),
-      label: isSat ? 'Sat (OT)' : d.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric'}),
+      label: isSat ? 'Sat' : d.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric'}),
       today: iso(d) === today(),
-      ot: isSat
+      ot: false
     };
   });
 }
 APP.weekStart = lastFriday();
-// Fri 08:00–16:00 (7.25hrs), Mon–Thu 08:00–17:00 (8.25hrs), Sat = all OT
+// Fri 08:00–16:00 (7.25hrs), Mon–Thu 08:00–17:00 (8.25hrs). Saturday excluded from payroll (cash).
 function isFriday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 5; }
 function isSaturday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 6; }
 function dayDefaults(dateStr) {
-  if (isSaturday(dateStr)) return { timeIn: '09:00', timeOut: '13:00', hoursWorked: 4, isOT: true }; // Sat OT, no break
-  if (isFriday(dateStr)) return { timeIn: '08:00', timeOut: '16:00', hoursWorked: 7.25, isOT: false };
-  return { timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, isOT: false };
+  if (isFriday(dateStr)) return { timeIn: '08:00', timeOut: '16:00', hoursWorked: 7.25 };
+  return { timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25 };
 }
 
 /* ============================================================
@@ -872,8 +870,9 @@ function viewOverview() {
     const hr = (e.weekly_wage||0) / 40;
     const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=_ws && iso(a.date||'')<=_we);
     const wkHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-    const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-    return s + (Math.min(wkHrs,40) * hr) + ((satHrs + Math.max(0,wkHrs-40)) * hr * 1.5);
+    const ordHrs = Math.min(wkHrs, 40);
+    const wkOT = Math.max(0, wkHrs - 40);
+    return s + (ordHrs * hr) + (wkOT * hr * 1.5);
   }, 0);
   const loans = APP.registers.loans.filter(l => Number(l.outstanding)>0);
   const loanBal = loans.reduce((s,l)=>s+Number(l.outstanding||0),0);
@@ -920,12 +919,10 @@ function viewOverview() {
           let totalOT = 0;
           APP.employees.filter(e=>e.status==='Active').forEach(e => {
             const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
-            // Saturday hours are all OT
-            const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-            // Weekday hours over 40 threshold
+            // Weekday hours over 40 threshold (Saturday excluded from payroll)
             const wkdayHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
             const wkdayOT = Math.max(0, wkdayHrs - WEEKLY_ORD);
-            totalOT += satHrs + wkdayOT;
+            totalOT += wkdayOT;
           });
           return totalOT.toFixed(1);
         })()}<span class="unit">hr</span></div>
@@ -1244,9 +1241,8 @@ function viewPayroll() {
     const hr = (e.weekly_wage||0) / 40;
     const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=weekStart && iso(a.date||'')<=weekEnd);
     const wkHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-    const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
     const ordHrs = Math.min(wkHrs, 40);
-    const otHrs = satHrs + Math.max(0, wkHrs - 40);
+    const otHrs = Math.max(0, wkHrs - 40);
     return s + (ordHrs * hr) + (otHrs * hr * 1.5);
   }, 0);
   const lastRun = APP._lastPayroll;
@@ -1332,11 +1328,9 @@ function viewSignOff() {
   const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
   const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
   const dockDeduction = (totalDock / 60) * hourlyRate;
-  const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
   const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-  const ordinaryHrs = Math.min(wkdayHrs, 40); // cap at 40 ordinary
-  const wkdayOT = Math.max(0, wkdayHrs - 40);
-  const otHrs = satHrs + wkdayOT;
+  const ordinaryHrs = Math.min(wkdayHrs, 40);
+  const otHrs = Math.max(0, wkdayHrs - 40);
   const basePay = ordinaryHrs * hourlyRate; // ACTUAL hours × rate, not flat wage
   const otPay = otHrs * hourlyRate * 1.5;
   const uifRate = Number(APP.settings.uif_rate || 0.01);
@@ -1609,10 +1603,8 @@ async function saveAttendance(code, date, existingId) {
     hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - BREAK_HRS;
     if (hoursWorked < 0) hoursWorked = 0;
     // dockMinutes stored separately — deducted at payroll, not from hoursWorked
-    // Saturday = all hours are OT; weekdays = check against 40 weekly threshold
-    if (isSaturday(date)) {
-      overtimeMin = Math.round(hoursWorked * 60);
-    } else {
+    // Saturday excluded from payroll. Weekdays: OT after 40 hours.
+    if (!isSaturday(date)) {
       const ws = iso(APP.weekStart);
       const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
       const otherHrs = APP.registers.attendance
@@ -1640,7 +1632,7 @@ async function saveAttendance(code, date, existingId) {
       const otHours = Math.round(overtimeMin / 60 * 100) / 100;
       const existingOT = APP.registers.overtime.find(o => o.employee === code && iso(o.date||'') === date);
       const otRate = '1.5×';
-      const otReason = isSaturday(date) ? 'Saturday OT (auto)' : 'Weekday OT (auto)';
+      const otReason = 'Weekday OT (auto)';
       const otEntry = { ...(existingOT ? {id: existingOT.id} : {}), date, employee: code, hours: otHours, rate: otRate, authorisedBy: APP.currentUser.name, reason: otReason };
       const otAction = existingOT ? 'updateEntry' : 'addEntry';
       api(otAction, { register: 'overtime', entry: otEntry }).then(otR => {
@@ -1956,14 +1948,12 @@ function printPaySheet() {
   let rows = '';
   active.forEach((e, i) => {
     const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
-    const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
     const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-    const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
+    const totalDock = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.dockMinutes||0), 0);
     const wage = e.weekly_wage || 0;
     const hourlyRate = wage / 40;
     const ordinaryHrs = Math.min(wkdayHrs, 40);
-    const wkdayOT = Math.max(0, wkdayHrs - 40);
-    const otHrs = satHrs + wkdayOT;
+    const otHrs = Math.max(0, wkdayHrs - 40);
     const basePay = ordinaryHrs * hourlyRate;
     const otPay = otHrs * hourlyRate * 1.5;
     const dockDed = (totalDock / 60) * hourlyRate;
@@ -1989,12 +1979,14 @@ function printPaySheet() {
   const totalNet = active.reduce((s,e) => {
     const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
     const w = e.weekly_wage||0; const hr = w/40;
-    const sat = weekAtt.filter(a=>isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
     const wk = weekAtt.filter(a=>!isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
-    const ot = (sat+Math.max(0,wk-40))*hr*1.5;
-    const dk = weekAtt.reduce((s,a)=>s+Number(a.dockMinutes||0),0)/60*hr;
-    const g = w+ot-dk;
-    const d = w*uifRate + APP.registers.loans.filter(l=>l.employee===e.pt_code&&Number(l.outstanding)>0).reduce((s,l)=>s+Number(l.weeklyDeduction||0),0) + (e.garnishee||0);
+    const ordH = Math.min(wk, 40);
+    const otH = Math.max(0, wk-40);
+    const base = ordH*hr;
+    const ot = otH*hr*1.5;
+    const dk = weekAtt.filter(a=>!isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.dockMinutes||0),0)/60*hr;
+    const g = base+ot-dk;
+    const d = base*uifRate + APP.registers.loans.filter(l=>l.employee===e.pt_code&&Number(l.outstanding)>0).reduce((s,l)=>s+Number(l.weeklyDeduction||0),0) + (e.garnishee||0);
     return s+(g-d);
   }, 0);
   const printWin = window.open('','_blank');
