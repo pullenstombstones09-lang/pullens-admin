@@ -535,11 +535,13 @@ function weekDays(start) {
   });
 }
 APP.weekStart = lastFriday();
-// Friday = 08:00–16:00 (7.25hrs), Mon–Thu = 08:00–17:00 (8.25hrs)
+// Fri 08:00–16:00 (7.25hrs), Mon–Thu 08:00–17:00 (8.25hrs), Sat = all OT
 function isFriday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 5; }
+function isSaturday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 6; }
 function dayDefaults(dateStr) {
-  const fri = isFriday(dateStr);
-  return { timeIn: '08:00', timeOut: fri ? '16:00' : '17:00', hoursWorked: fri ? 7.25 : 8.25 };
+  if (isSaturday(dateStr)) return { timeIn: '08:00', timeOut: '13:00', hoursWorked: 4.25, isOT: true };
+  if (isFriday(dateStr)) return { timeIn: '08:00', timeOut: '16:00', hoursWorked: 7.25, isOT: false };
+  return { timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, isOT: false };
 }
 
 /* ============================================================
@@ -815,8 +817,9 @@ function updateTopbar() {
    VIEWS
    ============================================================ */
 function viewOverview() {
-  const total = APP.employees.length;
-  const totalWage = APP.employees.reduce((s,e)=>s+(e.weekly_wage||0),0);
+  const activeEmps = APP.employees.filter(e => e.status === 'Active');
+  const total = activeEmps.length;
+  const totalWage = activeEmps.reduce((s,e)=>s+(e.weekly_wage||0),0);
   const loans = APP.registers.loans.filter(l => Number(l.outstanding)>0);
   const loanBal = loans.reduce((s,l)=>s+Number(l.outstanding||0),0);
   const weekStr = fmtDShort(iso(APP.weekStart)) + ' – ' + fmtDShort(iso(new Date(APP.weekStart.getTime() + 6*86400000)));
@@ -860,11 +863,14 @@ function viewOverview() {
           const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
           const WEEKLY_ORD = 40.25;
           let totalOT = 0;
-          APP.employees.forEach(e => {
-            const weekHrs = APP.registers.attendance
-              .filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we)
-              .reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-            if (weekHrs > WEEKLY_ORD) totalOT += weekHrs - WEEKLY_ORD;
+          APP.employees.filter(e=>e.status==='Active').forEach(e => {
+            const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
+            // Saturday hours are all OT
+            const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+            // Weekday hours over 40.25 threshold
+            const wkdayHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+            const wkdayOT = Math.max(0, wkdayHrs - WEEKLY_ORD);
+            totalOT += satHrs + wkdayOT;
           });
           return totalOT.toFixed(1);
         })()}<span class="unit">hr</span></div>
@@ -1037,7 +1043,7 @@ async function markAllPresent(date) {
   const active = APP.employees.filter(e => e.status === 'Active');
   const toMark = active.filter(e => {
     const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
-    return !existing || (existing.status !== 'p' && existing.status !== 'late');
+    return !existing || !existing.status || (existing.status !== 'p' && existing.status !== 'late' && existing.status !== 'leave' && existing.status !== 'ph' && existing.status !== 'a');
   });
   // Send in batches of 5 to avoid overloading Apps Script
   for (let i = 0; i < toMark.length; i += 5) {
@@ -1069,7 +1075,7 @@ async function markAllPresent(date) {
 }
 async function quickTick(code, date) {
   const existing = APP.registers.attendance.find(a => a.employee === code && iso(a.date||'') === date);
-  if (existing && existing.status === 'p') return; // already present
+  if (existing && (existing.status === 'p' || existing.status === 'late' || existing.status === 'leave' || existing.status === 'ph')) return; // already marked
   const dd = dayDefaults(date);
   const entry = {
     ...(existing ? {id: existing.id} : {}),
@@ -1175,9 +1181,9 @@ function viewPettyCash() {
 }
 
 function viewPayroll() {
-  const total = APP.employees.reduce((s,e)=>s+(e.weekly_wage||0),0);
-  const weekStart = iso(APP.weekStart);
   const active = APP.employees.filter(e=>e.status==='Active');
+  const total = active.reduce((s,e)=>s+(e.weekly_wage||0),0);
+  const weekStart = iso(APP.weekStart);
   const lastRun = APP._lastPayroll;
   const hasResults = lastRun && lastRun.week && lastRun.week.start === weekStart;
   return `
@@ -1210,7 +1216,7 @@ function viewPayroll() {
               <td style="padding:8px; text-align:right;" class="mono">${r.ordinaryHours}</td>
               <td style="padding:8px; text-align:right;" class="mono">${r.otHours > 0 ? r.otHours+'h' : '—'}</td>
               <td style="padding:8px; text-align:right;" class="mono">${fmtR(r.gross)}</td>
-              <td style="padding:8px; text-align:right;" class="mono" style="color:var(--amber);">${fmtR(r.uif + r.loanDeduction + r.garnishee)}</td>
+              <td style="padding:8px; text-align:right; color:var(--amber);" class="mono">${fmtR(r.uif + r.loanDeduction + r.garnishee)}</td>
               <td style="padding:8px; text-align:right; font-weight:700;" class="mono">${fmtR(r.net)}</td>
             </tr>`).join('')}
             <tr style="background:var(--blue-soft); font-weight:700;">
@@ -1242,16 +1248,33 @@ function viewPayroll() {
 
 let signIdx=0; const signSigned=new Set();
 function viewSignOff() {
-  const e = APP.employees[signIdx] || APP.employees[0]; if (!e) return '<div class="empty"><h3>No employees loaded</h3></div>';
+  const activeSign = APP.employees.filter(e => e.status === 'Active');
+  if (!activeSign.length) return '<div class="empty"><h3>No active employees</h3></div>';
+  const e = activeSign[signIdx % activeSign.length];
   const done = signSigned.size;
-  const wage = e.weekly_wage || 0; const uif=wage*0.01; const net=wage-uif;
+  // Calculate actual net: wage + OT - UIF - loans - garnishee - dock
+  const wage = e.weekly_wage || 0;
+  const ws = iso(APP.weekStart);
+  const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+  const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
+  const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
+  const hourlyRate = wage / 40.25;
+  const dockDeduction = (totalDock / 60) * hourlyRate;
+  const weekHrs = weekAtt.reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+  const otHrs = Math.max(0, weekHrs - 40.25);
+  const otPay = otHrs * hourlyRate * 1.5;
+  const uif = wage * 0.01;
+  const loanDed = APP.registers.loans.filter(l => l.employee===e.pt_code && Number(l.outstanding)>0).reduce((s,l) => s + Number(l.weeklyDeduction||0), 0);
+  const garnishee = e.garnishee || 0;
+  const gross = wage + otPay - dockDeduction;
+  const net = gross - uif - loanDed - garnishee;
   return `
     <div style="max-width:520px; margin:0 auto;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
         <div style="flex:1; height:6px; background:var(--paper); border-radius:999px; overflow:hidden;">
-          <div style="height:100%; width:${done/APP.employees.length*100}%; background:var(--blue); transition:width .3s;"></div>
+          <div style="height:100%; width:${done/activeSign.length*100}%; background:var(--blue); transition:width .3s;"></div>
         </div>
-        <div class="mono" style="font-size:12px; color:var(--muted);">${done} / ${APP.employees.length}</div>
+        <div class="mono" style="font-size:12px; color:var(--muted);">${done} / ${activeSign.length}</div>
       </div>
       <div class="panel" style="padding:24px 20px;">
         <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; display:grid; place-items:center; font-size:22px; font-weight:700; margin:0 auto 12px;">${initials(e.full_name)}</div>
@@ -1260,6 +1283,14 @@ function viewSignOff() {
         <div style="background:var(--blue-softer); border-radius:var(--r-md); padding:16px; text-align:center; margin-bottom:16px;">
           <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); font-weight:700;">Net</div>
           <div style="font-family:var(--f-display); font-size:32px; font-weight:700; color:var(--blue-dark); margin-top:4px;">${fmtR(net)}</div>
+        </div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:14px; display:grid; grid-template-columns:1fr auto; gap:4px 12px; padding:0 4px;">
+          <span>Base wage</span><span class="mono">${fmtR(wage)}</span>
+          ${otPay > 0 ? `<span>Overtime (${otHrs.toFixed(1)}h)</span><span class="mono" style="color:var(--green);">+${fmtR(otPay)}</span>` : ''}
+          ${dockDeduction > 0 ? `<span>Late dock (${totalDock}min)</span><span class="mono" style="color:var(--red);">-${fmtR(dockDeduction)}</span>` : ''}
+          <span>UIF (1%)</span><span class="mono" style="color:var(--amber);">-${fmtR(uif)}</span>
+          ${loanDed > 0 ? `<span>Loan repayment</span><span class="mono" style="color:var(--amber);">-${fmtR(loanDed)}</span>` : ''}
+          ${garnishee > 0 ? `<span>Garnishee</span><span class="mono" style="color:var(--amber);">-${fmtR(garnishee)}</span>` : ''}
         </div>
         <canvas id="sigCanvas" style="width:100%; height:160px; background:#fff; border:2px dashed var(--line-2); border-radius:var(--r-md); touch-action:none; display:block; margin-bottom:12px;"></canvas>
         <div style="text-align:center; font-size:11px; color:var(--muted); margin-bottom:14px;">Sign with your finger · <a onclick="sigClear()" style="color:var(--blue); text-decoration:underline; cursor:pointer;">clear</a></div>
@@ -1290,12 +1321,13 @@ async function signConfirm() {
   const ws = iso(APP.weekStart);
   const r = await api('savePayslipSignature', { ptCode:emp.pt_code, weekStart:ws, signatureBase64:sig });
   if (r.ok) {
-    signSigned.add(emp.pt_code); toast(`Signed ${signSigned.size}/${APP.employees.length}`,'success');
-    if (signSigned.size===APP.employees.length) toast('🎉 All signed!','success');
-    else { signIdx = (signIdx+1) % APP.employees.length; render(); }
+    const activeSign = APP.employees.filter(e => e.status === 'Active');
+    signSigned.add(emp.pt_code); toast(`Signed ${signSigned.size}/${activeSign.length}`,'success');
+    if (signSigned.size >= activeSign.length) { toast('All signed!','success'); render(); }
+    else { signIdx = (signIdx+1) % activeSign.length; render(); }
   } else toast(r.error||'Failed','danger');
 }
-function signSkip() { signIdx = (signIdx+1) % APP.employees.length; render(); }
+function signSkip() { const activeSign = APP.employees.filter(e => e.status === 'Active'); signIdx = (signIdx+1) % activeSign.length; render(); }
 
 function viewPayments() { return `<div class="empty"><div class="empty-ico">⇌</div><h3>Payments</h3><p>Lee Ann marks paid + uploads POP here.</p></div>`; }
 function viewDocuments() { return `<div class="empty"><div class="empty-ico">▤</div><h3>Forms</h3><p>43 HR templates in <code>Pullens-HR/contracts</code>, <code>/forms</code>, <code>/disciplinary</code>.</p></div>`; }
@@ -1306,7 +1338,7 @@ function viewSettings() {
       <div class="panel-head"><div><div class="panel-title">Pay & wages</div></div></div>
       <div class="drow"><div class="k">Pay cycle</div><div class="v"><select id="setPayCycle" onchange="saveSetting('pay_cycle',this.value)"><option value="Fri-Thu" ${s.pay_cycle==='Fri-Thu'||s.payCycleStart==='Friday'?'selected':''}>Friday → Thursday</option><option value="Mon-Fri" ${s.pay_cycle==='Mon-Fri'?'selected':''}>Monday → Friday</option><option value="Mon-Sat" ${s.pay_cycle==='Mon-Sat'?'selected':''}>Monday → Saturday</option></select></div></div>
       <div class="drow"><div class="k">NMW / hour (R)</div><div class="v"><input type="number" step="0.01" id="setNMW" value="${s.nmw_per_hour||'30.23'}" style="width:100px; padding:8px 10px;" onchange="saveSetting('nmw_per_hour',this.value)"></div></div>
-      <div class="drow"><div class="k">Ordinary hrs / week</div><div class="v"><input type="number" step="1" id="setHours" value="${s.ordinary_hours||'40'}" style="width:80px; padding:8px 10px;" onchange="saveSetting('ordinary_hours',this.value)"></div></div>
+      <div class="drow"><div class="k">Ordinary hrs / week</div><div class="v"><input type="number" step="0.25" id="setHours" value="${s.ordinary_hours||'40.25'}" style="width:80px; padding:8px 10px;" onchange="saveSetting('ordinary_hours',this.value)"></div></div>
       <div class="drow"><div class="k">UIF rate (%)</div><div class="v"><input type="number" step="0.1" id="setUIF" value="${(Number(s.uif_rate||0.01)*100).toFixed(1)}" style="width:80px; padding:8px 10px;" onchange="saveSetting('uif_rate',String(parseFloat(this.value)/100))"></div></div>
       <div class="drow"><div class="k">OT weekday multiplier</div><div class="v mono">1.5×</div></div>
       <div class="drow"><div class="k">OT Sun / PH multiplier</div><div class="v mono">2.0×</div></div>
@@ -1454,7 +1486,7 @@ function modalAttendance(code, date) {
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn primary" onclick="saveAttendance('${code}','${date}','${a.id||''}')">Save</button>
     </div>`, () => {
-      const dd = dayDefaults('${date}');
+      const dd = dayDefaults(date);
       document.getElementById('a_in').value = a.timeIn || dd.timeIn;
       document.getElementById('a_out').value = a.timeOut || dd.timeOut;
       document.getElementById('a_notes').value = a.notes || '';
@@ -1470,6 +1502,8 @@ async function saveAttendance(code, date, existingId) {
   const timeIn = document.getElementById('a_in').value;
   const timeOut = document.getElementById('a_out').value;
   const notes = document.getElementById('a_notes').value;
+  // Validate time order
+  if (timeIn && timeOut && timeIn >= timeOut) { toast('Time in must be before time out','danger'); return; }
   // Late-coming rules: start 08:00, grace to 08:05, dock 30min 08:06–08:30, dock 1hr 08:31–09:00, supervisor decides after 09:00
   let lateMin = 0;
   let dockMin = 0;
@@ -1496,15 +1530,20 @@ async function saveAttendance(code, date, existingId) {
   if (timeIn && timeOut) {
     const [h1,m1] = timeIn.split(':').map(Number); const [h2,m2] = timeOut.split(':').map(Number);
     hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - BREAK_HRS;
+    if (dockMin > 0) hoursWorked -= dockMin / 60; // subtract docked time from paid hours
     if (hoursWorked < 0) hoursWorked = 0;
-    // Calculate weekly total to check against 40.25 threshold
-    const ws = iso(APP.weekStart);
-    const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
-    const otherHrs = APP.registers.attendance
-      .filter(a => a.employee===code && iso(a.date||'')>=ws && iso(a.date||'')<=we && iso(a.date||'')!==date)
-      .reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-    const weekTotal = otherHrs + hoursWorked;
-    if (weekTotal > WEEKLY_ORD) overtimeMin = Math.round((weekTotal - WEEKLY_ORD) * 60);
+    // Saturday = all hours are OT; weekdays = check against 40.25 weekly threshold
+    if (isSaturday(date)) {
+      overtimeMin = Math.round(hoursWorked * 60);
+    } else {
+      const ws = iso(APP.weekStart);
+      const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+      const otherHrs = APP.registers.attendance
+        .filter(a => a.employee===code && iso(a.date||'')>=ws && iso(a.date||'')<=we && iso(a.date||'')!==date && !isSaturday(iso(a.date||'')))
+        .reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+      const weekTotal = otherHrs + hoursWorked;
+      if (weekTotal > WEEKLY_ORD) overtimeMin = Math.round((weekTotal - WEEKLY_ORD) * 60);
+    }
   }
   const entry = {
     ...(existingId?{id:existingId}:{}),
@@ -1523,7 +1562,9 @@ async function saveAttendance(code, date, existingId) {
     if (overtimeMin > 0) {
       const otHours = Math.round(overtimeMin / 60 * 100) / 100;
       const existingOT = APP.registers.overtime.find(o => o.employee === code && iso(o.date||'') === date);
-      const otEntry = { ...(existingOT ? {id: existingOT.id} : {}), date, employee: code, hours: otHours, rate: '1.5x', authorisedBy: APP.currentUser.name, reason: 'Auto from attendance' };
+      const otRate = isSaturday(date) ? '1.5×' : '1.5×';
+      const otReason = isSaturday(date) ? 'Saturday OT (auto)' : 'Weekday OT (auto)';
+      const otEntry = { ...(existingOT ? {id: existingOT.id} : {}), date, employee: code, hours: otHours, rate: otRate, authorisedBy: APP.currentUser.name, reason: otReason };
       const otAction = existingOT ? 'updateEntry' : 'addEntry';
       api(otAction, { register: 'overtime', entry: otEntry }).then(otR => {
         if (otR.ok) {
