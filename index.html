@@ -571,7 +571,7 @@ APP.weekStart = lastFriday();
 function isFriday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 5; }
 function isSaturday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay() === 6; }
 function dayDefaults(dateStr) {
-  if (isSaturday(dateStr)) return { timeIn: '08:00', timeOut: '13:00', hoursWorked: 4.25, isOT: true };
+  if (isSaturday(dateStr)) return { timeIn: '08:00', timeOut: '13:00', hoursWorked: 5, isOT: true }; // no break on 5hr shift per BCEA
   if (isFriday(dateStr)) return { timeIn: '08:00', timeOut: '16:00', hoursWorked: 7.25, isOT: false };
   return { timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, isOT: false };
 }
@@ -1231,8 +1231,8 @@ function viewPayroll() {
     </div>
     <div class="kpis" style="grid-template-columns:repeat(3,1fr);">
       <div class="kpi"><div class="kpi-label">Gross (est.)</div><div class="kpi-val">${fmtR(total)}</div></div>
-      <div class="kpi"><div class="kpi-label">UIF (1%)</div><div class="kpi-val">${fmtR(total * 0.01)}</div></div>
-      <div class="kpi tint-sage"><div class="kpi-label">Net (est.)</div><div class="kpi-val">${fmtR(total * 0.99)}</div></div>
+      <div class="kpi"><div class="kpi-label">UIF (${(Number(APP.settings.uif_rate||0.01)*100).toFixed(0)}%)</div><div class="kpi-val">${fmtR(total * Number(APP.settings.uif_rate||0.01))}</div></div>
+      <div class="kpi tint-sage"><div class="kpi-label">Net (est.)</div><div class="kpi-val">${fmtR(total * (1 - Number(APP.settings.uif_rate||0.01)))}</div></div>
     </div>
     ${hasResults ? `
     <div class="panel" style="margin-top:14px;">
@@ -1271,7 +1271,7 @@ function viewPayroll() {
       <div style="display:flex; flex-direction:column; gap:2px;">
         ${active.map(e => {
           const wage = e.weekly_wage || 0;
-          const uif = wage * 0.01;
+          const uif = wage * Number(APP.settings.uif_rate||0.01);
           return `<div style="display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line);">
             <div style="flex:1;"><span style="font-weight:600;">${e.full_name}</span> <span style="font-size:11px;color:var(--muted);">${e.pt_code}</span></div>
             <div class="mono" style="font-size:13px;">${fmtR(wage - uif)}</div>
@@ -1297,10 +1297,13 @@ function viewSignOff() {
   const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
   const hourlyRate = wage / 40.25;
   const dockDeduction = (totalDock / 60) * hourlyRate;
-  const weekHrs = weekAtt.reduce((s,a) => s + Number(a.hoursWorked||0), 0);
-  const otHrs = Math.max(0, weekHrs - 40.25);
+  const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+  const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+  const wkdayOT = Math.max(0, wkdayHrs - 40.25);
+  const otHrs = satHrs + wkdayOT;
   const otPay = otHrs * hourlyRate * 1.5;
-  const uif = wage * 0.01;
+  const uifRate = Number(APP.settings.uif_rate || 0.01);
+  const uif = wage * uifRate;
   const loanDed = APP.registers.loans.filter(l => l.employee===e.pt_code && Number(l.outstanding)>0).reduce((s,l) => s + Number(l.weeklyDeduction||0), 0);
   const garnishee = e.garnishee || 0;
   const gross = wage + otPay - dockDeduction;
@@ -1555,7 +1558,7 @@ async function saveAttendance(code, date, existingId) {
       } else if (mins <= 540) { // 08:31–09:00 → dock 1 hour
         dockMin = 60;
       } else { // after 09:00 → supervisor decides (work or go home)
-        dockMin = 60;
+        dockMin = 60; // default dock, supervisor can override via notes
       }
     }
   }
@@ -1567,8 +1570,8 @@ async function saveAttendance(code, date, existingId) {
   if (timeIn && timeOut) {
     const [h1,m1] = timeIn.split(':').map(Number); const [h2,m2] = timeOut.split(':').map(Number);
     hoursWorked = ((h2*60+m2) - (h1*60+m1))/60 - BREAK_HRS;
-    if (dockMin > 0) hoursWorked -= dockMin / 60; // subtract docked time from paid hours
     if (hoursWorked < 0) hoursWorked = 0;
+    // dockMinutes stored separately — deducted at payroll, not from hoursWorked
     // Saturday = all hours are OT; weekdays = check against 40.25 weekly threshold
     if (isSaturday(date)) {
       overtimeMin = Math.round(hoursWorked * 60);
@@ -1599,7 +1602,7 @@ async function saveAttendance(code, date, existingId) {
     if (overtimeMin > 0) {
       const otHours = Math.round(overtimeMin / 60 * 100) / 100;
       const existingOT = APP.registers.overtime.find(o => o.employee === code && iso(o.date||'') === date);
-      const otRate = isSaturday(date) ? '1.5×' : '1.5×';
+      const otRate = '1.5×';
       const otReason = isSaturday(date) ? 'Saturday OT (auto)' : 'Weekday OT (auto)';
       const otEntry = { ...(existingOT ? {id: existingOT.id} : {}), date, employee: code, hours: otHours, rate: otRate, authorisedBy: APP.currentUser.name, reason: otReason };
       const otAction = existingOT ? 'updateEntry' : 'addEntry';
