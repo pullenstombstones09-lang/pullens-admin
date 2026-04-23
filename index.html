@@ -788,7 +788,7 @@ function render() {
   else if (v==='employees') tab.innerHTML = viewEmployees();
   else if (v==='register') tab.innerHTML = viewRegister();
   else if (v==='overtime') tab.innerHTML = viewReg('Overtime','Pre-approved OT entries','overtime', 'modalOT', 'Log overtime');
-  else if (v==='loans') tab.innerHTML = viewReg('Loans','Active loans · weekly deductions','loans', 'modalLoan', 'Grant loan');
+  else if (v==='loans') tab.innerHTML = viewLoans();
   else if (v==='warnings') tab.innerHTML = viewReg('Warnings','Disciplinary record','warnings', 'modalWarning', 'Issue warning');
   else if (v==='leave') tab.innerHTML = viewReg('Leave','Annual · Sick · Family','leave', 'modalLeave', 'Log leave');
   else if (v==='medical') tab.innerHTML = viewReg('Doctor\'s notes','With photo · auto-filed','medical', 'modalMedical', 'Log certificate');
@@ -1072,6 +1072,94 @@ async function quickTick(code, date) {
     }
     render();
   } else toast('Failed', 'danger');
+}
+
+function viewLoans() {
+  var loans = APP.registers.loans || [];
+  var active = loans.filter(function(l){ return Number(l.outstanding) > 0 });
+  var closed = loans.filter(function(l){ return Number(l.outstanding) <= 0 });
+  var totalOut = active.reduce(function(s,l){ return s + (Number(l.outstanding)||0) }, 0);
+  var html = '';
+
+  html += '<div class="helper-text">Loans are deducted weekly from wages. Tap a loan to change the weekly amount. When outstanding reaches R0, it auto-closes.</div>';
+  html += '<div class="panel-head" style="margin-bottom:14px;">'
+    + '<div><div class="panel-title">Loans</div><div class="panel-sub">' + active.length + ' active &middot; ' + fmtR(totalOut) + ' total outstanding</div></div>'
+    + '<button class="btn primary" onclick="modalLoan()">+ Grant loan</button>'
+    + '</div>';
+
+  // KPIs
+  html += '<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">'
+    + '<div class="kpi"><div class="kpi-label">Active loans</div><div class="kpi-val">' + active.length + '</div></div>'
+    + '<div class="kpi tint-rose"><div class="kpi-label">Total outstanding</div><div class="kpi-val">' + fmtR(totalOut) + '</div></div>'
+    + '<div class="kpi tint-sage"><div class="kpi-label">Closed</div><div class="kpi-val">' + closed.length + '</div></div>'
+    + '</div>';
+
+  if (active.length === 0 && closed.length === 0) {
+    html += '<div class="panel"><div class="empty"><div class="empty-ico">+</div><h3>No loans</h3><p>Tap <strong>+ Grant loan</strong> to issue one. A Loan Agreement Form will be generated.</p></div></div>';
+  }
+
+  // Active loans
+  if (active.length > 0) {
+    html += '<div class="panel" style="margin-bottom:14px;"><div class="panel-head"><div><div class="panel-title">Active</div></div></div>';
+    for (var i=0; i<active.length; i++) {
+      var l = active[i];
+      var emp = APP.empMap[l.employee] || {};
+      var pct = Number(l.loanAmount) > 0 ? Math.round((1 - Number(l.outstanding)/Number(l.loanAmount)) * 100) : 0;
+      var weeksLeft = Number(l.weeklyDeduction) > 0 ? Math.ceil(Number(l.outstanding) / Number(l.weeklyDeduction)) : '?';
+      html += '<div style="padding:14px 16px;border-bottom:1px solid var(--line);">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+        + '<div style="flex:1;"><div style="font-weight:700;font-size:15px;">' + (emp.full_name || l.employee) + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);">' + fmtD(l.dateAdvanced || l.createdAt) + ' &middot; ' + (l.purpose||'No reason') + '</div></div>'
+        + '<div style="text-align:right;"><div style="font-size:11px;color:var(--muted);">OUTSTANDING</div><div style="font-family:var(--f-mono);font-weight:700;font-size:18px;color:var(--red);">' + fmtR(l.outstanding) + '</div></div>'
+        + '</div>'
+        // Progress bar
+        + '<div style="background:var(--line);border-radius:4px;height:6px;margin-bottom:8px;overflow:hidden;">'
+        + '<div style="background:var(--green);height:100%;width:' + pct + '%;border-radius:4px;transition:width .3s;"></div>'
+        + '</div>'
+        + '<div style="display:flex;gap:12px;font-size:12px;color:var(--muted);">'
+        + '<div>Loan: <strong class="mono">' + fmtR(l.loanAmount) + '</strong></div>'
+        + '<div>Weekly: <strong class="mono">' + fmtR(l.weeklyDeduction) + '</strong></div>'
+        + '<div>Paid: <strong class="mono">' + pct + '%</strong></div>'
+        + '<div>~' + weeksLeft + ' weeks left</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;margin-top:8px;">'
+        + '<button class="btn" onclick="editLoanWeekly(\'' + l.id + '\',' + (Number(l.weeklyDeduction)||0) + ')" style="font-size:11px;padding:6px 10px;min-height:32px;">Change weekly</button>'
+        + '<button class="btn" onclick="deleteEntry(\'loans\',\'' + l.id + '\')" style="font-size:11px;padding:6px 10px;min-height:32px;color:var(--red);">Cancel loan</button>'
+        + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Closed loans
+  if (closed.length > 0) {
+    html += '<div class="panel"><div class="panel-head"><div><div class="panel-title">Closed</div><div class="panel-sub">Fully repaid</div></div></div>';
+    for (var j=0; j<closed.length; j++) {
+      var c = closed[j];
+      var cemp = APP.empMap[c.employee] || {};
+      html += '<div style="padding:10px 16px;border-bottom:1px solid var(--line);opacity:0.6;">'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+        + '<div style="flex:1;"><span style="font-weight:600;">' + (cemp.full_name || c.employee) + '</span> <span style="color:var(--muted);font-size:12px;">' + fmtR(c.loanAmount) + '</span></div>'
+        + '<span class="flag ok" style="font-size:10px;">Paid up</span>'
+        + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  return html;
+}
+
+function editLoanWeekly(loanId, currentWeekly) {
+  var newAmount = prompt('Change weekly deduction from R' + currentWeekly + ' to:', currentWeekly);
+  if (!newAmount || isNaN(newAmount) || Number(newAmount) <= 0) return;
+  api('updateEntry', { register:'loans', entry: { id:loanId, weeklyDeduction: Number(newAmount) } }).then(function(r) {
+    if (r.ok) {
+      var loan = APP.registers.loans.find(function(l){ return l.id === loanId });
+      if (loan) loan.weeklyDeduction = Number(newAmount);
+      toast('Weekly deduction updated to R' + newAmount, 'success');
+      render();
+    } else toast('Failed: ' + (r.error||''), 'danger');
+  });
 }
 
 function viewReg(title, sub, regKey, modalFn, addLabel) {
