@@ -866,10 +866,18 @@ function updateTopbar() {
 function viewOverview() {
   const activeEmps = APP.employees.filter(e => e.status === 'Active');
   const total = activeEmps.length;
-  const totalWage = activeEmps.reduce((s,e)=>s+(e.weekly_wage||0),0);
+  const _ws = iso(APP.weekStart);
+  const _we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+  const totalWage = activeEmps.reduce((s,e) => {
+    const hr = (e.weekly_wage||0) / 40;
+    const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=_ws && iso(a.date||'')<=_we);
+    const wkHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    return s + (Math.min(wkHrs,40) * hr) + ((satHrs + Math.max(0,wkHrs-40)) * hr * 1.5);
+  }, 0);
   const loans = APP.registers.loans.filter(l => Number(l.outstanding)>0);
   const loanBal = loans.reduce((s,l)=>s+Number(l.outstanding||0),0);
-  const weekStr = fmtDShort(iso(APP.weekStart)) + ' – ' + fmtDShort(iso(new Date(APP.weekStart.getTime() + 6*86400000)));
+  const weekStr = fmtDShort(_ws) + ' – ' + fmtDShort(_we);
   return `
     <div class="greet"><span class="dot"></span>${greeting()}, ${APP.currentUser.name.split(' ')[0]} · ${new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'})}</div>
     <h1 class="hero-h">Dashboard <em>overview</em></h1>
@@ -1229,8 +1237,18 @@ function viewPettyCash() {
 
 function viewPayroll() {
   const active = APP.employees.filter(e=>e.status==='Active');
-  const total = active.reduce((s,e)=>s+(e.weekly_wage||0),0);
   const weekStart = iso(APP.weekStart);
+  const weekEnd = iso(new Date(APP.weekStart.getTime()+6*86400000));
+  // Calculate actual gross from hours worked, not flat wages
+  const total = active.reduce((s,e) => {
+    const hr = (e.weekly_wage||0) / 40;
+    const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=weekStart && iso(a.date||'')<=weekEnd);
+    const wkHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const satHrs = atts.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const ordHrs = Math.min(wkHrs, 40);
+    const otHrs = satHrs + Math.max(0, wkHrs - 40);
+    return s + (ordHrs * hr) + (otHrs * hr * 1.5);
+  }, 0);
   const lastRun = APP._lastPayroll;
   const hasResults = lastRun && lastRun.week && lastRun.week.start === weekStart;
   return `
@@ -1283,11 +1301,15 @@ function viewPayroll() {
       <div class="panel-head"><div><div class="panel-title">Preview — ${active.length} employees</div></div></div>
       <div style="display:flex; flex-direction:column; gap:2px;">
         ${active.map(e => {
-          const wage = e.weekly_wage || 0;
-          const uif = wage * Number(APP.settings.uif_rate||0.01);
+          const hr = (e.weekly_wage||0) / 40;
+          const atts = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=weekStart && iso(a.date||'')<=weekEnd);
+          const wkHrs = atts.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+          const ordHrs = Math.min(wkHrs, 40);
+          const base = ordHrs * hr;
+          const uif = base * Number(APP.settings.uif_rate||0.01);
           return `<div style="display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line);">
-            <div style="flex:1;"><span style="font-weight:600;">${e.full_name}</span> <span style="font-size:11px;color:var(--muted);">${e.pt_code}</span></div>
-            <div class="mono" style="font-size:13px;">${fmtR(wage - uif)}</div>
+            <div style="flex:1;"><span style="font-weight:600;">${e.full_name}</span> <span style="font-size:11px;color:var(--muted);">${e.pt_code} · ${ordHrs.toFixed(1)}h</span></div>
+            <div class="mono" style="font-size:13px;">${fmtR(base - uif)}</div>
           </div>`;
         }).join('')}
       </div>
@@ -1302,24 +1324,26 @@ function viewSignOff() {
   if (!activeSign.length) return '<div class="empty"><h3>No active employees</h3></div>';
   const e = activeSign[signIdx % activeSign.length];
   const done = signSigned.size;
-  // Calculate actual net: wage + OT - UIF - loans - garnishee - dock
-  const wage = e.weekly_wage || 0;
+  // Calculate actual net based on HOURS WORKED, not flat weekly wage
+  const weeklyWage = e.weekly_wage || 0;
+  const hourlyRate = weeklyWage / 40;
   const ws = iso(APP.weekStart);
   const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
   const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
   const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
-  const hourlyRate = wage / 40;
   const dockDeduction = (totalDock / 60) * hourlyRate;
   const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
   const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+  const ordinaryHrs = Math.min(wkdayHrs, 40); // cap at 40 ordinary
   const wkdayOT = Math.max(0, wkdayHrs - 40);
   const otHrs = satHrs + wkdayOT;
+  const basePay = ordinaryHrs * hourlyRate; // ACTUAL hours × rate, not flat wage
   const otPay = otHrs * hourlyRate * 1.5;
   const uifRate = Number(APP.settings.uif_rate || 0.01);
-  const uif = wage * uifRate;
+  const uif = basePay * uifRate;
   const loanDed = APP.registers.loans.filter(l => l.employee===e.pt_code && Number(l.outstanding)>0).reduce((s,l) => s + Number(l.weeklyDeduction||0), 0);
   const garnishee = e.garnishee || 0;
-  const gross = wage + otPay - dockDeduction;
+  const gross = basePay + otPay - dockDeduction;
   const net = gross - uif - loanDed - garnishee;
   return `
     <div style="max-width:520px; margin:0 auto;">
@@ -1338,7 +1362,7 @@ function viewSignOff() {
           <div style="font-family:var(--f-display); font-size:32px; font-weight:700; color:var(--blue-dark); margin-top:4px;">${fmtR(net)}</div>
         </div>
         <div style="font-size:12px; color:var(--muted); margin-bottom:14px; display:grid; grid-template-columns:1fr auto; gap:4px 12px; padding:0 4px;">
-          <span>Base wage</span><span class="mono">${fmtR(wage)}</span>
+          <span>Ordinary (${ordinaryHrs.toFixed(1)}h × ${fmtR(hourlyRate)}/h)</span><span class="mono">${fmtR(basePay)}</span>
           ${otPay > 0 ? `<span>Overtime (${otHrs.toFixed(1)}h)</span><span class="mono" style="color:var(--green);">+${fmtR(otPay)}</span>` : ''}
           ${dockDeduction > 0 ? `<span>Late dock (${totalDock}min)</span><span class="mono" style="color:var(--red);">-${fmtR(dockDeduction)}</span>` : ''}
           <span>UIF (1%)</span><span class="mono" style="color:var(--amber);">-${fmtR(uif)}</span>
@@ -1937,22 +1961,24 @@ function printPaySheet() {
     const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
     const wage = e.weekly_wage || 0;
     const hourlyRate = wage / 40;
+    const ordinaryHrs = Math.min(wkdayHrs, 40);
     const wkdayOT = Math.max(0, wkdayHrs - 40);
     const otHrs = satHrs + wkdayOT;
+    const basePay = ordinaryHrs * hourlyRate;
     const otPay = otHrs * hourlyRate * 1.5;
     const dockDed = (totalDock / 60) * hourlyRate;
-    const uif = wage * uifRate;
+    const uif = basePay * uifRate;
     const loanDed = APP.registers.loans.filter(l => l.employee===e.pt_code && Number(l.outstanding)>0).reduce((s,l) => s + Number(l.weeklyDeduction||0), 0);
     const garnishee = e.garnishee || 0;
-    const gross = wage + otPay - dockDed;
+    const gross = basePay + otPay - dockDed;
     const totalDed = uif + loanDed + garnishee;
     const net = gross - totalDed;
     rows += `<tr>
       <td>${i+1}</td>
-      <td><strong>${e.full_name}</strong><br><small>${e.pt_code}</small></td>
-      <td class="num">${wkdayHrs.toFixed(1)}</td>
+      <td><strong>${e.full_name}</strong><br><small>${e.pt_code} · ${e.occupation||''}</small></td>
+      <td class="num">${ordinaryHrs.toFixed(1)}</td>
       <td class="num">${otHrs > 0 ? otHrs.toFixed(1) : '—'}</td>
-      <td class="num">${fmtR(wage)}</td>
+      <td class="num">${fmtR(basePay)}</td>
       <td class="num">${otPay > 0 ? fmtR(otPay) : '—'}</td>
       <td class="num">${fmtR(gross)}</td>
       <td class="num">${fmtR(totalDed)}</td>
