@@ -1583,6 +1583,7 @@ function modalAttendance(code, date) {
       </div>
     </div>
     <div class="modal-foot">
+      ${a.id ? `<button class="btn" onclick="deleteAttendance('${a.id}');closeModal();" style="color:var(--red);">Delete</button>` : '<div></div>'}
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn primary" onclick="saveAttendance('${code}','${date}','${a.id||''}')">Save</button>
     </div>`, () => {
@@ -1591,6 +1592,16 @@ function modalAttendance(code, date) {
       document.getElementById('a_notes').value = a.notes || '';
     });
 }
+async function deleteAttendance(id) {
+  if (!confirm('Delete this attendance entry?')) return;
+  var r = await api('deleteEntry', { register:'attendance', id:id });
+  if (r.ok) {
+    APP.registers.attendance = APP.registers.attendance.filter(function(a){ return a.id !== id });
+    toast('Deleted','success');
+    renderSidebar(); render();
+  } else toast('Delete failed','danger');
+}
+
 async function saveAttendance(code, date, existingId) {
   // #16 Duplicate guard — if another entry for same emp+date exists, reuse its id
   if (!existingId) {
