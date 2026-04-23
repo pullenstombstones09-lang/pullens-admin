@@ -404,6 +404,24 @@ label.form-label { display:block; font-size:12px; font-weight:700; color:var(--m
 .empty-ico { width:64px; height:64px; margin:0 auto 14px; border-radius:50%; background:var(--blue-soft); color:var(--blue); display:grid; place-items:center; font-size:26px; font-weight:700; }
 .empty h3 { font-family:var(--f-display); font-size:20px; font-weight:700; margin-bottom:6px; }
 .empty p { color:var(--muted); max-width:420px; margin:0 auto 20px; font-size:14px; }
+
+/* ============ PRINT ============ */
+@media print {
+  body, .app { background:#fff !important; }
+  .sidebar, .sb-backdrop, .topbar, .bottom-bar, .modal-bg, .loading-screen, .no-print { display:none !important; }
+  .main { margin:0; padding:0; }
+  .content { padding:0; max-width:100%; }
+  .print-sheet { display:block !important; }
+}
+.print-sheet { display:none; }
+.print-table { width:100%; border-collapse:collapse; font-size:11px; font-family:'Inter Tight',sans-serif; }
+.print-table th, .print-table td { border:1px solid #333; padding:6px 8px; text-align:left; }
+.print-table th { background:#eee; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; }
+.print-table .num { text-align:right; font-family:'JetBrains Mono',monospace; }
+.print-table .sig-cell { width:120px; min-height:40px; }
+.print-header { text-align:center; margin-bottom:16px; }
+.print-header h2 { font-family:Georgia,serif; font-size:18px; margin:0; }
+.print-header p { font-size:12px; color:#666; margin:4px 0 0; }
 </style>
 </head>
 <body>
@@ -1260,7 +1278,10 @@ function viewPayroll() {
         </table>
       </div>
     </div>
-    <div class="helper-text" style="margin-top:12px;">PDFs saved to each employee payslips folder in Drive. Print from PC.</div>
+    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+      <button class="btn" onclick="printPaySheet()">🖨 Print pay sheet (signatures)</button>
+      <button class="btn" onclick="printAttendanceSheet()">🖨 Print attendance register</button>
+    </div>
     ` : `
     <div class="panel" style="margin-top:14px;">
       <div class="panel-head"><div><div class="panel-title">Preview — ${active.length} employees</div></div></div>
@@ -1901,6 +1922,129 @@ async function runPayroll() {
   const r = await api('runPayroll', { weekStart: ws });
   if (r.ok) { APP._lastPayroll = r.data; toast(`✓ ${r.data.results.length} payslips · Net ${fmtR(r.data.total)}`,'success'); render(); }
   else toast('Payroll failed: '+(r.error||''), 'danger');
+}
+
+/* ============================================================
+   PRINT SHEETS
+   ============================================================ */
+function printPaySheet() {
+  const ws = iso(APP.weekStart);
+  const we = iso(new Date(APP.weekStart.getTime()+6*86400000));
+  const weekLabel = fmtDShort(ws) + ' – ' + fmtDShort(we);
+  const active = APP.employees.filter(e => e.status === 'Active');
+  const uifRate = Number(APP.settings.uif_rate || 0.01);
+  let rows = '';
+  active.forEach((e, i) => {
+    const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
+    const satHrs = weekAtt.filter(a => isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const wkdayHrs = weekAtt.filter(a => !isSaturday(iso(a.date||''))).reduce((s,a) => s + Number(a.hoursWorked||0), 0);
+    const totalDock = weekAtt.reduce((s,a) => s + Number(a.dockMinutes||0), 0);
+    const wage = e.weekly_wage || 0;
+    const hourlyRate = wage / 40.25;
+    const wkdayOT = Math.max(0, wkdayHrs - 40.25);
+    const otHrs = satHrs + wkdayOT;
+    const otPay = otHrs * hourlyRate * 1.5;
+    const dockDed = (totalDock / 60) * hourlyRate;
+    const uif = wage * uifRate;
+    const loanDed = APP.registers.loans.filter(l => l.employee===e.pt_code && Number(l.outstanding)>0).reduce((s,l) => s + Number(l.weeklyDeduction||0), 0);
+    const garnishee = e.garnishee || 0;
+    const gross = wage + otPay - dockDed;
+    const totalDed = uif + loanDed + garnishee;
+    const net = gross - totalDed;
+    rows += `<tr>
+      <td>${i+1}</td>
+      <td><strong>${e.full_name}</strong><br><small>${e.pt_code}</small></td>
+      <td class="num">${wkdayHrs.toFixed(1)}</td>
+      <td class="num">${otHrs > 0 ? otHrs.toFixed(1) : '—'}</td>
+      <td class="num">${fmtR(wage)}</td>
+      <td class="num">${otPay > 0 ? fmtR(otPay) : '—'}</td>
+      <td class="num">${fmtR(gross)}</td>
+      <td class="num">${fmtR(totalDed)}</td>
+      <td class="num"><strong>${fmtR(net)}</strong></td>
+      <td class="sig-cell"></td>
+    </tr>`;
+  });
+  const totalNet = active.reduce((s,e) => {
+    const weekAtt = APP.registers.attendance.filter(a => a.employee===e.pt_code && iso(a.date||'')>=ws && iso(a.date||'')<=we);
+    const w = e.weekly_wage||0; const hr = w/40.25;
+    const sat = weekAtt.filter(a=>isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
+    const wk = weekAtt.filter(a=>!isSaturday(iso(a.date||''))).reduce((s,a)=>s+Number(a.hoursWorked||0),0);
+    const ot = (sat+Math.max(0,wk-40.25))*hr*1.5;
+    const dk = weekAtt.reduce((s,a)=>s+Number(a.dockMinutes||0),0)/60*hr;
+    const g = w+ot-dk;
+    const d = w*uifRate + APP.registers.loans.filter(l=>l.employee===e.pt_code&&Number(l.outstanding)>0).reduce((s,l)=>s+Number(l.weeklyDeduction||0),0) + (e.garnishee||0);
+    return s+(g-d);
+  }, 0);
+  const printWin = window.open('','_blank');
+  printWin.document.write(`<!DOCTYPE html><html><head><title>Pay Sheet – ${weekLabel}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+      h2 { font-family: Georgia, serif; text-align: center; margin: 0 0 4px; }
+      .sub { text-align: center; color: #666; font-size: 11px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #333; padding: 5px 6px; }
+      th { background: #eee; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; }
+      .num { text-align: right; font-family: monospace; }
+      .sig-cell { width: 110px; min-height: 36px; }
+      .total td { background: #e8f0fe; font-weight: bold; }
+      .footer { margin-top: 24px; font-size: 10px; color: #666; display: flex; justify-content: space-between; }
+    </style>
+  </head><body>
+    <h2>Pullen's Tombstones — Weekly Pay Sheet</h2>
+    <div class="sub">Week: ${weekLabel} · Prepared by: ${APP.currentUser.name} · Date: ${new Date().toLocaleDateString('en-ZA')}</div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Employee</th><th>Hrs</th><th>OT</th><th>Base</th><th>OT Pay</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Signature</th>
+      </tr></thead>
+      <tbody>${rows}
+        <tr class="total"><td colspan="8" style="text-align:right;">TOTAL NET</td><td class="num">${fmtR(totalNet)}</td><td></td></tr>
+      </tbody>
+    </table>
+    <div class="footer"><span>Authorised: ____________________</span><span>Date: ____________________</span></div>
+  </body></html>`);
+  printWin.document.close();
+  printWin.print();
+}
+
+function printAttendanceSheet() {
+  const ws = iso(APP.weekStart);
+  const days = weekDays(APP.weekStart);
+  const weekLabel = fmtDShort(ws) + ' – ' + fmtDShort(iso(new Date(APP.weekStart.getTime()+6*86400000)));
+  const active = APP.employees.filter(e => e.status === 'Active');
+  let rows = '';
+  active.forEach((e, i) => {
+    let cells = '';
+    days.forEach(d => {
+      const a = APP.registers.attendance.find(att => att.employee===e.pt_code && iso(att.date||'')===d.date);
+      const tIn = a ? normTime(a.timeIn) || '—' : '—';
+      const tOut = a ? normTime(a.timeOut) || '—' : '—';
+      const st = a ? (a.status==='p'?'P':a.status==='late'?'L':a.status==='a'?'A':a.status==='leave'?'LV':'—') : '';
+      cells += `<td style="text-align:center; font-size:10px;">${st}<br><small>${tIn}</small></td>`;
+    });
+    rows += `<tr><td>${i+1}</td><td>${e.full_name}<br><small>${e.pt_code}</small></td>${cells}<td class="sig-cell"></td></tr>`;
+  });
+  const printWin = window.open('','_blank');
+  printWin.document.write(`<!DOCTYPE html><html><head><title>Attendance – ${weekLabel}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 11px; margin: 15px; }
+      h2 { font-family: Georgia, serif; text-align: center; margin: 0 0 4px; }
+      .sub { text-align: center; color: #666; font-size: 11px; margin-bottom: 12px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #333; padding: 4px 5px; }
+      th { background: #eee; font-size: 9px; text-transform: uppercase; }
+      .sig-cell { width: 80px; min-height: 30px; }
+      small { color: #666; }
+    </style>
+  </head><body>
+    <h2>Pullen's Tombstones — Weekly Attendance Register</h2>
+    <div class="sub">Week: ${weekLabel} · ${active.length} employees</div>
+    <table>
+      <thead><tr><th>#</th><th>Employee</th>${days.map(d => `<th>${d.label}</th>`).join('')}<th>Sign</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </body></html>`);
+  printWin.document.close();
+  printWin.print();
 }
 
 /* ============================================================
