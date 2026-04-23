@@ -1024,35 +1024,42 @@ function jumpToToday() {
 async function markAllPresent(date) {
   if (!confirm('Mark all active employees as Present for ' + fmtD(date) + '?')) return;
   toast('Marking all present...', 'success');
-  const active = APP.employees.filter(e => e.status === 'Active');
-  const toMark = active.filter(e => {
-    const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
+  var active = APP.employees.filter(function(e){ return e.status === 'Active' });
+  var toMark = active.filter(function(e){
+    var existing = APP.registers.attendance.find(function(a){ return a.employee === e.pt_code && iso(a.date||'') === date });
     return !existing || (existing.status !== 'p' && existing.status !== 'late');
   });
-  // Send in batches of 5 to avoid overloading Apps Script
-  for (let i = 0; i < toMark.length; i += 5) {
-    const batch = toMark.slice(i, i + 5);
-    const results = await Promise.all(batch.map(e => {
-      const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
-      const entry = {
-        ...(existing ? {id: existing.id} : {}),
-        date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: ''
-      };
-      return api(existing ? 'updateEntry' : 'addEntry', { register: 'attendance', entry });
-    }));
-    results.forEach((r, j) => {
-      if (!r || !r.ok) return;
-      const e = batch[j];
-      const existing = APP.registers.attendance.find(a => a.employee === e.pt_code && iso(a.date||'') === date);
-      if (existing) {
-        Object.assign(existing, { status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0 });
+  var failed = [];
+  // Send one at a time to avoid overloading Apps Script
+  for (var i = 0; i < toMark.length; i++) {
+    var e = toMark[i];
+    toast('Marking ' + (i+1) + '/' + toMark.length + ' — ' + e.full_name, 'success');
+    var existing = APP.registers.attendance.find(function(a){ return a.employee === e.pt_code && iso(a.date||'') === date });
+    var entry = {
+      date: date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: ''
+    };
+    if (existing) entry.id = existing.id;
+    var action = existing ? 'updateEntry' : 'addEntry';
+    try {
+      var r = await api(action, { register: 'attendance', entry: entry });
+      if (r && r.ok) {
+        if (existing) {
+          Object.assign(existing, { status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0 });
+        } else {
+          APP.registers.attendance.push({ id: (r.data ? r.data.id : null) || uid(), date: date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: '' });
+        }
       } else {
-        APP.registers.attendance.push({ id: (r.data?r.data.id:null) || uid(), date, employee: e.pt_code, status: 'p', timeIn: '08:00', timeOut: '17:00', hoursWorked: 8.25, lateMinutes: 0, notes: '' });
+        failed.push(e.full_name);
       }
-    });
-    toast(`Marking... ${Math.min(i+5, toMark.length)}/${toMark.length}`, 'success');
+    } catch(err) {
+      failed.push(e.full_name);
+    }
   }
-  toast('All marked present', 'success');
+  if (failed.length > 0) {
+    toast('Done but ' + failed.length + ' failed: ' + failed.join(', '), 'danger');
+  } else {
+    toast('All ' + toMark.length + ' marked present', 'success');
+  }
   renderSidebar(); render();
 }
 async function quickTick(code, date) {
