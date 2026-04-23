@@ -489,28 +489,41 @@ document.documentElement.setAttribute('data-theme', APP.theme);
 /* ============================================================
    HELPERS
    ============================================================ */
-// Normalise Sheets epoch times (1899-12-30T06:30:00.000Z) → "HH:mm" SAST
+// Normalise Sheets time values → "HH:mm" SAST
 function normTime(v) {
-  if (!v) return '';
-  if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return v; // already HH:mm
-  if (typeof v === 'string' && v.includes('1899-12-30')) {
-    const d = new Date(v);
+  if (!v && v !== 0) return '';
+  // Already HH:mm
+  if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return v;
+  // Sheets serial fraction (0.354166 = 08:30 UTC)
+  if (typeof v === 'number' && v >= 0 && v < 1) {
+    const totalMin = Math.round(v * 24 * 60) + 120; // +120 for SAST
+    const h = Math.floor(totalMin / 60) % 24;
+    const m = totalMin % 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  // Bare number like 830 or 1700
+  if (typeof v === 'number' && v >= 100 && v <= 2359) {
+    const h = Math.floor(v / 100);
+    const m = v % 100;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  const s = String(v);
+  // String like "830" or "1700" (no colon)
+  if (/^\d{3,4}$/.test(s)) {
+    const h = s.length === 3 ? s[0] : s.slice(0,2);
+    const m = s.length === 3 ? s.slice(1) : s.slice(2);
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  // Sheets epoch datetime (1899-12-30T06:30:00.000Z)
+  if (s.includes('1899-12-30') || s.includes('T')) {
+    const d = new Date(s);
     if (!isNaN(d)) {
-      let h = d.getUTCHours() + 2; // UTC → SAST (+2)
+      let h = d.getUTCHours() + 2; // UTC → SAST
       if (h >= 24) h -= 24;
       return String(h).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
     }
   }
-  // Try parsing any ISO datetime for time portion
-  if (typeof v === 'string' && v.includes('T')) {
-    const m = v.match(/T(\d{2}):(\d{2})/);
-    if (m) {
-      let h = parseInt(m[1]) + 2; // UTC → SAST
-      if (h >= 24) h -= 24;
-      return String(h).padStart(2,'0') + ':' + m[2];
-    }
-  }
-  return String(v);
+  return s;
 }
 const fmtR = n => n == null || isNaN(n) ? '—' : 'R\u00A0' + Number(n).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtD = d => d ? new Date(d).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—';
