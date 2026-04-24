@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
@@ -363,7 +361,15 @@ function Row({
 
 // ---------- main page ----------
 
-export default function PayslipViewerPage() {
+export default function PayslipViewerPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C4A35A]" /></div>}>
+      <PayslipViewerPage />
+    </Suspense>
+  );
+}
+
+function PayslipViewerPage() {
   const { user } = useAuth();
   const supabase = createClient();
   const { toast } = useToast();
