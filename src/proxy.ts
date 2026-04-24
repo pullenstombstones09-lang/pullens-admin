@@ -10,6 +10,7 @@ export async function proxy(request: NextRequest) {
     pathname === '/login' ||
     pathname === '/test' ||
     pathname === '/test2' ||
+    pathname === '/test3' ||
     pathname.startsWith('/api/auth/') ||
     pathname === '/api/seed'
   ) {
