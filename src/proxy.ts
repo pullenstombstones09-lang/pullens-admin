@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
   // Allow public routes through without auth check
   if (
     pathname === '/login' ||
+    pathname === '/test' ||
     pathname.startsWith('/api/auth/') ||
     pathname === '/api/seed'
   ) {
