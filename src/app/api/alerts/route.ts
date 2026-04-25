@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export interface AlertItem {
   id: string;
@@ -35,7 +35,11 @@ function makeId(type: string, entityId: string): string {
 
 export async function GET() {
   try {
-    const supabase = await createServerSupabase();
+    // Use service role to bypass RLS (auth is temporarily bypassed)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     const alerts: AlertItem[] = [];
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -447,7 +451,7 @@ export async function GET() {
     if (dayOfWeek === 3) {
       // Wednesday
       const { data: openOuts } = await supabase
-        .from('petty_cash_out')
+        .from('petty_cash_outs')
         .select('id, recipient_employee_id, recipient_name_freetext, amount, status')
         .in('status', ['open', 'partial']);
 
@@ -472,10 +476,10 @@ export async function GET() {
     // ─── 15: Tin variance (3+ days) ───
     // Compare expected tin balance vs actual (simplified: sum ins - sum outs)
     const { data: cashIns } = await supabase
-      .from('petty_cash_in')
+      .from('petty_cash_ins')
       .select('amount');
     const { data: cashOuts } = await supabase
-      .from('petty_cash_out')
+      .from('petty_cash_outs')
       .select('amount');
 
     const totalIn = (cashIns || []).reduce((s, r) => s + r.amount, 0);

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -10,36 +11,35 @@ export async function GET() {
   const today = new Date().toISOString().split('T')[0];
 
   // Run queries in parallel
-  const [employeesRes, attendanceRes, pettyCashInsRes, pettyCashOutsRes, alertsRes, announcementsRes] = await Promise.all([
-    // Total active employees
+  const [employeesRes, attendanceRes, pettyCashInsRes, pettyCashOutsRes, announcementsRes] = await Promise.all([
     supabase.from('employees').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-
-    // Today's attendance (present)
     supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('date', today).in('status', ['present', 'late']),
-
-    // Petty cash total in
     supabase.from('petty_cash_ins').select('amount'),
-
-    // Petty cash total out (only approved)
     supabase.from('petty_cash_outs').select('amount').eq('status', 'approved'),
-
-    // Unread/pending alerts
-    supabase.from('audit_log').select('id', { count: 'exact', head: true }).eq('acknowledged', false),
-
-    // Recent announcements
     supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(5),
   ]);
 
   const totalStaff = employeesRes.count || 0;
   const staffPresent = attendanceRes.count || 0;
 
-  // Calculate petty cash balance
   const totalIn = (pettyCashInsRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
   const totalOut = (pettyCashOutsRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
   const pettyCashBalance = totalIn - totalOut;
 
-  const alertCount = alertsRes.count || 0;
   const announcements = announcementsRes.data || [];
+
+  // Fetch alert count from the alerts API (same origin)
+  let alertCount = 0;
+  try {
+    const origin = new URL(request.url).origin;
+    const alertsRes = await fetch(`${origin}/api/alerts`);
+    if (alertsRes.ok) {
+      const alertsData = await alertsRes.json();
+      alertCount = Array.isArray(alertsData) ? alertsData.length : 0;
+    }
+  } catch {
+    // Alerts fetch failed, leave at 0
+  }
 
   return NextResponse.json({
     totalStaff,
