@@ -59,14 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check current session on mount
     const initAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        }
+      } catch (err) {
+        console.error('[AuthProvider] initAuth failed:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();

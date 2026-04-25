@@ -1,4 +1,5 @@
-import { createServiceRoleSupabase, createServerSupabase } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
@@ -12,8 +13,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Look up user by name using service role (bypasses RLS)
-    const serviceSupabase = await createServiceRoleSupabase();
+    const cookieStore = await cookies();
+
+    // Service role client to look up user (bypasses RLS)
+    const serviceSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll() { /* service role — no cookies needed */ },
+        },
+      }
+    );
+
     const { data: user, error: lookupError } = await serviceSupabase
       .from('users')
       .select('*')
@@ -37,9 +50,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Sign in via Supabase Auth using synthetic email + PIN as password
+    // Sign in via Supabase Auth — collect cookies to set on response
     const email = `${name.toLowerCase().replace(/\s+/g, '.')}@pullens.local`;
-    const supabase = await createServerSupabase();
+    const responseCookies: { name: string; value: string; options: Record<string, unknown> }[] = [];
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll(cookiesToSet) {
+            responseCookies.push(...cookiesToSet);
+          },
+        },
+      }
+    );
+
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
         email,
@@ -53,28 +80,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if forced PIN change is required
-    if (user.force_pin_change) {
-      return Response.json({
-        forceChange: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          role: user.role,
-        },
-        session: authData.session,
-      });
+    // Build response with auth cookies baked in
+    const body = user.force_pin_change
+      ? {
+          forceChange: true,
+          user: { id: user.id, name: user.name, role: user.role },
+        }
+      : {
+          user: { id: user.id, name: user.name, role: user.role, perms: user.perms },
+        };
+
+    const response = Response.json(body);
+
+    // Set each Supabase auth cookie on the response
+    for (const { name: cName, value, options } of responseCookies) {
+      const parts = [`${cName}=${value}`];
+      if (options.path) parts.push(`Path=${options.path}`);
+      if (options.maxAge) parts.push(`Max-Age=${options.maxAge}`);
+      if (options.httpOnly) parts.push('HttpOnly');
+      if (options.secure) parts.push('Secure');
+      if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+      response.headers.append('Set-Cookie', parts.join('; '));
     }
 
-    return Response.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        perms: user.perms,
-      },
-      session: authData.session,
-    });
+    return response;
   } catch {
     return Response.json(
       { error: 'Internal server error' },

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
-import { hasPermission, getNavItems } from "@/lib/permissions";
+import { getNavItems } from "@/lib/permissions";
 import { ToastProvider } from "@/components/ui/toast";
 import { AlertBadge } from "@/components/alert-badge";
 import {
@@ -44,11 +44,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const navItems = getNavItems(user.role);
 
-  // Alert count is now driven by the AlertBadge component
-
   return (
     <div className="flex h-full flex-col">
-      {/* Logo area */}
       <div className="px-6 py-6">
         <h1 className="text-xl font-black tracking-wide text-white leading-none">
           PULLENS ADMIN
@@ -58,10 +55,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </p>
       </div>
 
-      {/* Divider */}
       <div className="mx-4 h-px bg-white/10" />
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-1">
           {navItems.map((item) => {
@@ -91,10 +86,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </ul>
       </nav>
 
-      {/* Divider */}
       <div className="mx-4 h-px bg-white/10" />
 
-      {/* User info + logout */}
       <div className="px-4 py-4">
         <div className="mb-3">
           <p className="text-sm font-medium text-white truncate">{user.name}</p>
@@ -122,13 +115,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { loading } = useAuth();
 
-  // Close sidebar on route change (mobile)
   const pathname = usePathname();
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
 
-  // Close on escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setSidebarOpen(false);
@@ -169,7 +160,6 @@ function DashboardShell({ children }: { children: ReactNode }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Close button */}
         <button
           onClick={() => setSidebarOpen(false)}
           className="absolute right-3 top-5 rounded-lg p-2 text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
