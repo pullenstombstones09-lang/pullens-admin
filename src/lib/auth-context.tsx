@@ -3,12 +3,10 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   useCallback,
   type ReactNode,
 } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import type { UserRole } from '@/types/database';
 
 export interface AuthUser {
@@ -31,73 +29,18 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [supabase] = useState(() => createClient());
-
-  const fetchUserProfile = useCallback(
-    async (userId: string) => {
-      const { data } = await supabase
-        .from('users')
-        .select('id, name, role')
-        .eq('id', userId)
-        .single();
-
-      if (data) {
-        setUser({
-          id: data.id,
-          name: data.name,
-          role: data.role as UserRole,
-        });
-      } else {
-        setUser(null);
-      }
-    },
-    [supabase]
-  );
-
-  useEffect(() => {
-    // Check current session on mount
-    const initAuth = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        }
-      } catch (err) {
-        console.error('[AuthProvider] initAuth failed:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase, fetchUserProfile]);
+  // TODO: Replace with real auth once login flow is fixed
+  // Temporarily hardcode Annika as user to test dashboard features
+  const [user] = useState<AuthUser | null>({
+    id: 'temp-annika',
+    name: 'Annika',
+    role: 'head_admin' as UserRole,
+  });
+  const [loading] = useState(false);
 
   const logout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    await supabase.auth.signOut();
-    setUser(null);
     window.location.href = '/login';
-  }, [supabase]);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, logout }}>
