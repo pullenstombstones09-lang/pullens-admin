@@ -16,6 +16,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 function StatCard({
   icon,
@@ -53,36 +54,33 @@ function StatCard({
   );
 }
 
+interface DashboardStats {
+  totalStaff: number;
+  staffPresent: number;
+  pettyCashBalance: number;
+  alertCount: number;
+  announcements: { id: string; title: string; body: string; created_at: string }[];
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/dashboard")
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, []);
 
   const today = new Date();
   const formattedDate = formatDate(today);
 
-  // TODO: Replace with real data from Supabase
-  const stats = {
-    staffPresent: 34,
-    totalStaff: 40,
-    alertCount: 3,
-    pettyCashBalance: 4250.0,
-    nextPayrollDate: "2026-04-27",
-  };
-
-  // TODO: Replace with real announcements from DB
-  const announcements = [
-    {
-      id: "1",
-      title: "Public holiday: Freedom Day",
-      body: "Monday 27 April is a public holiday. Normal pay rules apply for anyone working.",
-      created_at: "2026-04-22T08:00:00Z",
-    },
-    {
-      id: "2",
-      title: "PPE inspection this Friday",
-      body: "All workshop staff must have boots and gloves available for inspection.",
-      created_at: "2026-04-21T14:30:00Z",
-    },
-  ];
+  const totalStaff = stats?.totalStaff ?? 0;
+  const staffPresent = stats?.staffPresent ?? 0;
+  const pettyCashBalance = stats?.pettyCashBalance ?? 0;
+  const alertCount = stats?.alertCount ?? 0;
+  const announcements = stats?.announcements ?? [];
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -99,21 +97,21 @@ export default function DashboardPage() {
         <StatCard
           icon={<Users className="h-6 w-6" />}
           label="Staff present today"
-          value={`${stats.staffPresent}/${stats.totalStaff}`}
-          subtext={`${Math.round((stats.staffPresent / stats.totalStaff) * 100)}% attendance`}
+          value={`${staffPresent}/${totalStaff}`}
+          subtext={totalStaff > 0 ? `${Math.round((staffPresent / totalStaff) * 100)}% attendance` : "Loading..."}
           accentColor="#10B981"
         />
         <StatCard
           icon={<Bell className="h-6 w-6" />}
           label="Outstanding alerts"
-          value={stats.alertCount}
+          value={alertCount}
           subtext="Requires attention"
           accentColor="#EF4444"
         />
         <StatCard
           icon={<Wallet className="h-6 w-6" />}
           label="Petty cash tin"
-          value={formatCurrency(stats.pettyCashBalance)}
+          value={formatCurrency(pettyCashBalance)}
           subtext="Current balance"
           accentColor="#C4A35A"
         />
@@ -121,7 +119,7 @@ export default function DashboardPage() {
           icon={<CalendarClock className="h-6 w-6" />}
           label="Payroll status"
           value="On track"
-          subtext={`Next run: ${formatDate(stats.nextPayrollDate)}`}
+          subtext="Next run: Friday"
           accentColor="#6366F1"
         />
       </div>
