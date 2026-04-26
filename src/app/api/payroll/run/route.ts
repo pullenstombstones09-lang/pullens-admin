@@ -115,11 +115,12 @@ export async function POST(request: Request) {
     }
 
     // 6. Run payroll calculation for each employee
-    // Determine if this is the last pay week of the month (for garnishee)
-    const weekEndDate = new Date(week_end);
-    const nextWeekEnd = new Date(weekEndDate);
-    nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-    const isLastWeekOfMonth = weekEndDate.getMonth() !== nextWeekEnd.getMonth();
+    // Garnishee only deducts when the pay week contains the last day of the month
+    const wsDate = new Date(week_start + 'T00:00:00');
+    const weDate = new Date(week_end + 'T00:00:00');
+    // Last day of the month that week_start falls in
+    const lastDayOfMonth = new Date(wsDate.getFullYear(), wsDate.getMonth() + 1, 0);
+    const isLastWeekOfMonth = lastDayOfMonth >= wsDate && lastDayOfMonth <= weDate;
 
     const results: PayrollResult[] = [];
     let totalGross = 0;
