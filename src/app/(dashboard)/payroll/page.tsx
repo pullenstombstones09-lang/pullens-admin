@@ -69,10 +69,9 @@ export default function PayrollPage() {
   const supabase = createClient();
   const { toast } = useToast();
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [useCustomDates, setUseCustomDates] = useState(false);
+  const initWeek = getCurrentWeek(0);
+  const [customStart, setCustomStart] = useState(initWeek.weekStart);
+  const [customEnd, setCustomEnd] = useState(initWeek.weekEnd);
   const [calculating, setCalculating] = useState(false);
   const [generatingSlips, setGeneratingSlips] = useState(false);
   const [results, setResults] = useState<PayrollResult[] | null>(null);
@@ -81,9 +80,8 @@ export default function PayrollPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
 
-  const defaultWeek = getCurrentWeek(weekOffset);
-  const weekStart = useCustomDates && customStart ? customStart : defaultWeek.weekStart;
-  const weekEnd = useCustomDates && customEnd ? customEnd : defaultWeek.weekEnd;
+  const weekStart = customStart;
+  const weekEnd = customEnd;
   const canRun = user ? hasPermission(user.role, 'run_payroll') : false;
   const canApprove = user ? hasPermission(user.role, 'approve_payroll') : false;
 
@@ -213,7 +211,7 @@ export default function PayrollPage() {
           Payroll
         </h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          Weekly payroll processing &mdash; Friday to Thursday
+          Weekly payroll processing &mdash; select your pay week dates
         </p>
       </div>
 
@@ -227,64 +225,53 @@ export default function PayrollPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setWeekOffset((w) => w - 1)}
+                onClick={() => {
+                  const s = new Date(customStart + 'T00:00:00');
+                  const e = new Date(customEnd + 'T00:00:00');
+                  s.setDate(s.getDate() - 7);
+                  e.setDate(e.getDate() - 7);
+                  setCustomStart(toDateString(s));
+                  setCustomEnd(toDateString(e));
+                }}
                 className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <div className="text-center min-w-[200px]">
-                <p className="text-sm font-semibold text-[#1A1A2E]">
-                  {weekLabel(weekStart, weekEnd)}
-                </p>
-                <button
-                  onClick={() => setUseCustomDates(!useCustomDates)}
-                  className="text-xs text-[#C4A35A] hover:underline mt-0.5"
-                >
-                  {useCustomDates ? 'Use standard weeks' : 'Pick custom dates'}
-                </button>
-              </div>
-              <button
-                onClick={() => setWeekOffset((w) => w + 1)}
-                className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
 
-            {useCustomDates && (
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500">From</label>
                 <input
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
                 />
-                <label className="text-xs text-gray-500">To</label>
+                <span className="text-gray-400">–</span>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
                 />
               </div>
-            )}
+
+              <button
+                onClick={() => {
+                  const s = new Date(customStart + 'T00:00:00');
+                  const e = new Date(customEnd + 'T00:00:00');
+                  s.setDate(s.getDate() + 7);
+                  e.setDate(e.getDate() + 7);
+                  setCustomStart(toDateString(s));
+                  setCustomEnd(toDateString(e));
+                }}
+                className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
 
             {canRun && (
               <Button
