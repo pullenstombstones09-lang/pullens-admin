@@ -8,7 +8,7 @@ import { LOGO_BASE64 } from './logo-base64';
 
 const COLORS = {
   dark: '#1A1A2E',
-  gold: '#C4A35A',
+  gold: '#2563EB',
   grey: '#666666',
   lightGrey: '#999999',
   lineGrey: '#DDDDDD',
@@ -35,7 +35,7 @@ function addHeader(doc: jsPDF, title: string, subtitle?: string) {
   // White header with logo
   // Logo: aspect ratio ~2.08:1 (2254x1084), display at ~50x24mm
   try {
-    doc.addImage(LOGO_BASE64, 'JPEG', 12, 5, 50, 24);
+    doc.addImage(LOGO_BASE64, 'JPEG', 10, 4, 55, 26);
   } catch {
     // Fallback if image fails
     doc.setFont('helvetica', 'bold');
@@ -57,7 +57,7 @@ function addHeader(doc: jsPDF, title: string, subtitle?: string) {
   }
 
   // Gold line under header
-  doc.setDrawColor(196, 163, 90);
+  doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.8);
   doc.line(12, 32, 198, 32);
 
@@ -113,7 +113,7 @@ function sectionTitle(doc: jsPDF, y: number, title: string): number {
   doc.setFontSize(10);
   doc.setTextColor(26, 26, 46);
   doc.text(title, 15, y);
-  doc.setDrawColor(196, 163, 90);
+  doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.4);
   doc.line(15, y + 1.5, 195, y + 1.5);
   return y + 8;
@@ -457,7 +457,7 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   }
 
   // Gross line
-  doc.setDrawColor(196, 163, 90);
+  doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.4);
   doc.line(15, y + 1, 195, y + 1);
   doc.setFont('helvetica', 'bold');
@@ -518,7 +518,7 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   y += 8;
 
   // NET PAY — highlight box
-  doc.setFillColor(196, 163, 90);
+  doc.setFillColor(37, 99, 235);
   doc.roundedRect(15, y, 180, 16, 2, 2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
