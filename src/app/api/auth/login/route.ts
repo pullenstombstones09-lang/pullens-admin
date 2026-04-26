@@ -33,7 +33,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=User+not+found', request.url));
   }
 
-  const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  // Role-based landing page
+  const landingPage = user.role === 'admin' ? '/register'
+    : user.role === 'petty_cash' ? '/petty-cash'
+    : user.role === 'bookkeeper' ? '/payroll'
+    : '/dashboard';
+
+  const response = NextResponse.redirect(new URL(landingPage, request.url));
 
   response.cookies.set('pullens-user', JSON.stringify({
     id: user.id,

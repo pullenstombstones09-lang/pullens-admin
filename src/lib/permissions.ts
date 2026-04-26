@@ -4,7 +4,7 @@ import { UserRole } from '@/types/database';
 
 export const PERMISSIONS = {
   // Staff list & profiles
-  view_staff_list: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
+  view_staff_list: ['head_admin', 'head_of_admin', 'head_of_sales'],
   edit_employee: ['head_admin', 'head_of_admin', 'head_of_sales'],
 
   // Register (attendance)
