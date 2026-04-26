@@ -1,14 +1,7 @@
-import { createServerSupabase } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export async function POST() {
-  try {
-    const supabase = await createServerSupabase();
-    await supabase.auth.signOut();
-    return Response.json({ success: true });
-  } catch {
-    return Response.json(
-      { error: 'Failed to sign out' },
-      { status: 500 }
-    );
-  }
+  const cookieStore = await cookies();
+  cookieStore.set('pullens-user', '', { path: '/', maxAge: 0 });
+  return Response.json({ success: true });
 }

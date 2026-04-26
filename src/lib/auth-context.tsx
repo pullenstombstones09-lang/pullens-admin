@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   useCallback,
   type ReactNode,
 } from 'react';
@@ -28,16 +29,34 @@ const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
 });
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Auth disabled — hardcode Annika as default user
-  const [user] = useState<AuthUser>({
-    id: '8382580b-0dd4-4aad-b77c-9d2be6ca1c5d',
-    name: 'Annika',
-    role: 'head_admin' as UserRole,
-  });
-  const [loading] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const raw = getCookie('pullens-user');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setUser({
+          id: parsed.id,
+          name: parsed.name,
+          role: parsed.role as UserRole,
+        });
+      } catch {
+        setUser(null);
+      }
+    }
+    setLoading(false);
+  }, []);
 
   const logout = useCallback(async () => {
+    document.cookie = 'pullens-user=; path=/; max-age=0';
     window.location.href = '/login';
   }, []);
 
