@@ -357,7 +357,7 @@ export default function PayrollPage() {
               </div>
               {/* Running total bar */}
               {totals && (
-                <div className="sticky top-0 z-10 rounded-lg bg-[#1A1A2E] px-4 py-3 text-white shadow-md">
+                <div className="sticky top-0 z-10 rounded-lg bg-[#1A1A2E] px-4 py-3 text-white shadow-md print-hide">
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                     <div>
                       <span className="text-gray-400 text-xs">Gross</span>
@@ -387,37 +387,37 @@ export default function PayrollPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-[#1A1A2E] text-white">
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">
                         PT
                       </th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">
                         Name
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Ord Hrs
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         OT Hrs
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Gross
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Late
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         UIF
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         PAYE
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Loan
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Garni
                       </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
+                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
                         Petty
                       </th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
@@ -437,7 +437,7 @@ export default function PayrollPage() {
                             !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
                           )}
                         >
-                          <td className="px-3 py-2 font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 font-mono text-xs text-gray-500">
                             {r.pt_code}
                           </td>
                           <td className="px-3 py-2 font-medium text-[#333] whitespace-nowrap">
@@ -446,35 +446,35 @@ export default function PayrollPage() {
                               <AlertTriangle className="inline-block ml-1.5 h-3.5 w-3.5 text-red-500" />
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs">
                             {r.ordinary_hours.toFixed(1)}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs">
                             {r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs font-medium">
                             {formatCurrency(r.gross)}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-red-600">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-red-600">
                             {r.late_deduction > 0
                               ? `-${formatCurrency(r.late_deduction)}`
                               : '—'}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {formatCurrency(r.uif_employee)}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {r.paye > 0 ? formatCurrency(r.paye) : '—'}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {r.loan_deduction > 0
                               ? formatCurrency(r.loan_deduction)
                               : '—'}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {r.garnishee > 0 ? formatCurrency(r.garnishee) : '—'}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {r.petty_shortfall > 0
                               ? formatCurrency(r.petty_shortfall)
                               : '—'}
@@ -494,37 +494,37 @@ export default function PayrollPage() {
                     {/* Totals row */}
                     {totals && (
                       <tr className="border-t-2 border-[#1A1A2E] bg-[#F5F3EF] font-bold">
-                        <td className="px-3 py-3" />
+                        <td className="print-hide px-3 py-3" />
                         <td className="px-3 py-3 text-sm text-[#1A1A2E]">
                           TOTAL ({results.length} staff)
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {totals.ordinaryHours.toFixed(1)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {totals.otHours.toFixed(1)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.gross)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs text-red-600">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs text-red-600">
                           {totals.lateDeduction > 0
                             ? `-${formatCurrency(totals.lateDeduction)}`
                             : '—'}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.uif)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.paye)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.loans)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.garnishee)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
+                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.petty)}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-xs text-[#1A1A2E]">
