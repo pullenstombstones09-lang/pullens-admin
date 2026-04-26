@@ -18,7 +18,11 @@ import {
   Printer,
   Users,
   ChevronRight,
+  Plus,
+  X,
+  ChevronDown,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 type SortKey = 'pt_code' | 'full_name' | 'start_date' | 'occupation';
 
@@ -37,6 +41,239 @@ interface EmployeeWithFlags extends Employee {
 
 const REQUIRED_DOCS: string[] = ['id_copy', 'contract', 'eif', 'bank'];
 
+// ─── Add Employee Modal ───
+function AddEmployeeModal({
+  onClose,
+  onSuccess,
+  employees,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  employees: EmployeeWithFlags[];
+}) {
+  const supabase = createClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  // Auto-generate next PT code
+  const nextPtCode = useMemo(() => {
+    let max = 0;
+    employees.forEach((e) => {
+      const match = e.pt_code.match(/PT(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    return `PT${String(max + 1).padStart(3, '0')}`;
+  }, [employees]);
+
+  const [form, setForm] = useState({
+    full_name: '',
+    pt_code: nextPtCode,
+    weekly_wage: '',
+    occupation: '',
+    id_number: '',
+    cell: '',
+    payment_method: 'eft' as 'eft' | 'cash',
+    bank_name: '',
+    bank_acc: '',
+    bank_branch: '',
+    start_date: new Date().toISOString().slice(0, 10),
+  });
+
+  const isValid = form.full_name.trim() && form.weekly_wage && form.occupation.trim();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValid) return;
+    setSaving(true);
+
+    const { data: emp, error: empError } = await supabase
+      .from('employees')
+      .insert({
+        pt_code: form.pt_code,
+        full_name: form.full_name.trim(),
+        weekly_wage: parseFloat(form.weekly_wage),
+        occupation: form.occupation.trim(),
+        id_number: form.id_number || null,
+        cell: form.cell || null,
+        payment_method: form.payment_method,
+        bank_name: form.payment_method === 'eft' && form.bank_name ? form.bank_name : null,
+        bank_acc: form.payment_method === 'eft' && form.bank_acc ? form.bank_acc : null,
+        bank_branch: form.payment_method === 'eft' && form.bank_branch ? form.bank_branch : null,
+        start_date: form.start_date || null,
+        status: 'active',
+        gender: null,
+        race: null,
+        disability: false,
+        garnishee: 0,
+        eif_on_file: false,
+        eif_signed: false,
+      })
+      .select('id')
+      .single();
+
+    if (empError || !emp) {
+      toast('error', `Failed to add employee: ${empError?.message ?? 'Unknown error'}`);
+      setSaving(false);
+      return;
+    }
+
+    // Insert leave balances
+    const { error: leaveError } = await supabase.from('leave_balances').insert({
+      employee_id: emp.id,
+      annual: 15,
+      sick: 30,
+      family: 3,
+      used_annual: 0,
+      used_sick: 0,
+      used_family: 0,
+      year: 2026,
+    });
+
+    if (leaveError) {
+      toast('error', `Employee added but leave balances failed: ${leaveError.message}`);
+    } else {
+      toast('success', `${form.full_name} (${form.pt_code}) added successfully`);
+    }
+
+    setSaving(false);
+    onSuccess();
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-[#1A1A2E]">Add Employee</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Full name *"
+              value={form.full_name}
+              onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))}
+              placeholder="e.g. John Doe"
+              required
+            />
+            <Input
+              label="PT code"
+              value={form.pt_code}
+              onChange={(e) => setForm((p) => ({ ...p, pt_code: e.target.value }))}
+              hint="Auto-generated"
+            />
+            <Input
+              label="Weekly wage (R) *"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.weekly_wage}
+              onChange={(e) => setForm((p) => ({ ...p, weekly_wage: e.target.value }))}
+              placeholder="e.g. 1500.00"
+              required
+            />
+            <Input
+              label="Occupation *"
+              value={form.occupation}
+              onChange={(e) => setForm((p) => ({ ...p, occupation: e.target.value }))}
+              placeholder="e.g. Polisher"
+              required
+            />
+            <Input
+              label="ID number"
+              value={form.id_number}
+              onChange={(e) => setForm((p) => ({ ...p, id_number: e.target.value }))}
+              placeholder="13 digit SA ID"
+            />
+            <Input
+              label="Cell number"
+              value={form.cell}
+              onChange={(e) => setForm((p) => ({ ...p, cell: e.target.value }))}
+              placeholder="e.g. 072 123 4567"
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[#333333]">Payment method</label>
+              <div className="relative">
+                <select
+                  value={form.payment_method}
+                  onChange={(e) => setForm((p) => ({ ...p, payment_method: e.target.value as 'eft' | 'cash' }))}
+                  className={cn(
+                    'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
+                    'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                    'min-h-[48px] appearance-none'
+                  )}
+                >
+                  <option value="eft">EFT</option>
+                  <option value="cash">Cash</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <Input
+              label="Start date"
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
+            />
+          </div>
+
+          {form.payment_method === 'eft' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <Input
+                label="Bank name"
+                value={form.bank_name}
+                onChange={(e) => setForm((p) => ({ ...p, bank_name: e.target.value }))}
+                placeholder="e.g. FNB"
+              />
+              <Input
+                label="Account number"
+                value={form.bank_acc}
+                onChange={(e) => setForm((p) => ({ ...p, bank_acc: e.target.value }))}
+              />
+              <Input
+                label="Branch code"
+                value={form.bank_branch}
+                onChange={(e) => setForm((p) => ({ ...p, bank_branch: e.target.value }))}
+                placeholder="e.g. 250655"
+              />
+            </div>
+          )}
+
+          {/* Submit */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" size="lg" onClick={onClose} type="button">
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="lg"
+              loading={saving}
+              disabled={!isValid}
+              icon={<Plus className="h-4 w-4" />}
+            >
+              Add Employee
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function StaffListPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -47,6 +284,7 @@ export default function StaffListPage() {
   const [search, setSearch] = useState('');
   const [occupationFilter, setOccupationFilter] = useState<string>('All');
   const [sortKey, setSortKey] = useState<SortKey>('pt_code');
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -180,6 +418,7 @@ export default function StaffListPage() {
   }, [employees, search, occupationFilter, sortKey]);
 
   const isManagement = user ? hasPermission(user.role, 'edit_employee') : false;
+  const isHeadAdmin = user?.role === 'head_admin';
 
   const handleExportCSV = () => {
     const headers = ['PT Code', 'Name', 'Occupation', 'ID Number', 'Cell', 'Start Date'];
@@ -247,26 +486,38 @@ export default function StaffListPage() {
             </div>
           </div>
 
-          {isManagement && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            {isManagement && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePrintContacts}
+                  icon={<Printer className="h-4 w-4" />}
+                >
+                  <span className="hidden sm:inline">Print</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  icon={<Download className="h-4 w-4" />}
+                >
+                  <span className="hidden sm:inline">CSV</span>
+                </Button>
+              </>
+            )}
+            {isHeadAdmin && (
               <Button
-                variant="ghost"
+                variant="primary"
                 size="sm"
-                onClick={handlePrintContacts}
-                icon={<Printer className="h-4 w-4" />}
+                onClick={() => setShowAddModal(true)}
+                icon={<Plus className="h-4 w-4" />}
               >
-                <span className="hidden sm:inline">Print</span>
+                <span className="hidden sm:inline">Add</span>
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleExportCSV}
-                icon={<Download className="h-4 w-4" />}
-              >
-                <span className="hidden sm:inline">CSV</span>
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -336,6 +587,15 @@ export default function StaffListPage() {
           ))}
         </div>
       </div>
+
+      {/* Add Employee Modal */}
+      {showAddModal && (
+        <AddEmployeeModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => fetchData()}
+          employees={employees}
+        />
+      )}
 
       {/* Employee list */}
       <div className="px-4 md:px-8 pb-8">

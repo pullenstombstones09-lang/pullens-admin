@@ -106,6 +106,14 @@ interface PettyCashSettings {
   cutoff_hour: number;
 }
 
+interface PayWeekSettings {
+  mode: 'fixed' | 'custom';
+  start_day: string;
+  end_day: string;
+  start_date: string;
+  end_date: string;
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const [supabase] = useState(() => createClient());
@@ -156,6 +164,15 @@ export default function SettingsPage() {
     cutoff_hour: 16,
   });
 
+  // ─── Pay Week ───
+  const [payWeek, setPayWeek] = useState<PayWeekSettings>({
+    mode: 'fixed',
+    start_day: 'Monday',
+    end_day: 'Sunday',
+    start_date: '',
+    end_date: '',
+  });
+
   // ─── Public Holidays ───
   const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
@@ -191,6 +208,9 @@ export default function SettingsPage() {
       }
       if (map.has('petty_cash_settings')) {
         setPettyCash((prev) => ({ ...prev, ...(map.get('petty_cash_settings') as Partial<PettyCashSettings>) }));
+      }
+      if (map.has('pay_week')) {
+        setPayWeek((prev) => ({ ...prev, ...(map.get('pay_week') as Partial<PayWeekSettings>) }));
       }
     }
 
@@ -637,7 +657,105 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        {/* ─── 6. Public Holidays ─── */}
+        {/* ─── 6. Pay Week ─── */}
+        <Section title="Pay Week" icon={<CalendarClock className="h-5 w-5" />} defaultOpen={false}>
+          <div className="mt-3 space-y-4">
+            {/* Mode toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPayWeek((p) => ({ ...p, mode: 'fixed' }))}
+                className={cn(
+                  'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
+                  payWeek.mode === 'fixed'
+                    ? 'bg-[#1A1A2E] text-white'
+                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                )}
+              >
+                Fixed days
+              </button>
+              <button
+                onClick={() => setPayWeek((p) => ({ ...p, mode: 'custom' }))}
+                className={cn(
+                  'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
+                  payWeek.mode === 'custom'
+                    ? 'bg-[#1A1A2E] text-white'
+                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                )}
+              >
+                Custom dates
+              </button>
+            </div>
+
+            {payWeek.mode === 'fixed' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#333333]">Week starts on</label>
+                  <div className="relative">
+                    <select
+                      value={payWeek.start_day}
+                      onChange={(e) => setPayWeek((p) => ({ ...p, start_day: e.target.value }))}
+                      className={cn(
+                        'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
+                        'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                        'min-h-[48px] appearance-none'
+                      )}
+                    >
+                      {DAYS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#333333]">Week ends on</label>
+                  <div className="relative">
+                    <select
+                      value={payWeek.end_day}
+                      onChange={(e) => setPayWeek((p) => ({ ...p, end_day: e.target.value }))}
+                      className={cn(
+                        'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
+                        'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                        'min-h-[48px] appearance-none'
+                      )}
+                    >
+                      {DAYS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Week start date"
+                  type="date"
+                  value={payWeek.start_date}
+                  onChange={(e) => setPayWeek((p) => ({ ...p, start_date: e.target.value }))}
+                />
+                <Input
+                  label="Week end date"
+                  type="date"
+                  value={payWeek.end_date}
+                  onChange={(e) => setPayWeek((p) => ({ ...p, end_date: e.target.value }))}
+                />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={() => saveSetting('pay_week', payWeek)}
+              loading={saving === 'pay_week'}
+              icon={<Save className="h-4 w-4" />}
+            >
+              {saveSuccess === 'pay_week' ? 'Saved' : 'Save'}
+            </Button>
+          </div>
+        </Section>
+
+        {/* ─── 7. Public Holidays ─── */}
         <Section title="Public Holidays" icon={<Calendar className="h-5 w-5" />}>
           <div className="mt-3">
             {/* Add new */}
