@@ -47,7 +47,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 24 April 2026
+## Status — 26 April 2026
 
 ### DONE
 - [x] Next.js 16 project scaffolded (App Router, TypeScript, Tailwind)
@@ -72,31 +72,38 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - [x] Vercel deployment configured (env vars set)
 - [x] Build passes clean (TypeScript, no errors)
 
-### BLOCKING BUG — Login page hangs on Vercel
-- The login page HTML renders correctly server-side (confirmed via curl)
-- All JS chunks load (200 status, correct content)
-- Static server component pages work (/test)
-- Basic client components work (/test2 — useState + button click)
-- But the login page appears to hang — buttons visible but not interactive
-- Login page was rewritten: removed useRouter, removed useCallback, used inline styles
-- Still hangs after rewrite
-- **Next step to debug:** Check if the Tailwind CSS import in globals.css is causing hydration mismatch. The `@import "tailwindcss"` syntax is Tailwind v4 — verify it's compatible with Next.js 16 Turbopack on Vercel. Try removing globals.css import from the login page or testing with zero CSS.
-- **Alternative:** Test with `next dev` locally on Annika's PC to see if it works locally
-- **Alternative:** Check browser console (F12) for specific JS errors during hydration
-- Test pages to clean up: /test, /test2, /test3
+### CURRENT BUILD — ac7f7cf (2026-04-26)
+- **Auth:** Cookie-based, no PIN, no Supabase Auth. Tap name → cookie → dashboard
+- **Login:** Server component with `<a>` links → `/api/auth/login?name=X` (GET, sets cookie, redirects)
+- **Proxy:** Checks `pullens-user` cookie, redirects to `/login` if missing, API routes are public
+- **RLS bypassed:** Browser Supabase client uses service role key (`NEXT_PUBLIC_SUPABASE_SERVICE_KEY`)
+- **Role-based landing:** admin→register, petty_cash→petty-cash, bookkeeper→payroll, others→dashboard
+- **Marlyn (admin):** Sees only Register + Alerts in sidebar, no wages/payroll/staff list
+- **Register:** Data fetches via `/api/register` API route (service role key)
+- **Add/Remove employees:** Bottom of register page, collapsible, head_admin only
+- **Delete records:** Trash icon per row on register, head_admin only, with confirm alert
+- **Attendance seeded:** Week 20-24 April, all 38 employees, absents/lates captured
+- **Albert = Thabiso** (PT018) — register nickname mapping
+- **Garnishee:** Last pay week of month only (Marlyn R250, Junior R300) — confirmed correct
+- **Duplicate users cleaned:** Supabase users table has 6 unique rows now
+- **Vercel auto-deploy broken** — use `vercel deploy --prod` from CLI
+- PDF generator: warning, hearing notice, payslip via jsPDF
+
+### KNOWN BUGS (parked)
+- Client component hydration fails on Vercel (login page was server component workaround)
+- Seed route creates duplicate user rows on re-run (upsert ID is null when auth user exists)
 
 ### NOT YET DONE
-- [ ] Fix login page hydration issue
-- [ ] Verify full login → dashboard flow works end-to-end
-- [ ] PDF payslip generation (currently stub — returns success but no actual PDF)
-- [ ] Document template engine (filling HR pack Word templates with placeholders)
+- [ ] Delete capability on all pages (HR incidents, warnings, loans, notes) — head_admin + confirm
+- [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals
+- [ ] Garnishee: add 25% net pay cap per Magistrates' Courts Act s65J
+- [ ] Document template engine (filling HR pack Word templates)
 - [ ] Camera/file upload integration for documents and petty cash slips
 - [ ] Supabase Storage bucket setup (photos, payslips, documents, hr_templates)
-- [ ] Thursday 16:00 petty cash cron trigger (pg_cron needs Pro, use Vercel cron instead)
+- [ ] Thursday 16:00 petty cash cron trigger (Vercel cron)
 - [ ] V12 parity testing (parallel run with old spreadsheet)
-- [ ] LibreOffice alternative for .docx→PDF conversion on Vercel (see spec flag #2)
 - [ ] Custom domain (admin.pullens.co.za) — non-blocking
-- [ ] Clean up test pages (/test, /test2, /test3)
+- [ ] Clean up test pages (/test, /test2, /test3) and screenshot PNGs from repo
 
 ## File Structure
 
