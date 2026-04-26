@@ -110,18 +110,11 @@ export default function RegisterPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
 
-    const [empResult, attResult] = await Promise.all([
-      showInactive
-        ? supabase.from('employees').select('id, pt_code, full_name, photo_url, weekly_wage, status').order('pt_code')
-        : supabase.from('employees').select('id, pt_code, full_name, photo_url, weekly_wage, status').eq('status', 'active').order('pt_code'),
-      supabase
-        .from('attendance')
-        .select('*')
-        .eq('date', selectedDate),
-    ]);
+    const res = await fetch(`/api/register?date=${selectedDate}&showInactive=${showInactive}`);
+    const data = await res.json();
 
-    const employees = (empResult.data ?? []) as Employee[];
-    const attendance = (attResult.data ?? []) as Array<{
+    const employees = (data.employees ?? []) as Employee[];
+    const attendance = (data.attendance ?? []) as Array<{
       id: string;
       employee_id: string;
       status: AttendanceStatus;
@@ -171,16 +164,18 @@ export default function RegisterPage() {
 
     setRows(newRows);
     setLoading(false);
-  }, [supabase, selectedDate, showInactive]);
+  }, [selectedDate, showInactive]);
 
   async function toggleEmployeeStatus(employeeId: string, currentStatus: string) {
     const newStatus = currentStatus === 'active' ? 'terminated' : 'active';
-    const { error } = await supabase
-      .from('employees')
-      .update({ status: newStatus })
-      .eq('id', employeeId);
-    if (error) {
-      toast('error', `Failed to update: ${error.message}`);
+    const res = await fetch('/api/register', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, status: newStatus }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast('error', `Failed to update: ${data.error}`);
     } else {
       toast('success', newStatus === 'active' ? 'Employee restored to register' : 'Employee removed from register');
       fetchData();
@@ -239,7 +234,7 @@ export default function RegisterPage() {
     if (!canEdit) return;
     setSaving(true);
 
-    const upserts = rows.map((row) => ({
+    const records = rows.map((row) => ({
       ...(row.existing_id ? { id: row.existing_id } : {}),
       employee_id: row.employee_id,
       date: selectedDate,
@@ -251,12 +246,15 @@ export default function RegisterPage() {
       captured_by: user?.id ?? null,
     }));
 
-    const { error } = await supabase
-      .from('attendance')
-      .upsert(upserts, { onConflict: 'employee_id,date' });
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ records, date: selectedDate }),
+    });
+    const data = await res.json();
 
-    if (error) {
-      toast('error', `Save failed: ${error.message}`);
+    if (!res.ok) {
+      toast('error', `Save failed: ${data.error}`);
     } else {
       toast('success', `Register saved for ${formatDateLabel(selectedDate)}`);
       await fetchData();
