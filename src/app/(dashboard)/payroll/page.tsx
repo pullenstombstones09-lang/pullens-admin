@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   Clock,
   ChevronRight,
-  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -29,22 +28,16 @@ function toDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Get the current Pullens week boundaries (Fri-Thu).
- *  Returns [friday, thursday] as date strings. */
 function getCurrentWeek(offset: number = 0): { weekStart: string; weekEnd: string } {
   const now = new Date();
   now.setDate(now.getDate() + offset * 7);
-  const dow = now.getDay(); // 0=Sun
-  // Go back to Friday
+  const dow = now.getDay();
   const daysToFri = (dow + 2) % 7;
   const fri = new Date(now);
   fri.setDate(now.getDate() - daysToFri);
   const thu = new Date(fri);
   thu.setDate(fri.getDate() + 6);
-  return {
-    weekStart: toDateString(fri),
-    weekEnd: toDateString(thu),
-  };
+  return { weekStart: toDateString(fri), weekEnd: toDateString(thu) };
 }
 
 function weekLabel(start: string, end: string): string {
@@ -73,13 +66,11 @@ export default function PayrollPage() {
   const [customStart, setCustomStart] = useState(initWeek.weekStart);
   const [customEnd, setCustomEnd] = useState(initWeek.weekEnd);
   const [calculating, setCalculating] = useState(false);
-  const [generatingSlips, setGeneratingSlips] = useState(false);
   const [results, setResults] = useState<PayrollResult[] | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [history, setHistory] = useState<PayrollRun[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
-  const [slipsGenerated, setSlipsGenerated] = useState(false);
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -109,10 +100,9 @@ export default function PayrollPage() {
     setCalculating(true);
     setResults(null);
     setAnomalies([]);
-    setSlipsGenerated(false);
 
     try {
-      // --- Attendance validation gate ---
+      // Attendance validation gate
       const { data: employees } = await supabase
         .from('employees')
         .select('id, full_name')
@@ -125,13 +115,13 @@ export default function PayrollPage() {
         .lte('date', weekEnd);
 
       if (employees && attendance) {
-        const employeesWithAttendance = new Set(attendance.map((a: { employee_id: string }) => a.employee_id));
-        const missing = employees.filter((e: { id: string }) => !employeesWithAttendance.has(e.id));
+        const withAttendance = new Set(attendance.map((a: { employee_id: string }) => a.employee_id));
+        const missing = employees.filter((e: { id: string }) => !withAttendance.has(e.id));
 
         if (missing.length > 0) {
           const names = missing.map((e: { full_name: string }) => e.full_name).join(', ');
           const proceed = window.confirm(
-            `${missing.length} employee${missing.length === 1 ? '' : 's'} ha${missing.length === 1 ? 's' : 've'} no attendance recorded this week:\n\n${names}\n\nContinue anyway?`
+            `${missing.length} employee${missing.length === 1 ? '' : 's'} ha${missing.length === 1 ? 's' : 've'} no attendance recorded:\n\n${names}\n\nContinue anyway?`
           );
           if (!proceed) {
             setCalculating(false);
@@ -139,7 +129,6 @@ export default function PayrollPage() {
           }
         }
       }
-      // --- End validation gate ---
 
       const res = await fetch('/api/payroll/run', {
         method: 'POST',
@@ -153,23 +142,32 @@ export default function PayrollPage() {
       }
 
       const data = await res.json();
-      setResults(data.results as PayrollResult[]);
+      const payrollResults = data.results as PayrollResult[];
+      setResults(payrollResults);
       setRunId(data.run_id);
 
       // Detect anomalies
       const issues: string[] = [];
-      for (const r of data.results as PayrollResult[]) {
-        if (r.net < 0) {
-          issues.push(`${r.full_name} (${r.pt_code}): negative net ${formatCurrency(r.net)}`);
-        }
-        if (r.ordinary_hours === 0) {
-          issues.push(`${r.full_name} (${r.pt_code}): no hours worked`);
-        }
-        if (r.gross === 0) {
-          issues.push(`${r.full_name} (${r.pt_code}): zero gross pay`);
-        }
+      for (const r of payrollResults) {
+        if (r.net < 0) issues.push(`${r.full_name}: negative net ${formatCurrency(r.net)}`);
+        if (r.ordinary_hours === 0) issues.push(`${r.full_name}: no hours worked`);
+        if (r.gross === 0) issues.push(`${r.full_name}: zero gross pay`);
       }
       setAnomalies(issues);
+
+      // Auto-approve + generate payslips in one step
+      if (canApprove && data.run_id) {
+        await supabase
+          .from('payroll_runs')
+          .update({ status: 'approved' })
+          .eq('id', data.run_id);
+
+        await fetch('/api/payroll/generate-payslips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payroll_run_id: data.run_id }),
+        });
+      }
 
       toast('success', `Payroll calculated for ${weekLabel(weekStart, weekEnd)}`);
       fetchHistory();
@@ -178,35 +176,6 @@ export default function PayrollPage() {
       toast('error', message);
     } finally {
       setCalculating(false);
-    }
-  }
-
-  // ---------- generate payslips ----------
-
-  async function handleGeneratePayslips() {
-    if (!runId) return;
-    setGeneratingSlips(true);
-
-    try {
-      const res = await fetch('/api/payroll/generate-payslips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payroll_run_id: runId }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Payslip generation failed');
-      }
-
-      toast('success', 'Payslips generated successfully');
-      setSlipsGenerated(true);
-      fetchHistory();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      toast('error', message);
-    } finally {
-      setGeneratingSlips(false);
     }
   }
 
@@ -246,11 +215,11 @@ export default function PayrollPage() {
           Payroll
         </h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          Weekly payroll processing &mdash; select your pay week dates
+          Weekly payroll processing
         </p>
       </div>
 
-      {/* Run Payroll section */}
+      {/* Run Payroll */}
       <Card>
         <CardHeader>
           <CardTitle>Run Payroll</CardTitle>
@@ -326,7 +295,7 @@ export default function PayrollPage() {
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                 <p className="text-sm font-semibold text-amber-800">
-                  Anomalies Detected ({anomalies.length})
+                  Anomalies ({anomalies.length})
                 </p>
               </div>
               <ul className="space-y-1">
@@ -340,94 +309,59 @@ export default function PayrollPage() {
             </div>
           )}
 
-          {/* Results table */}
+          {/* Results */}
           {results && (
             <>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-[#333]">
-                  {results.length} employees &middot; {weekLabel(weekStart, weekEnd)}
-                </p>
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
-                >
-                  <Printer className="h-4 w-4" />
-                  Print Summary
-                </button>
-              </div>
-              {/* Running total bar */}
-              {totals && (
-                <div className="sticky top-0 z-10 rounded-lg bg-[#1A1A2E] px-4 py-3 text-white shadow-md print-hide">
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-400 text-xs">Gross</span>
-                      <p className="font-bold">{formatCurrency(totals.gross)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs">UIF</span>
-                      <p className="font-bold">{formatCurrency(totals.uif)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs">Deductions</span>
-                      <p className="font-bold">{formatCurrency(totals.lateDeduction + totals.paye + totals.loans + totals.garnishee + totals.petty)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs">Net</span>
-                      <p className="font-bold">{formatCurrency(totals.net)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs">Employees</span>
-                      <p className="font-bold">{results.length}</p>
-                    </div>
+              {/* Status + actions bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-semibold text-green-800">
+                      Calculated — {results.length} employees
+                    </span>
                   </div>
                 </div>
-              )}
 
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    icon={<Printer className="h-4 w-4" />}
+                    onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
+                  >
+                    Print Summary
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    icon={<FileStack className="h-4 w-4" />}
+                    onClick={() => window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank')}
+                  >
+                    Print All Payslips
+                  </Button>
+                </div>
+              </div>
+
+              {/* Results table — full detail on screen */}
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-[#1A1A2E] text-white">
-                      <th className="print-hide px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">
-                        PT
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">
-                        Name
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Ord Hrs
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        OT Hrs
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Gross
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Late
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        UIF
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        PAYE
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Loan
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Garni
-                      </th>
-                      <th className="print-hide px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Petty
-                      </th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">
-                        Net
-                      </th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">PT</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">Name</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Hrs</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">OT</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Gross</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Deductions</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Net</th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.map((r, idx) => {
                       const hasAnomaly = r.net < 0 || r.ordinary_hours === 0 || r.gross === 0;
+                      const totalDeductions = r.uif_employee + r.paye + r.late_deduction +
+                        r.loan_deduction + r.garnishee + r.petty_shortfall;
                       return (
                         <tr
                           key={r.employee_id}
@@ -437,95 +371,45 @@ export default function PayrollPage() {
                             !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
                           )}
                         >
-                          <td className="print-hide px-3 py-2 font-mono text-xs text-gray-500">
-                            {r.pt_code}
-                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
                           <td className="px-3 py-2 font-medium text-[#333] whitespace-nowrap">
                             {r.full_name}
                             {hasAnomaly && (
                               <AlertTriangle className="inline-block ml-1.5 h-3.5 w-3.5 text-red-500" />
                             )}
                           </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs">
-                            {r.ordinary_hours.toFixed(1)}
-                          </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs">
+                          <td className="px-3 py-2 text-right font-mono text-xs">{r.ordinary_hours.toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">
                             {r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}
                           </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs font-medium">
+                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
                             {formatCurrency(r.gross)}
                           </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-red-600">
-                            {r.late_deduction > 0
-                              ? `-${formatCurrency(r.late_deduction)}`
-                              : '—'}
+                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                            {totalDeductions > 0 ? formatCurrency(totalDeductions) : '—'}
                           </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {formatCurrency(r.uif_employee)}
-                          </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {r.paye > 0 ? formatCurrency(r.paye) : '—'}
-                          </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {r.loan_deduction > 0
-                              ? formatCurrency(r.loan_deduction)
-                              : '—'}
-                          </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {r.garnishee > 0 ? formatCurrency(r.garnishee) : '—'}
-                          </td>
-                          <td className="print-hide px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {r.petty_shortfall > 0
-                              ? formatCurrency(r.petty_shortfall)
-                              : '—'}
-                          </td>
-                          <td
-                            className={cn(
-                              'px-3 py-2 text-right font-mono text-xs font-bold',
-                              r.net < 0 ? 'text-red-600' : 'text-[#1A1A2E]'
-                            )}
-                          >
+                          <td className={cn(
+                            'px-3 py-2 text-right font-mono text-xs font-bold',
+                            r.net < 0 ? 'text-red-600' : 'text-[#1A1A2E]'
+                          )}>
                             {formatCurrency(r.net)}
                           </td>
                         </tr>
                       );
                     })}
 
-                    {/* Totals row */}
+                    {/* Totals */}
                     {totals && (
                       <tr className="border-t-2 border-[#1A1A2E] bg-[#F5F3EF] font-bold">
-                        <td className="print-hide px-3 py-3" />
+                        <td className="px-3 py-3" />
                         <td className="px-3 py-3 text-sm text-[#1A1A2E]">
-                          TOTAL ({results.length} staff)
+                          TOTAL ({results.length})
                         </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {totals.ordinaryHours.toFixed(1)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {totals.otHours.toFixed(1)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.gross)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs text-red-600">
-                          {totals.lateDeduction > 0
-                            ? `-${formatCurrency(totals.lateDeduction)}`
-                            : '—'}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.uif)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.paye)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.loans)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.garnishee)}
-                        </td>
-                        <td className="print-hide px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.petty)}
+                        <td className="px-3 py-3 text-right font-mono text-xs">{totals.ordinaryHours.toFixed(1)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-xs">{totals.otHours.toFixed(1)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.gross)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-xs">
+                          {formatCurrency(totals.lateDeduction + totals.uif + totals.paye + totals.loans + totals.garnishee + totals.petty)}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-xs text-[#1A1A2E]">
                           {formatCurrency(totals.net)}
@@ -534,47 +418,6 @@ export default function PayrollPage() {
                     )}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                {!slipsGenerated && (
-                  <Button
-                    size="lg"
-                    loading={generatingSlips}
-                    icon={<CheckCircle className="h-4 w-4" />}
-                    onClick={async () => {
-                      // Approve + Generate in one step
-                      if (runId && canApprove) {
-                        await supabase
-                          .from('payroll_runs')
-                          .update({ status: 'approved' })
-                          .eq('id', runId);
-                      }
-                      await handleGeneratePayslips();
-                    }}
-                  >
-                    Approve &amp; Generate Payslips
-                  </Button>
-                )}
-                {slipsGenerated && runId && (
-                  <>
-                    <Link
-                      href={`/payroll/payslip-viewer?run=${runId}`}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A2E] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View Payslips
-                    </Link>
-                    <button
-                      onClick={() => window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank')}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-[#333] hover:bg-gray-50 transition-colors min-h-[44px] shadow-sm"
-                    >
-                      <FileStack className="h-4 w-4" />
-                      Print All
-                    </button>
-                  </>
-                )}
               </div>
             </>
           )}
@@ -600,9 +443,8 @@ export default function PayrollPage() {
               {history.map((run) => {
                 const badge = STATUS_BADGE[run.status];
                 return (
-                  <Link
+                  <div
                     key={run.id}
-                    href={`/payroll/payslip-viewer?run=${run.id}`}
                     className={cn(
                       'flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3',
                       'hover:border-[#C4A35A]/40 hover:shadow-sm transition-all min-h-[56px]'
@@ -615,7 +457,7 @@ export default function PayrollPage() {
                           {weekLabel(run.week_start, run.week_end)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Run {formatDate(run.run_at)}
+                          {formatDate(run.run_at)}
                           {run.total_net != null && (
                             <> &middot; Net {formatCurrency(run.total_net)}</>
                           )}
@@ -624,9 +466,22 @@ export default function PayrollPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge color={badge.color}>{badge.label}</Badge>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <button
+                        onClick={() => window.open(`/api/pdf/payroll-summary?run=${run.id}`, '_blank')}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-[#333] transition-colors"
+                        title="Print Summary"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => window.open(`/api/pdf/payslips-all?run=${run.id}`, '_blank')}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-[#333] transition-colors"
+                        title="Print All Payslips"
+                      >
+                        <FileStack className="h-4 w-4" />
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

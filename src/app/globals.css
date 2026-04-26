@@ -20,23 +20,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Print — payroll summary: only show name + net */
-@media print {
-  /* Hide sidebar, header, buttons, non-essential UI */
-  nav, aside, header, button, a[href], .no-print {
-    display: none !important;
-  }
-  /* Hide extra payroll columns (tagged with .print-hide) */
-  .print-hide {
-    display: none !important;
-  }
-  /* Clean background */
-  body {
-    background: white !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-}
 
 /* Toast slide-in animation */
 @keyframes slideInRight {
