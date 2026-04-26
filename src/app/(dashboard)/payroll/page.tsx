@@ -14,6 +14,7 @@ import type { PayrollResult } from '@/lib/payroll-engine';
 import {
   Calculator,
   Printer,
+  FileStack,
   CheckCircle,
   AlertTriangle,
   Clock,
@@ -557,13 +558,22 @@ export default function PayrollPage() {
                   </Button>
                 )}
                 {slipsGenerated && runId && (
-                  <Link
-                    href={`/payroll/payslip-viewer?run=${runId}`}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A2E] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Payslips
-                  </Link>
+                  <>
+                    <Link
+                      href={`/payroll/payslip-viewer?run=${runId}`}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A2E] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Payslips
+                    </Link>
+                    <button
+                      onClick={() => window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank')}
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-[#333] hover:bg-gray-50 transition-colors min-h-[44px] shadow-sm"
+                    >
+                      <FileStack className="h-4 w-4" />
+                      Print All
+                    </button>
+                  </>
                 )}
               </div>
             </>
