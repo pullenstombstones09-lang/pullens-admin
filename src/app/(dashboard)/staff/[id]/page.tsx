@@ -67,15 +67,27 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
     weekly_wage: employee.weekly_wage ?? 0,
     occupation: employee.occupation ?? '',
     id_number: employee.id_number ?? '',
+    dob: employee.dob ?? '',
+    gender: employee.gender ?? '',
+    race: employee.race ?? '',
+    disability: employee.disability ?? false,
     cell: employee.cell ?? '',
+    email: employee.email ?? '',
     home_address: employee.home_address ?? '',
+    start_date: employee.start_date ?? '',
     payment_method: employee.payment_method ?? 'cash',
     bank_name: employee.bank_name ?? '',
     bank_acc: employee.bank_acc ?? '',
     bank_branch: employee.bank_branch ?? '',
+    bank_type: employee.bank_type ?? '',
+    tax_number: employee.tax_number ?? '',
+    uif_ref: employee.uif_ref ?? '',
     emergency_name: employee.emergency_name ?? '',
     emergency_rel: employee.emergency_rel ?? '',
     emergency_phone: employee.emergency_phone ?? '',
+    nok_name: employee.nok_name ?? '',
+    nok_rel: employee.nok_rel ?? '',
+    nok_phone: employee.nok_phone ?? '',
     garnishee: employee.garnishee ?? 0,
     notes: employee.notes ?? '',
   });
@@ -94,15 +106,27 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
       weekly_wage: Number(form.weekly_wage) || 0,
       occupation: form.occupation.trim() || null,
       id_number: form.id_number.trim() || null,
+      dob: form.dob || null,
+      gender: form.gender || null,
+      race: form.race || null,
+      disability: form.disability,
       cell: form.cell.trim() || null,
+      email: form.email.trim() || null,
       home_address: form.home_address.trim() || null,
+      start_date: form.start_date || null,
       payment_method: form.payment_method as PaymentMethod,
       bank_name: form.payment_method === 'eft' ? (form.bank_name.trim() || null) : null,
       bank_acc: form.payment_method === 'eft' ? (form.bank_acc.trim() || null) : null,
       bank_branch: form.payment_method === 'eft' ? (form.bank_branch.trim() || null) : null,
+      bank_type: form.payment_method === 'eft' ? (form.bank_type.trim() || null) : null,
+      tax_number: form.tax_number.trim() || null,
+      uif_ref: form.uif_ref.trim() || null,
       emergency_name: form.emergency_name.trim() || null,
       emergency_rel: form.emergency_rel.trim() || null,
       emergency_phone: form.emergency_phone.trim() || null,
+      nok_name: form.nok_name.trim() || null,
+      nok_rel: form.nok_rel.trim() || null,
+      nok_phone: form.nok_phone.trim() || null,
       garnishee: Number(form.garnishee) || 0,
       notes: form.notes.trim() || null,
     };
@@ -118,7 +142,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
       return;
     }
     toast('success', 'Employee updated');
-    onSaved({ ...employee, ...payload });
+    onSaved({ ...employee, ...payload } as Employee);
   };
 
   const inputCls =
@@ -186,11 +210,81 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
             </div>
 
             <div>
+              <label className={labelCls}>Date of birth</label>
+              <input
+                type="date"
+                className={inputCls}
+                value={form.dob}
+                onChange={(e) => set('dob', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Gender</label>
+              <select
+                className={inputCls}
+                value={form.gender}
+                onChange={(e) => set('gender', e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelCls}>Race</label>
+              <select
+                className={inputCls}
+                value={form.race}
+                onChange={(e) => set('race', e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="African">African</option>
+                <option value="Coloured">Coloured</option>
+                <option value="Indian">Indian</option>
+                <option value="White">White</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelCls}>Disability</label>
+              <select
+                className={inputCls}
+                value={form.disability ? 'yes' : 'no'}
+                onChange={(e) => set('disability', e.target.value === 'yes' ? true as unknown as string : false as unknown as string)}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelCls}>Start date</label>
+              <input
+                type="date"
+                className={inputCls}
+                value={form.start_date}
+                onChange={(e) => set('start_date', e.target.value)}
+              />
+            </div>
+
+            <div>
               <label className={labelCls}>Cell</label>
               <input
                 className={inputCls}
                 value={form.cell}
                 onChange={(e) => set('cell', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Email</label>
+              <input
+                type="email"
+                className={inputCls}
+                value={form.email}
+                onChange={(e) => set('email', e.target.value)}
               />
             </div>
 
@@ -243,8 +337,39 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
                     onChange={(e) => set('bank_branch', e.target.value)}
                   />
                 </div>
+
+                <div>
+                  <label className={labelCls}>Account type</label>
+                  <select
+                    className={inputCls}
+                    value={form.bank_type}
+                    onChange={(e) => set('bank_type', e.target.value)}
+                  >
+                    <option value="">—</option>
+                    <option value="savings">Savings</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
               </>
             )}
+
+            <div>
+              <label className={labelCls}>Tax number</label>
+              <input
+                className={inputCls}
+                value={form.tax_number}
+                onChange={(e) => set('tax_number', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>UIF reference</label>
+              <input
+                className={inputCls}
+                value={form.uif_ref}
+                onChange={(e) => set('uif_ref', e.target.value)}
+              />
+            </div>
 
             <div>
               <label className={labelCls}>Emergency name</label>
@@ -270,6 +395,33 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
                 className={inputCls}
                 value={form.emergency_phone}
                 onChange={(e) => set('emergency_phone', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Next of kin name</label>
+              <input
+                className={inputCls}
+                value={form.nok_name}
+                onChange={(e) => set('nok_name', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Next of kin relationship</label>
+              <input
+                className={inputCls}
+                value={form.nok_rel}
+                onChange={(e) => set('nok_rel', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Next of kin phone</label>
+              <input
+                className={inputCls}
+                value={form.nok_phone}
+                onChange={(e) => set('nok_phone', e.target.value)}
               />
             </div>
 
