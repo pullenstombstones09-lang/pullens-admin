@@ -308,6 +308,18 @@ export default function PayrollPage() {
           {/* Results table */}
           {results && (
             <>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-[#333]">
+                  {results.length} employees &middot; {weekLabel(weekStart, weekEnd)}
+                </p>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Summary
+                </button>
+              </div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
