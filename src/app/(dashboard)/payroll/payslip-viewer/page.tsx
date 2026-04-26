@@ -485,7 +485,10 @@ function PayslipViewerPage() {
             variant="secondary"
             size="lg"
             icon={<Printer className="h-4 w-4" />}
-            onClick={() => window.print()}
+            onClick={() => {
+              if (!currentSlip) return;
+              window.open(`/api/pdf/payslip?id=${currentSlip.id}`, '_blank');
+            }}
           >
             Print Payslip
           </Button>
