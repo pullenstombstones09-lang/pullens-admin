@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     // 5. Fetch petty cash shortfalls (open petty_cash_out where status = 'partial' or 'open')
     // Sum by employee to get total shortfall
     const { data: pettyShortfalls, error: pettyError } = await supabase
-      .from('petty_cash_out')
+      .from('petty_cash_outs')
       .select('recipient_employee_id, amount')
       .in('status', ['open', 'partial'])
       .not('recipient_employee_id', 'is', null);
@@ -115,6 +115,12 @@ export async function POST(request: Request) {
     }
 
     // 6. Run payroll calculation for each employee
+    // Determine if this is the last pay week of the month (for garnishee)
+    const weekEndDate = new Date(week_end);
+    const nextWeekEnd = new Date(weekEndDate);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+    const isLastWeekOfMonth = weekEndDate.getMonth() !== nextWeekEnd.getMonth();
+
     const results: PayrollResult[] = [];
     let totalGross = 0;
     let totalNet = 0;
@@ -126,6 +132,7 @@ export async function POST(request: Request) {
         overtimeRequests: otMap.get(emp.id) ?? [],
         activeLoans: loanMap.get(emp.id) ?? [],
         pettyShortfall: pettyMap.get(emp.id) ?? 0,
+        isLastWeekOfMonth,
       };
 
       const result = calculatePayroll(input);

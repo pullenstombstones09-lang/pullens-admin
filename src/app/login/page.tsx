@@ -26,9 +26,14 @@ export default function LoginPage() {
   }
 
   function pressDigit(d: string) {
-    if (pin.length < 6) {
-      setPin(pin + d);
+    if (pin.length < 4) {
+      const newPin = pin + d;
+      setPin(newPin);
       setError('');
+      if (newPin.length === 4) {
+        // Auto-submit when 4 digits entered
+        setTimeout(() => submitPin(newPin), 150);
+      }
     }
   }
 
@@ -37,9 +42,10 @@ export default function LoginPage() {
     setError('');
   }
 
-  async function submit() {
-    if (!selectedUser || pin.length < 4) {
-      setError('Enter at least 4 digits');
+  async function submitPin(currentPin?: string) {
+    const pinToSubmit = currentPin || pin;
+    if (!selectedUser || pinToSubmit.length < 4) {
+      setError('Enter 4 digits');
       return;
     }
 
@@ -50,7 +56,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedUser, pin }),
+        body: JSON.stringify({ name: selectedUser, pin: pinToSubmit }),
       });
 
       const data = await res.json();
@@ -147,7 +153,7 @@ export default function LoginPage() {
               </div>
 
               <div className="flex justify-center gap-3 mb-6">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
+                {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className="rounded-full"
@@ -236,7 +242,7 @@ export default function LoginPage() {
               </div>
 
               <button
-                onClick={submit}
+                onClick={() => submitPin()}
                 disabled={loading || pin.length < 4}
                 className="w-full rounded-xl text-lg font-bold"
                 style={{
