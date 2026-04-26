@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 
+// NOTE: Supabase Auth sign-in removed temporarily — login uses bcrypt PIN only
+
 export async function POST(request: Request) {
   try {
     const { name, pin } = await request.json();
@@ -50,39 +52,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Sign in via Supabase Auth — collect cookies to set on response
-    const email = `${name.toLowerCase().replace(/\s+/g, '.')}@pullens.local`;
-    // Supabase Auth requires min 6 char password — pad PIN
-    const authPassword = pin.padEnd(6, '_');
-    const responseCookies: { name: string; value: string; options: Record<string, unknown> }[] = [];
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            responseCookies.push(...cookiesToSet);
-          },
-        },
-      }
-    );
-
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password: authPassword,
-      });
-
-    if (authError) {
-      return Response.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      );
-    }
-
-    // Build response with auth cookies baked in
+    // Build response — PIN verified via bcrypt, skip Supabase Auth for now
     const body = user.force_pin_change
       ? {
           forceChange: true,
@@ -92,20 +62,7 @@ export async function POST(request: Request) {
           user: { id: user.id, name: user.name, role: user.role, perms: user.perms },
         };
 
-    const response = Response.json(body);
-
-    // Set each Supabase auth cookie on the response
-    for (const { name: cName, value, options } of responseCookies) {
-      const parts = [`${cName}=${value}`];
-      if (options.path) parts.push(`Path=${options.path}`);
-      if (options.maxAge) parts.push(`Max-Age=${options.maxAge}`);
-      if (options.httpOnly) parts.push('HttpOnly');
-      if (options.secure) parts.push('Secure');
-      if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
-      response.headers.append('Set-Cookie', parts.join('; '));
-    }
-
-    return response;
+    return Response.json(body);
   } catch {
     return Response.json(
       { error: 'Internal server error' },
