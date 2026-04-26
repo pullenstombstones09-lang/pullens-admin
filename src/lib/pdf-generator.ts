@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { LOGO_BASE64 } from './logo-base64';
 
 // ============================================================
 // Pullens Admin — PDF Generator
@@ -31,36 +32,39 @@ const COMPANY = {
 // ============================================================
 
 function addHeader(doc: jsPDF, title: string, subtitle?: string) {
-  // Dark header bar
-  doc.setFillColor(26, 26, 46); // #1A1A2E
-  doc.rect(0, 0, 210, 32, 'F');
+  // White header with logo
+  // Logo: aspect ratio ~2.08:1 (2254x1084), display at ~50x24mm
+  try {
+    doc.addImage(LOGO_BASE64, 'PNG', 12, 5, 50, 24);
+  } catch {
+    // Fallback if image fails
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(26, 26, 46);
+    doc.text('PULLENS TOMBSTONES', 15, 18);
+  }
 
-  // Company name
+  // Document title — right aligned
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text('PULLENS TOMBSTONES', 15, 14);
-
-  // Tagline
-  doc.setFontSize(7);
-  doc.setTextColor(196, 163, 90); // gold
-  doc.text('CAST IN STONE', 15, 20);
-
-  // Document title
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setTextColor(26, 26, 46);
   doc.text(title.toUpperCase(), 195, 14, { align: 'right' });
 
   if (subtitle) {
-    doc.setFontSize(8);
-    doc.setTextColor(196, 163, 90);
-    doc.text(subtitle, 195, 20, { align: 'right' });
+    doc.setFontSize(9);
+    doc.setTextColor(102, 102, 102);
+    doc.text(subtitle, 195, 21, { align: 'right' });
   }
 
   // Gold line under header
   doc.setDrawColor(196, 163, 90);
-  doc.setLineWidth(0.5);
-  doc.line(0, 32, 210, 32);
+  doc.setLineWidth(0.8);
+  doc.line(12, 32, 198, 32);
+
+  // Thin dark line below gold
+  doc.setDrawColor(26, 26, 46);
+  doc.setLineWidth(0.2);
+  doc.line(12, 33, 198, 33);
 
   return 38; // next Y position
 }
