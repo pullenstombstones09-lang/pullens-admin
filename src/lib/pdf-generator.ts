@@ -104,8 +104,10 @@ function signatureLine(doc: jsPDF, x: number, y: number, label: string, width = 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(102, 102, 102);
-  doc.text(label, x, y + 4);
-  doc.text('Date: _______________', x, y + 9);
+  doc.text(label, x, y + 5);
+
+  doc.line(x, y + 18, x + width, y + 18);
+  doc.text('Date:', x, y + 23);
 }
 
 function sectionTitle(doc: jsPDF, y: number, title: string): number {
@@ -527,9 +529,10 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   doc.text(fmt(data.net), 190, y + 11, { align: 'right' });
   y += 24;
 
-  // Signature
-  signatureLine(doc, 15, y + 4, 'Employee Signature (Acknowledgement of Receipt)');
-  signatureLine(doc, 115, y + 4, 'Authorised By');
+  // Signature — with gap from net pay
+  y += 8;
+  signatureLine(doc, 15, y, 'Employee Signature (Acknowledgement of Receipt)');
+  signatureLine(doc, 115, y, 'Authorised By');
 
   addFooter(doc);
 
