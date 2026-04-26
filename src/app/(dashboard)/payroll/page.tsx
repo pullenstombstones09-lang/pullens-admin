@@ -312,13 +312,32 @@ export default function PayrollPage() {
                 <p className="text-sm font-medium text-[#333]">
                   {results.length} employees &middot; {weekLabel(weekStart, weekEnd)}
                 </p>
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
-                >
-                  <Printer className="h-4 w-4" />
-                  Print Summary
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print Summary
+                  </button>
+                  <button
+                    onClick={() => {
+                      const w = window.open('', '_blank');
+                      if (!w) return;
+                      const rows = results.map(r =>
+                        `<tr><td>${r.pt_code}</td><td>${r.full_name}</td><td style="text-align:right">${r.ordinary_hours.toFixed(1)}</td><td style="text-align:right">${r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}</td><td style="text-align:right">R ${r.gross.toFixed(2)}</td><td style="text-align:right;color:red">${r.late_deduction > 0 ? '-R ' + r.late_deduction.toFixed(2) : '—'}</td><td style="text-align:right">R ${r.uif_employee.toFixed(2)}</td><td style="text-align:right">${r.paye > 0 ? 'R ' + r.paye.toFixed(2) : '—'}</td><td style="text-align:right">${r.loan_deduction > 0 ? 'R ' + r.loan_deduction.toFixed(2) : '—'}</td><td style="text-align:right">${r.garnishee > 0 ? 'R ' + r.garnishee.toFixed(2) : '—'}</td><td style="text-align:right">${r.petty_shortfall > 0 ? 'R ' + r.petty_shortfall.toFixed(2) : '—'}</td><td style="text-align:right;font-weight:bold">R ${r.net.toFixed(2)}</td></tr>`
+                      ).join('');
+                      const totals = results.reduce((a, r) => ({ gross: a.gross + r.gross, net: a.net + r.net, uif: a.uif + r.uif_employee }), { gross: 0, net: 0, uif: 0 });
+                      w.document.write(`<html><head><title>Payroll Summary — ${weekStart} to ${weekEnd}</title><style>body{font-family:Inter,system-ui,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px 8px}th{background:#1A1A2E;color:#fff;font-size:11px}tr:nth-child(even){background:#f9f9f9}tfoot td{font-weight:bold;background:#f3f1ec}h1{font-size:18px;margin:0}h2{font-size:13px;color:#666;margin:4px 0 16px}@media print{body{padding:10px}}</style></head><body><h1>PULLENS TOMBSTONES — Payroll Summary</h1><h2>${weekStart} to ${weekEnd} &middot; ${results.length} employees</h2><table><thead><tr><th>PT</th><th>Name</th><th>Ord Hrs</th><th>OT Hrs</th><th>Gross</th><th>Late</th><th>UIF</th><th>PAYE</th><th>Loan</th><th>Garni</th><th>Petty</th><th>Net</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4" style="text-align:right">TOTALS</td><td style="text-align:right">R ${totals.gross.toFixed(2)}</td><td></td><td style="text-align:right">R ${totals.uif.toFixed(2)}</td><td colspan="4"></td><td style="text-align:right">R ${totals.net.toFixed(2)}</td></tr></tfoot></table></body></html>`);
+                      w.document.close();
+                      w.print();
+                    }}
+                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white bg-[#1A1A2E] hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print All
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
