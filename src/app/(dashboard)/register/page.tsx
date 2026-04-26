@@ -101,10 +101,15 @@ export default function RegisterPage() {
   const [rows, setRows] = useState<RegisterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedForDate, setSavedForDate] = useState(false);
+  const [showSavedOverlay, setShowSavedOverlay] = useState(false);
 
   const [showInactive, setShowInactive] = useState(false);
 
+  const isAdmin = user?.role === 'head_admin';
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
+  // Staff can't edit after save, only head_admin can override
+  const editLocked = savedForDate && !isAdmin;
 
   // Fetch employees + existing attendance for the selected date
   const fetchData = useCallback(async () => {
@@ -163,6 +168,8 @@ export default function RegisterPage() {
     });
 
     setRows(newRows);
+    // If any records already exist, this date has been saved before
+    setSavedForDate(newRows.some(r => r.existing_id !== null));
     setLoading(false);
   }, [selectedDate, showInactive]);
 
@@ -275,7 +282,9 @@ export default function RegisterPage() {
     if (!res.ok) {
       toast('error', `Save failed: ${data.error}`);
     } else {
-      toast('success', `Register saved for ${formatDateLabel(selectedDate)}`);
+      setSavedForDate(true);
+      setShowSavedOverlay(true);
+      setTimeout(() => setShowSavedOverlay(false), 2000);
       await fetchData();
     }
 
@@ -485,7 +494,7 @@ export default function RegisterPage() {
                       <td className="px-3 py-2">
                         <select
                           value={row.status}
-                          disabled={!canEdit}
+                          disabled={!canEdit || editLocked}
                           onChange={(e) =>
                             updateRow(idx, { status: e.target.value as AttendanceStatus })
                           }
@@ -509,7 +518,7 @@ export default function RegisterPage() {
                         <input
                           type="time"
                           value={row.time_in}
-                          disabled={!canEdit}
+                          disabled={!canEdit || editLocked}
                           onChange={(e) =>
                             updateRow(idx, { time_in: e.target.value })
                           }
@@ -526,7 +535,7 @@ export default function RegisterPage() {
                         <input
                           type="time"
                           value={row.time_out}
-                          disabled={!canEdit}
+                          disabled={!canEdit || editLocked}
                           onChange={(e) =>
                             updateRow(idx, { time_out: e.target.value })
                           }
@@ -546,7 +555,7 @@ export default function RegisterPage() {
                               type="number"
                               min={0}
                               value={row.late_minutes}
-                              disabled={!canEdit}
+                              disabled={!canEdit || editLocked}
                               onChange={(e) =>
                                 updateRow(idx, {
                                   late_minutes: parseInt(e.target.value) || 0,
@@ -585,7 +594,7 @@ export default function RegisterPage() {
                         <input
                           type="text"
                           value={row.reason}
-                          disabled={!canEdit}
+                          disabled={!canEdit || editLocked}
                           placeholder={
                             row.status === 'absent' || row.status === 'late'
                               ? 'Reason required'
@@ -632,17 +641,27 @@ export default function RegisterPage() {
           {/* Save button */}
           {canEdit && (
             <div className="flex items-center justify-between border-t border-gray-200 px-4 py-4">
-              <p className="text-xs text-gray-500">
-                {rows.length} employees &middot; {formatDateLabel(selectedDate)}
-              </p>
-              <Button
-                size="lg"
-                loading={saving}
-                icon={<Save className="h-4 w-4" />}
-                onClick={saveRegister}
-              >
-                Save Register
-              </Button>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-gray-500">
+                  {rows.length} employees &middot; {formatDateLabel(selectedDate)}
+                </p>
+                {savedForDate && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    Saved
+                  </span>
+                )}
+              </div>
+              {!editLocked && (
+                <Button
+                  size="lg"
+                  loading={saving}
+                  icon={<Save className="h-4 w-4" />}
+                  onClick={saveRegister}
+                >
+                  {savedForDate ? 'Update Register' : 'Save Register'}
+                </Button>
+              )}
             </div>
           )}
         </Card>
@@ -684,6 +703,27 @@ export default function RegisterPage() {
         </Card>
       )}
       </>
+      )}
+
+      {/* Saved overlay */}
+      {showSavedOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div
+            className="rounded-2xl px-10 py-8 text-center shadow-2xl"
+            style={{
+              background: 'rgba(255,255,255,0.97)',
+              animation: 'fadeInUp 200ms ease-out',
+            }}
+          >
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <p className="text-xl font-bold text-[#1A1A2E]">Register Saved</p>
+            <p className="text-sm text-gray-500 mt-1">{formatDateLabel(selectedDate)}</p>
+          </div>
+        </div>
       )}
     </div>
   );
