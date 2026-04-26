@@ -90,7 +90,7 @@ export default function AuditLogViewer() {
     setLoading(true);
 
     let query = supabase
-      .from('audit_logs')
+      .from('audit_log')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);

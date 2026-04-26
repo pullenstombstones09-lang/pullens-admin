@@ -52,6 +52,8 @@ export async function POST(request: Request) {
 
     // Sign in via Supabase Auth — collect cookies to set on response
     const email = `${name.toLowerCase().replace(/\s+/g, '.')}@pullens.local`;
+    // Supabase Auth requires min 6 char password — pad PIN
+    const authPassword = pin.padEnd(6, '_');
     const responseCookies: { name: string; value: string; options: Record<string, unknown> }[] = [];
 
     const supabase = createServerClient(
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
         email,
-        password: pin,
+        password: authPassword,
       });
 
     if (authError) {

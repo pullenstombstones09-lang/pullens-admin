@@ -4,9 +4,11 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   useCallback,
   type ReactNode,
 } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import type { UserRole } from '@/types/database';
 
 export interface AuthUser {
@@ -29,16 +31,71 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // TODO: Replace with real auth once login flow is fixed
-  // Temporarily hardcode Annika as user to test dashboard features
-  const [user] = useState<AuthUser | null>({
-    id: 'temp-annika',
-    name: 'Annika',
-    role: 'head_admin' as UserRole,
-  });
-  const [loading] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function loadSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.email) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        // Extract name from email (e.g. annika@pullens.local -> Annika)
+        const emailName = session.user.email.split('@')[0].replace(/\./g, ' ');
+
+        // Look up user in users table
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id, name, role')
+          .eq('name', emailName.charAt(0).toUpperCase() + emailName.slice(1))
+          .eq('active', true)
+          .single();
+
+        if (!dbUser) {
+          // Try case-insensitive match
+          const { data: dbUser2 } = await supabase
+            .from('users')
+            .select('id, name, role')
+            .ilike('name', emailName)
+            .eq('active', true)
+            .single();
+
+          if (dbUser2) {
+            setUser({ id: dbUser2.id, name: dbUser2.name, role: dbUser2.role as UserRole });
+          } else {
+            setUser(null);
+          }
+        } else {
+          setUser({ id: dbUser.id, name: dbUser.name, role: dbUser.role as UserRole });
+        }
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const logout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
     window.location.href = '/login';
   }, []);
 
