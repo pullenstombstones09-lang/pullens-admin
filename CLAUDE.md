@@ -72,7 +72,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - [x] Vercel deployment configured (env vars set)
 - [x] Build passes clean (TypeScript, no errors)
 
-### CURRENT BUILD — ac7f7cf (2026-04-26)
+### CURRENT BUILD — 2912780 (2026-04-26)
 - **Auth:** Cookie-based, no PIN, no Supabase Auth. Tap name → cookie → dashboard
 - **Login:** Server component with `<a>` links → `/api/auth/login?name=X` (GET, sets cookie, redirects)
 - **Proxy:** Checks `pullens-user` cookie, redirects to `/login` if missing, API routes are public
@@ -82,12 +82,16 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - **Register:** Data fetches via `/api/register` API route (service role key)
 - **Add/Remove employees:** Bottom of register page, collapsible, head_admin only
 - **Delete records:** Trash icon per row on register, head_admin only, with confirm alert
-- **Attendance seeded:** Week 20-24 April, all 38 employees, absents/lates captured
 - **Albert = Thabiso** (PT018) — register nickname mapping
 - **Garnishee:** Last pay week of month only (Marlyn R250, Junior R300) — confirmed correct
 - **Duplicate users cleaned:** Supabase users table has 6 unique rows now
 - **Vercel auto-deploy broken** — use `vercel deploy --prod` from CLI
 - PDF generator: warning, hearing notice, payslip via jsPDF
+- **Payroll flow simplified:** Calculate → auto-approve → auto-generate payslips. Two buttons: Print Summary (name+net PDF) + Print All Payslips (individual payslip PDFs). History rows have inline print icons.
+- **Signature capture:** Canvas on payslip viewer, uploads to Supabase Storage, saves to employee_documents, payslip_unsigned alert clears on sign
+- **Favicon:** Gold P on navy (#1A1A2E) — public/icon-32.png, icon-192.png, apple-icon.png
+- **Dashboard logo:** Pullens logo via next/image on dashboard header
+- **TEST DATA CLEARED 2026-04-26** — all attendance, payroll, payslips, petty cash, warnings, loans, documents, announcements, audit log wiped via /api/cleanup. Employees + users + settings + holidays kept. Ready for real use Tuesday 2026-04-29.
 
 ### KNOWN BUGS (parked)
 - Client component hydration fails on Vercel (login page was server component workaround)
@@ -134,6 +138,8 @@ pullens-admin/
 │   │   │   ├── hr-advisor/       # advise route (Claude API)
 │   │   │   ├── alerts/           # GET alerts route
 │   │   │   ├── exports/          # ccma-case route
+│   │   │   ├── pdf/              # payslip, payslips-all, payroll-summary, warning, hearing-notice
+│   │   │   ├── cleanup/          # Wipe test data (secret-protected)
 │   │   │   └── seed/             # Initial data seed (run once)
 │   │   └── (dashboard)/          # Protected routes (AuthProvider)
 │   │       ├── layout.tsx        # Sidebar + AuthProvider + ToastProvider
