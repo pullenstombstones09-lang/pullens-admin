@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     // Update Supabase Auth password to match
     const { error: authUpdateError } =
       await serviceSupabase.auth.admin.updateUserById(authUser.id, {
-        password: newPin.padEnd(6, '_'),
+        password: newPin,
       });
 
     if (authUpdateError) {

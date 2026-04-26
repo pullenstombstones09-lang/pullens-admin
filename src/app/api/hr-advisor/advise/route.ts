@@ -165,7 +165,7 @@ Provide your compliance advice as the specified JSON structure.`;
     });
 
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-4-6-20250514",
       max_tokens: 2048,
       messages: [
         {

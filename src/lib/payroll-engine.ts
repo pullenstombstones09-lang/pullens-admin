@@ -9,7 +9,6 @@ export interface PayrollInput {
   overtimeRequests: OvertimeRequest[]; // approved OT for the week
   activeLoans: Loan[];             // loans with status = 'active'
   pettyShortfall: number;          // auto-generated from petty cash cutoff
-  isLastWeekOfMonth: boolean;      // garnishee only deducted in last pay week
 }
 
 export interface PayrollResult {
@@ -182,9 +181,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   }
   loanDeduction = round2(loanDeduction);
 
-  // Step 9: Garnishee — only deducted in the last pay week of the month
-  // (Marlyn and Junior have monthly garnishee orders, not weekly)
-  const garnishee = input.isLastWeekOfMonth ? employee.garnishee : 0;
+  // Step 9: Garnishee
+  const garnishee = employee.garnishee;
 
   // Step 10: Net
   const net = round2(gross - uifEmployee - paye - loanDeduction - garnishee - pettyShortfall);

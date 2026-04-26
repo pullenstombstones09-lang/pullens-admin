@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Auth disabled temporarily — all routes open
+// TODO: Re-enable auth check once login flow is fixed
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Redirect root to dashboard
   if (pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

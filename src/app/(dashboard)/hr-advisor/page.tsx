@@ -390,65 +390,7 @@ export default function HRAdvisorPage() {
                 variant="primary"
                 size="lg"
                 icon={<FileText className="h-5 w-5" />}
-                onClick={async () => {
-                  if (!response || !selectedEmployee) return;
-                  try {
-                    const level = response.recommended_level;
-                    if (level === 'hearing') {
-                      // Generate hearing notice PDF
-                      const res = await fetch('/api/pdf/hearing-notice', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          employee_id: selectedEmployee.id,
-                          override: {
-                            charges: [response.classification.description],
-                            hearing_date: '_______________',
-                            hearing_time: '09:00',
-                            venue: 'Pullens Tombstones — Main Office, PMB',
-                            chairperson: 'To be confirmed',
-                            notice_date: new Date().toISOString().slice(0, 10),
-                            issued_by: user?.name || 'Management',
-                            prior_warnings: response.documents?.filter((d: string) => d.toLowerCase().includes('warning')),
-                          },
-                        }),
-                      });
-                      if (!res.ok) throw new Error('Failed to generate PDF');
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      window.open(url, '_blank');
-                    } else {
-                      // Generate warning form PDF
-                      const expiryMonths = level === 'verbal' ? 3 : level === 'written' ? 6 : 12;
-                      const today = new Date();
-                      const expiry = new Date(today);
-                      expiry.setMonth(expiry.getMonth() + expiryMonths);
-
-                      const res = await fetch('/api/pdf/warning', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          employee_id: selectedEmployee.id,
-                          override: {
-                            level,
-                            category: response.classification.category,
-                            offence: response.classification.misconduct_type,
-                            description: response.classification.description,
-                            date: new Date().toISOString().slice(0, 10),
-                            expiry_date: expiry.toISOString().slice(0, 10),
-                            issued_by: user?.name || 'Management',
-                          },
-                        }),
-                      });
-                      if (!res.ok) throw new Error('Failed to generate PDF');
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      window.open(url, '_blank');
-                    }
-                  } catch {
-                    toast('error', 'Failed to generate paperwork');
-                  }
-                }}
+                onClick={() => toast("info", "Paperwork generation coming soon")}
                 className="self-start"
               >
                 Generate Paperwork

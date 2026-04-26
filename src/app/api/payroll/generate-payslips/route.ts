@@ -47,10 +47,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Set real PDF URLs for each payslip
+    // ---------- PDF generation stub ----------
+    // In production, this would use a library like @react-pdf/renderer,
+    // puppeteer, or a service like html-pdf to generate actual PDF files.
+    // Each payslip PDF must include BCEA Section 33 compliant fields:
+    //
+    //   - Employer name and address
+    //   - Employee name, ID number, PT code
+    //   - Pay period (week_start to week_end)
+    //   - Ordinary hours worked
+    //   - Overtime hours worked
+    //   - Gross pay
+    //   - Itemized deductions (UIF, PAYE, loans, garnishee, petty shortfall)
+    //   - Net pay
+    //   - Employer UIF contribution
+    //
+    // For now, we mark payslips as generated and update the run status.
+
+    // Generate a placeholder PDF URL for each payslip
     const updates = payslips.map((slip: { id: string }) => ({
       id: slip.id,
-      pdf_url: `/api/pdf/payslip?id=${slip.id}`,
+      pdf_url: `/api/payroll/payslip-pdf/${slip.id}`, // placeholder route
     }));
 
     // Batch update payslips with PDF URLs
