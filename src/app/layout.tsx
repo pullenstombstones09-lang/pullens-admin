@@ -11,6 +11,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Pullens Admin",
   description: "HR & Payroll management for Pullens Tombstones",
+  icons: {
+    icon: "/icon-32.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({

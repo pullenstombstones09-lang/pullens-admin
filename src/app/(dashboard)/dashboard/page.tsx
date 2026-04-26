@@ -15,6 +15,7 @@ import {
   Scale,
   Megaphone,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
@@ -85,11 +86,21 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl font-bold text-[#333333]">
-          Welcome back, {user?.name || "User"}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">{formattedDate}</p>
+      <div className="mb-6 md:mb-8 flex items-center gap-4">
+        <Image
+          src="/logo.png"
+          alt="Pullens Tombstones"
+          width={140}
+          height={68}
+          className="shrink-0"
+          priority
+        />
+        <div>
+          <h1 className="text-2xl font-bold text-[#333333]">
+            Welcome back, {user?.name || "User"}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">{formattedDate}</p>
+        </div>
       </div>
 
       {/* Stat cards */}
