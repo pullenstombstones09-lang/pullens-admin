@@ -41,8 +41,8 @@ function getCookie(name: string): string | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(DEFAULT_USER);
-  const [loading] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const raw = getCookie('pullens-user');
@@ -55,9 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: parsed.role as UserRole,
         });
       } catch {
-        // keep default
+        setUser(DEFAULT_USER);
       }
+    } else {
+      setUser(DEFAULT_USER);
     }
+    setLoading(false);
   }, []);
 
   const logout = useCallback(async () => {
