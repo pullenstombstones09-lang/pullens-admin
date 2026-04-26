@@ -70,6 +70,9 @@ export default function PayrollPage() {
   const { toast } = useToast();
 
   const [weekOffset, setWeekOffset] = useState(0);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [useCustomDates, setUseCustomDates] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [generatingSlips, setGeneratingSlips] = useState(false);
   const [results, setResults] = useState<PayrollResult[] | null>(null);
@@ -78,7 +81,9 @@ export default function PayrollPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
 
-  const { weekStart, weekEnd } = getCurrentWeek(weekOffset);
+  const defaultWeek = getCurrentWeek(weekOffset);
+  const weekStart = useCustomDates && customStart ? customStart : defaultWeek.weekStart;
+  const weekEnd = useCustomDates && customEnd ? customEnd : defaultWeek.weekEnd;
   const canRun = user ? hasPermission(user.role, 'run_payroll') : false;
   const canApprove = user ? hasPermission(user.role, 'approve_payroll') : false;
 
@@ -239,7 +244,12 @@ export default function PayrollPage() {
                 <p className="text-sm font-semibold text-[#1A1A2E]">
                   {weekLabel(weekStart, weekEnd)}
                 </p>
-                <p className="text-xs text-gray-500">Fri–Thu pay week</p>
+                <button
+                  onClick={() => setUseCustomDates(!useCustomDates)}
+                  className="text-xs text-[#C4A35A] hover:underline mt-0.5"
+                >
+                  {useCustomDates ? 'Use standard weeks' : 'Pick custom dates'}
+                </button>
               </div>
               <button
                 onClick={() => setWeekOffset((w) => w + 1)}
@@ -256,6 +266,25 @@ export default function PayrollPage() {
                 </svg>
               </button>
             </div>
+
+            {useCustomDates && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">From</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="h-10 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                />
+                <label className="text-xs text-gray-500">To</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="h-10 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                />
+              </div>
+            )}
 
             {canRun && (
               <Button
