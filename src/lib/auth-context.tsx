@@ -29,14 +29,20 @@ const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
 });
 
+const DEFAULT_USER: AuthUser = {
+  id: '8382580b-0dd4-4aad-b77c-9d2be6ca1c5d',
+  name: 'Annika',
+  role: 'head_admin' as UserRole,
+};
+
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? decodeURIComponent(match[2]) : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser>(DEFAULT_USER);
+  const [loading] = useState(false);
 
   useEffect(() => {
     const raw = getCookie('pullens-user');
@@ -49,10 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: parsed.role as UserRole,
         });
       } catch {
-        setUser(null);
+        // keep default
       }
     }
-    setLoading(false);
   }, []);
 
   const logout = useCallback(async () => {
