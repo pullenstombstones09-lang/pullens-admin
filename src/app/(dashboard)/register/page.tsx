@@ -28,6 +28,7 @@ interface RegisterRow {
   full_name: string;
   photo_url: string | null;
   weekly_wage: number;
+  emp_status: string; // employee status (active/terminated)
   status: AttendanceStatus;
   time_in: string;
   time_out: string;
@@ -101,6 +102,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [showInactive, setShowInactive] = useState(false);
+
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
 
   // Fetch employees + existing attendance for the selected date
@@ -108,11 +111,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     const [empResult, attResult] = await Promise.all([
-      supabase
-        .from('employees')
-        .select('id, pt_code, full_name, photo_url, weekly_wage, status')
-        .eq('status', 'active')
-        .order('pt_code'),
+      showInactive
+        ? supabase.from('employees').select('id, pt_code, full_name, photo_url, weekly_wage, status').order('pt_code')
+        : supabase.from('employees').select('id, pt_code, full_name, photo_url, weekly_wage, status').eq('status', 'active').order('pt_code'),
       supabase
         .from('attendance')
         .select('*')
@@ -141,6 +142,7 @@ export default function RegisterPage() {
           full_name: emp.full_name,
           photo_url: emp.photo_url,
           weekly_wage: emp.weekly_wage,
+          emp_status: emp.status,
           status: existing.status,
           time_in: existing.time_in ?? '',
           time_out: existing.time_out ?? '',
@@ -156,6 +158,7 @@ export default function RegisterPage() {
         full_name: emp.full_name,
         photo_url: emp.photo_url,
         weekly_wage: emp.weekly_wage,
+        emp_status: emp.status,
         status: 'present',
         time_in: '',
         time_out: '',
@@ -168,7 +171,21 @@ export default function RegisterPage() {
 
     setRows(newRows);
     setLoading(false);
-  }, [supabase, selectedDate]);
+  }, [supabase, selectedDate, showInactive]);
+
+  async function toggleEmployeeStatus(employeeId: string, currentStatus: string) {
+    const newStatus = currentStatus === 'active' ? 'terminated' : 'active';
+    const { error } = await supabase
+      .from('employees')
+      .update({ status: newStatus })
+      .eq('id', employeeId);
+    if (error) {
+      toast('error', `Failed to update: ${error.message}`);
+    } else {
+      toast('success', newStatus === 'active' ? 'Employee restored to register' : 'Employee removed from register');
+      fetchData();
+    }
+  }
 
   useEffect(() => {
     fetchData();
@@ -315,14 +332,25 @@ export default function RegisterPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {canEdit && (
-              <Button
-                variant="secondary"
-                size="lg"
-                icon={<CheckCircle className="h-4 w-4" />}
-                onClick={markAllPresent}
-              >
-                Mark All Present (08:00-17:00)
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  icon={<CheckCircle className="h-4 w-4" />}
+                  onClick={markAllPresent}
+                >
+                  Mark All Present (08:00-17:00)
+                </Button>
+                <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer ml-2">
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={(e) => setShowInactive(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Show removed
+                </label>
+              </>
             )}
           </div>
         </div>
@@ -402,7 +430,7 @@ export default function RegisterPage() {
                         idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
                       )}
                     >
-                      {/* Name + avatar */}
+                      {/* Name + avatar + remove */}
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2.5 min-h-[48px]">
                           {row.photo_url ? (
@@ -416,9 +444,23 @@ export default function RegisterPage() {
                               {getInitials(row.full_name)}
                             </div>
                           )}
-                          <span className="font-medium text-[#333] truncate">
+                          <span className={cn("font-medium truncate", row.emp_status === 'active' ? 'text-[#333]' : 'text-gray-400 line-through')}>
                             {row.full_name}
                           </span>
+                          {canEdit && (
+                            <button
+                              onClick={() => toggleEmployeeStatus(row.employee_id, row.emp_status)}
+                              title={row.emp_status === 'active' ? 'Remove from register' : 'Restore to register'}
+                              className={cn(
+                                'ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors',
+                                row.emp_status === 'active'
+                                  ? 'text-red-500 hover:bg-red-50'
+                                  : 'text-emerald-600 hover:bg-emerald-50'
+                              )}
+                            >
+                              {row.emp_status === 'active' ? 'Remove' : 'Restore'}
+                            </button>
+                          )}
                         </div>
                       </td>
 
