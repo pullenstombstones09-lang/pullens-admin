@@ -480,19 +480,20 @@ function PayslipViewerPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="lg"
-            icon={<Printer className="h-4 w-4" />}
-            onClick={() => {
-              if (!currentSlip) return;
-              window.open(`/api/pdf/payslip?id=${currentSlip.id}`, '_blank');
-            }}
-          >
-            Print Payslip
-          </Button>
-        </div>
+        {currentSlip && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={<Printer className="h-4 w-4" />}
+              onClick={() => {
+                window.open(`/api/pdf/payslip?id=${currentSlip.id}`, '_blank');
+              }}
+            >
+              Print Payslip
+            </Button>
+          </div>
+        )}
       </div>
 
       {loading ? (

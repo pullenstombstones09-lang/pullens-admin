@@ -35,7 +35,7 @@ function addHeader(doc: jsPDF, title: string, subtitle?: string) {
   // White header with logo
   // Logo: aspect ratio ~2.08:1 (2254x1084), display at ~50x24mm
   try {
-    doc.addImage(LOGO_BASE64, 'PNG', 12, 5, 50, 24);
+    doc.addImage(LOGO_BASE64, 'JPEG', 12, 5, 50, 24);
   } catch {
     // Fallback if image fails
     doc.setFont('helvetica', 'bold');
