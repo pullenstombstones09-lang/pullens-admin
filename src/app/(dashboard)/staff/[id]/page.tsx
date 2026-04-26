@@ -4,8 +4,10 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn, getInitials, formatDate, yearsOfService } from '@/lib/utils';
-import type { Employee, Warning, Loan, LeaveBalance } from '@/types/database';
+import type { Employee, Warning, Loan, LeaveBalance, PaymentMethod } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import {
   ArrowLeft,
   Camera,
@@ -17,6 +19,8 @@ import {
   Banknote,
   Palmtree,
   Scale,
+  Pencil,
+  X,
 } from 'lucide-react';
 
 import OverviewTab from './tabs/overview-tab';
@@ -46,6 +50,272 @@ interface StatusChip {
   color: 'green' | 'red' | 'amber' | 'blue' | 'purple' | 'yellow' | 'grey';
 }
 
+/* ─── Edit Employee Modal ─── */
+interface EditModalProps {
+  employee: Employee;
+  onClose: () => void;
+  onSaved: (updated: Employee) => void;
+}
+
+function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
+  const supabase = createClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    full_name: employee.full_name ?? '',
+    weekly_wage: employee.weekly_wage ?? 0,
+    occupation: employee.occupation ?? '',
+    id_number: employee.id_number ?? '',
+    cell: employee.cell ?? '',
+    home_address: employee.home_address ?? '',
+    payment_method: employee.payment_method ?? 'cash',
+    bank_name: employee.bank_name ?? '',
+    bank_acc: employee.bank_acc ?? '',
+    bank_branch: employee.bank_branch ?? '',
+    emergency_name: employee.emergency_name ?? '',
+    emergency_rel: employee.emergency_rel ?? '',
+    emergency_phone: employee.emergency_phone ?? '',
+    garnishee: employee.garnishee ?? 0,
+    notes: employee.notes ?? '',
+  });
+
+  const set = (field: string, value: string | number) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSave = async () => {
+    if (!form.full_name.trim()) {
+      toast('error', 'Full name is required');
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      full_name: form.full_name.trim(),
+      weekly_wage: Number(form.weekly_wage) || 0,
+      occupation: form.occupation.trim() || null,
+      id_number: form.id_number.trim() || null,
+      cell: form.cell.trim() || null,
+      home_address: form.home_address.trim() || null,
+      payment_method: form.payment_method as PaymentMethod,
+      bank_name: form.payment_method === 'eft' ? (form.bank_name.trim() || null) : null,
+      bank_acc: form.payment_method === 'eft' ? (form.bank_acc.trim() || null) : null,
+      bank_branch: form.payment_method === 'eft' ? (form.bank_branch.trim() || null) : null,
+      emergency_name: form.emergency_name.trim() || null,
+      emergency_rel: form.emergency_rel.trim() || null,
+      emergency_phone: form.emergency_phone.trim() || null,
+      garnishee: Number(form.garnishee) || 0,
+      notes: form.notes.trim() || null,
+    };
+
+    const { error } = await supabase
+      .from('employees')
+      .update(payload)
+      .eq('id', employee.id);
+
+    setSaving(false);
+    if (error) {
+      toast('error', `Save failed: ${error.message}`);
+      return;
+    }
+    toast('success', 'Employee updated');
+    onSaved({ ...employee, ...payload });
+  };
+
+  const inputCls =
+    'w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-[#1A1A2E] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A] transition-colors';
+  const labelCls = 'block text-xs font-medium text-stone-500 mb-1';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+          <h2 className="text-lg font-bold text-[#1A1A2E]">Edit Employee</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 max-h-[70vh] overflow-y-auto space-y-4">
+          {/* Two-col grid for short fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Full name</label>
+              <input
+                className={inputCls}
+                value={form.full_name}
+                onChange={(e) => set('full_name', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Weekly wage (R)</label>
+              <input
+                type="number"
+                className={inputCls}
+                value={form.weekly_wage}
+                onChange={(e) => set('weekly_wage', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Occupation</label>
+              <input
+                className={inputCls}
+                value={form.occupation}
+                onChange={(e) => set('occupation', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>ID number</label>
+              <input
+                className={inputCls}
+                value={form.id_number}
+                onChange={(e) => set('id_number', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Cell</label>
+              <input
+                className={inputCls}
+                value={form.cell}
+                onChange={(e) => set('cell', e.target.value)}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Home address</label>
+              <input
+                className={inputCls}
+                value={form.home_address}
+                onChange={(e) => set('home_address', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Payment method</label>
+              <select
+                className={inputCls}
+                value={form.payment_method}
+                onChange={(e) => set('payment_method', e.target.value)}
+              >
+                <option value="eft">EFT</option>
+                <option value="cash">Cash</option>
+              </select>
+            </div>
+
+            {form.payment_method === 'eft' && (
+              <>
+                <div>
+                  <label className={labelCls}>Bank name</label>
+                  <input
+                    className={inputCls}
+                    value={form.bank_name}
+                    onChange={(e) => set('bank_name', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelCls}>Bank account</label>
+                  <input
+                    className={inputCls}
+                    value={form.bank_acc}
+                    onChange={(e) => set('bank_acc', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelCls}>Bank branch code</label>
+                  <input
+                    className={inputCls}
+                    value={form.bank_branch}
+                    onChange={(e) => set('bank_branch', e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className={labelCls}>Emergency name</label>
+              <input
+                className={inputCls}
+                value={form.emergency_name}
+                onChange={(e) => set('emergency_name', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Emergency relationship</label>
+              <input
+                className={inputCls}
+                value={form.emergency_rel}
+                onChange={(e) => set('emergency_rel', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Emergency phone</label>
+              <input
+                className={inputCls}
+                value={form.emergency_phone}
+                onChange={(e) => set('emergency_phone', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Garnishee amount (R)</label>
+              <input
+                type="number"
+                className={inputCls}
+                value={form.garnishee}
+                onChange={(e) => set('garnishee', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea
+              className={cn(inputCls, 'min-h-[80px] resize-y')}
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-stone-100">
+          <button
+            onClick={onClose}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors min-h-[48px]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white bg-[#C4A35A] hover:bg-[#b3923f] disabled:opacity-50 transition-colors min-h-[48px]"
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeProfilePage({
   params,
 }: {
@@ -54,11 +324,13 @@ export default function EmployeeProfilePage({
   const { id } = use(params);
   const router = useRouter();
   const supabase = createClient();
+  const { user } = useAuth();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [statusChips, setStatusChips] = useState<StatusChip[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -228,9 +500,20 @@ export default function EmployeeProfilePage({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-[#1A1A2E] truncate leading-tight">
-                {employee.full_name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-[#1A1A2E] truncate leading-tight">
+                  {employee.full_name}
+                </h1>
+                {user?.role === 'head_admin' && (
+                  <button
+                    onClick={() => setEditOpen(true)}
+                    className="shrink-0 rounded-lg p-2 text-stone-400 hover:text-[#C4A35A] hover:bg-stone-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    title="Edit employee"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
                 <span className="text-sm font-mono text-[#C4A35A] font-semibold">{employee.pt_code}</span>
                 {employee.id_number && (
@@ -295,6 +578,18 @@ export default function EmployeeProfilePage({
         {activeTab === 'leave' && <LeaveTab employeeId={id} />}
         {activeTab === 'disciplinary' && <DisciplinaryTab employeeId={id} />}
       </div>
+
+      {/* Edit employee modal */}
+      {editOpen && employee && (
+        <EditEmployeeModal
+          employee={employee}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updated) => {
+            setEmployee(updated);
+            setEditOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
