@@ -94,3 +94,30 @@ export async function PATCH(request: NextRequest) {
 
   return Response.json({ success: true });
 }
+
+export async function DELETE(request: NextRequest) {
+  const { attendanceId } = await request.json();
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+
+  const { error } = await supabase
+    .from('attendance')
+    .delete()
+    .eq('id', attendanceId);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json({ success: true });
+}

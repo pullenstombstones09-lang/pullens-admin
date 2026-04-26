@@ -228,6 +228,25 @@ export default function RegisterPage() {
     );
   }
 
+  // ---------- delete record ----------
+
+  async function deleteRecord(attendanceId: string, employeeName: string) {
+    if (!confirm(`Delete attendance record for ${employeeName} on ${formatDateLabel(selectedDate)}? This cannot be undone.`)) return;
+
+    const res = await fetch('/api/register', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendanceId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast('error', `Delete failed: ${data.error}`);
+    } else {
+      toast('success', `Record deleted for ${employeeName}`);
+      fetchData();
+    }
+  }
+
   // ---------- save ----------
 
   async function saveRegister() {
@@ -339,15 +358,17 @@ export default function RegisterPage() {
                 >
                   Mark All Present (08:00-17:00)
                 </Button>
-                <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer ml-2">
-                  <input
-                    type="checkbox"
-                    checked={showInactive}
-                    onChange={(e) => setShowInactive(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  Show removed
-                </label>
+                {user?.role === 'head_admin' && (
+                  <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer ml-2">
+                    <input
+                      type="checkbox"
+                      checked={showInactive}
+                      onChange={(e) => setShowInactive(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    Show removed
+                  </label>
+                )}
               </>
             )}
           </div>
@@ -382,6 +403,7 @@ export default function RegisterPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
         </div>
       ) : (
+        <>
         <Card padding="none">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -411,6 +433,10 @@ export default function RegisterPage() {
                   <th className="px-3 py-3 text-left font-semibold text-[#333] whitespace-nowrap">
                     Reason / Note
                   </th>
+                  {user?.role === 'head_admin' && (
+                    <th className="px-2 py-3 text-center font-semibold text-[#333] whitespace-nowrap w-[50px]">
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -428,7 +454,7 @@ export default function RegisterPage() {
                         idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
                       )}
                     >
-                      {/* Name + avatar + remove */}
+                      {/* Name + avatar */}
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2.5 min-h-[48px]">
                           {row.photo_url ? (
@@ -445,20 +471,6 @@ export default function RegisterPage() {
                           <span className={cn("font-medium truncate", row.emp_status === 'active' ? 'text-[#333]' : 'text-gray-400 line-through')}>
                             {row.full_name}
                           </span>
-                          {canEdit && (
-                            <button
-                              onClick={() => toggleEmployeeStatus(row.employee_id, row.emp_status)}
-                              title={row.emp_status === 'active' ? 'Remove from register' : 'Restore to register'}
-                              className={cn(
-                                'ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors',
-                                row.emp_status === 'active'
-                                  ? 'text-red-500 hover:bg-red-50'
-                                  : 'text-emerald-600 hover:bg-emerald-50'
-                              )}
-                            >
-                              {row.emp_status === 'active' ? 'Remove' : 'Restore'}
-                            </button>
-                          )}
                         </div>
                       </td>
 
@@ -593,6 +605,23 @@ export default function RegisterPage() {
                           )}
                         />
                       </td>
+
+                      {/* Delete — head_admin only */}
+                      {user?.role === 'head_admin' && (
+                        <td className="px-2 py-2 text-center">
+                          {row.existing_id && (
+                            <button
+                              onClick={() => deleteRecord(row.existing_id!, row.full_name)}
+                              title="Delete record"
+                              className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                              </svg>
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -617,6 +646,44 @@ export default function RegisterPage() {
             </div>
           )}
         </Card>
+
+      {/* Add/Remove employees — head_admin only */}
+      {user?.role === 'head_admin' && (
+        <Card padding="sm">
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold text-[#1A1A2E] select-none py-2">
+              Add or Remove Employees from Register
+            </summary>
+            <div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">
+              {rows.map((row) => (
+                <div
+                  key={row.employee_id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-gray-400">{row.pt_code}</span>
+                    <span className={cn("text-sm font-medium", row.emp_status === 'active' ? 'text-[#333]' : 'text-gray-400 line-through')}>
+                      {row.full_name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => toggleEmployeeStatus(row.employee_id, row.emp_status)}
+                    className={cn(
+                      'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
+                      row.emp_status === 'active'
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                    )}
+                  >
+                    {row.emp_status === 'active' ? 'Remove' : 'Restore'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
+        </Card>
+      )}
+      </>
       )}
     </div>
   );
