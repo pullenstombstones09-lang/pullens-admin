@@ -1,59 +1,6 @@
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-
 const USERS = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Lee-Ann', 'Kam'] as const;
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const params = await searchParams;
-  const error = params.error;
-
-  async function loginAction(formData: FormData) {
-    'use server';
-
-    const name = formData.get('name') as string;
-    if (!name) return redirect('/login?error=No+name');
-
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll() {},
-        },
-      }
-    );
-
-    const { data: user, error: err } = await supabase
-      .from('users')
-      .select('id, name, role, perms')
-      .eq('name', name)
-      .eq('active', true)
-      .single();
-
-    if (err || !user) return redirect('/login?error=User+not+found');
-
-    cookieStore.set('pullens-user', JSON.stringify({
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      perms: user.perms,
-    }), {
-      path: '/',
-      httpOnly: false,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    redirect('/dashboard');
-  }
-
+export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
@@ -85,18 +32,15 @@ export default async function LoginPage({
             Select your name to sign in
           </p>
 
-          {error && (
-            <p style={{ textAlign: 'center', fontSize: 14, marginBottom: 16, color: '#f87171' }}>
-              {error}
-            </p>
-          )}
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {USERS.map((name) => (
-              <form key={name} action={loginAction}>
-                <input type="hidden" name="name" value={name} />
-                <button type="submit" style={{
-                  width: '100%',
+              <a
+                key={name}
+                href={`/api/auth/login?name=${name}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   minHeight: 48,
                   padding: '12px 16px',
                   borderRadius: 12,
@@ -105,11 +49,12 @@ export default async function LoginPage({
                   background: 'rgba(255,255,255,0.1)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   color: '#FFFFFF',
+                  textDecoration: 'none',
                   cursor: 'pointer',
-                }}>
-                  {name}
-                </button>
-              </form>
+                }}
+              >
+                {name}
+              </a>
             ))}
           </div>
         </div>
