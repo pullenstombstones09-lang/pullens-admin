@@ -13,7 +13,6 @@ import type { PayrollRun, PayrollStatus } from '@/types/database';
 import type { PayrollResult } from '@/lib/payroll-engine';
 import {
   Calculator,
-  FileText,
   Printer,
   CheckCircle,
   AlertTriangle,
@@ -79,6 +78,7 @@ export default function PayrollPage() {
   const [history, setHistory] = useState<PayrollRun[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
+  const [slipsGenerated, setSlipsGenerated] = useState(false);
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -108,8 +108,38 @@ export default function PayrollPage() {
     setCalculating(true);
     setResults(null);
     setAnomalies([]);
+    setSlipsGenerated(false);
 
     try {
+      // --- Attendance validation gate ---
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('id, full_name')
+        .eq('status', 'active');
+
+      const { data: attendance } = await supabase
+        .from('attendance')
+        .select('employee_id')
+        .gte('date', weekStart)
+        .lte('date', weekEnd);
+
+      if (employees && attendance) {
+        const employeesWithAttendance = new Set(attendance.map((a: { employee_id: string }) => a.employee_id));
+        const missing = employees.filter((e: { id: string }) => !employeesWithAttendance.has(e.id));
+
+        if (missing.length > 0) {
+          const names = missing.map((e: { full_name: string }) => e.full_name).join(', ');
+          const proceed = window.confirm(
+            `${missing.length} employee${missing.length === 1 ? '' : 's'} ha${missing.length === 1 ? 's' : 've'} no attendance recorded this week:\n\n${names}\n\nContinue anyway?`
+          );
+          if (!proceed) {
+            setCalculating(false);
+            return;
+          }
+        }
+      }
+      // --- End validation gate ---
+
       const res = await fetch('/api/payroll/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,8 +161,11 @@ export default function PayrollPage() {
         if (r.net < 0) {
           issues.push(`${r.full_name} (${r.pt_code}): negative net ${formatCurrency(r.net)}`);
         }
-        if (r.ordinary_hours === 0 && r.late_minutes === 0) {
-          issues.push(`${r.full_name} (${r.pt_code}): no attendance recorded`);
+        if (r.ordinary_hours === 0) {
+          issues.push(`${r.full_name} (${r.pt_code}): no hours worked`);
+        }
+        if (r.gross === 0) {
+          issues.push(`${r.full_name} (${r.pt_code}): zero gross pay`);
         }
       }
       setAnomalies(issues);
@@ -166,6 +199,7 @@ export default function PayrollPage() {
       }
 
       toast('success', 'Payslips generated successfully');
+      setSlipsGenerated(true);
       fetchHistory();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -312,33 +346,42 @@ export default function PayrollPage() {
                 <p className="text-sm font-medium text-[#333]">
                   {results.length} employees &middot; {weekLabel(weekStart, weekEnd)}
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => window.print()}
-                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Print Summary
-                  </button>
-                  <button
-                    onClick={() => {
-                      const w = window.open('', '_blank');
-                      if (!w) return;
-                      const rows = results.map(r =>
-                        `<tr><td>${r.pt_code}</td><td>${r.full_name}</td><td style="text-align:right">${r.ordinary_hours.toFixed(1)}</td><td style="text-align:right">${r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}</td><td style="text-align:right">R ${r.gross.toFixed(2)}</td><td style="text-align:right;color:red">${r.late_deduction > 0 ? '-R ' + r.late_deduction.toFixed(2) : '—'}</td><td style="text-align:right">R ${r.uif_employee.toFixed(2)}</td><td style="text-align:right">${r.paye > 0 ? 'R ' + r.paye.toFixed(2) : '—'}</td><td style="text-align:right">${r.loan_deduction > 0 ? 'R ' + r.loan_deduction.toFixed(2) : '—'}</td><td style="text-align:right">${r.garnishee > 0 ? 'R ' + r.garnishee.toFixed(2) : '—'}</td><td style="text-align:right">${r.petty_shortfall > 0 ? 'R ' + r.petty_shortfall.toFixed(2) : '—'}</td><td style="text-align:right;font-weight:bold">R ${r.net.toFixed(2)}</td></tr>`
-                      ).join('');
-                      const totals = results.reduce((a, r) => ({ gross: a.gross + r.gross, net: a.net + r.net, uif: a.uif + r.uif_employee }), { gross: 0, net: 0, uif: 0 });
-                      w.document.write(`<html><head><title>Payroll Summary — ${weekStart} to ${weekEnd}</title><style>body{font-family:Inter,system-ui,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px 8px}th{background:#1A1A2E;color:#fff;font-size:11px}tr:nth-child(even){background:#f9f9f9}tfoot td{font-weight:bold;background:#f3f1ec}h1{font-size:18px;margin:0}h2{font-size:13px;color:#666;margin:4px 0 16px}@media print{body{padding:10px}}</style></head><body><h1>PULLENS TOMBSTONES — Payroll Summary</h1><h2>${weekStart} to ${weekEnd} &middot; ${results.length} employees</h2><table><thead><tr><th>PT</th><th>Name</th><th>Ord Hrs</th><th>OT Hrs</th><th>Gross</th><th>Late</th><th>UIF</th><th>PAYE</th><th>Loan</th><th>Garni</th><th>Petty</th><th>Net</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4" style="text-align:right">TOTALS</td><td style="text-align:right">R ${totals.gross.toFixed(2)}</td><td></td><td style="text-align:right">R ${totals.uif.toFixed(2)}</td><td colspan="4"></td><td style="text-align:right">R ${totals.net.toFixed(2)}</td></tr></tfoot></table></body></html>`);
-                      w.document.close();
-                      w.print();
-                    }}
-                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white bg-[#1A1A2E] hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Print All
-                  </button>
-                </div>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#1A1A2E] bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Summary
+                </button>
               </div>
+              {/* Running total bar */}
+              {totals && (
+                <div className="sticky top-0 z-10 rounded-lg bg-[#1A1A2E] px-4 py-3 text-white shadow-md">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                    <div>
+                      <span className="text-gray-400 text-xs">Gross</span>
+                      <p className="font-bold">{formatCurrency(totals.gross)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-xs">UIF</span>
+                      <p className="font-bold">{formatCurrency(totals.uif)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-xs">Deductions</span>
+                      <p className="font-bold">{formatCurrency(totals.lateDeduction + totals.paye + totals.loans + totals.garnishee + totals.petty)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-xs">Net</span>
+                      <p className="font-bold">{formatCurrency(totals.net)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-xs">Employees</span>
+                      <p className="font-bold">{results.length}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
@@ -383,7 +426,7 @@ export default function PayrollPage() {
                   </thead>
                   <tbody>
                     {results.map((r, idx) => {
-                      const hasAnomaly = r.net < 0 || (r.ordinary_hours === 0 && r.late_minutes === 0);
+                      const hasAnomaly = r.net < 0 || r.ordinary_hours === 0 || r.gross === 0;
                       return (
                         <tr
                           key={r.employee_id}
@@ -494,38 +537,33 @@ export default function PayrollPage() {
 
               {/* Action buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Button
-                  size="lg"
-                  loading={generatingSlips}
-                  icon={<FileText className="h-4 w-4" />}
-                  onClick={handleGeneratePayslips}
-                >
-                  Generate Payslips
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon={<Printer className="h-4 w-4" />}
-                  onClick={() => window.print()}
-                >
-                  Print All {results.length} Payslips
-                </Button>
-                {canApprove && runId && (
+                {!slipsGenerated && (
                   <Button
-                    variant="ghost"
                     size="lg"
+                    loading={generatingSlips}
                     icon={<CheckCircle className="h-4 w-4" />}
                     onClick={async () => {
-                      await supabase
-                        .from('payroll_runs')
-                        .update({ status: 'approved' })
-                        .eq('id', runId);
-                      toast('success', 'Payroll approved');
-                      fetchHistory();
+                      // Approve + Generate in one step
+                      if (runId && canApprove) {
+                        await supabase
+                          .from('payroll_runs')
+                          .update({ status: 'approved' })
+                          .eq('id', runId);
+                      }
+                      await handleGeneratePayslips();
                     }}
                   >
-                    Approve Payroll
+                    Approve &amp; Generate Payslips
                   </Button>
+                )}
+                {slipsGenerated && runId && (
+                  <Link
+                    href={`/payroll/payslip-viewer?run=${runId}`}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A2E] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2a2a4e] transition-colors min-h-[44px]"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Payslips
+                  </Link>
                 )}
               </div>
             </>
