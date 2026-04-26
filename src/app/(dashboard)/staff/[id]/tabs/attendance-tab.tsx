@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import type { Attendance, AttendanceStatus } from '@/types/database';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
@@ -34,6 +36,8 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
 
 export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [records, setRecords] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -98,6 +102,18 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
     if (!selectedDate) return null;
     return records.find((r) => r.date === selectedDate) ?? null;
   }, [records, selectedDate]);
+
+  const handleDeleteAttendance = async (id: string) => {
+    if (!confirm('Delete this attendance record? This cannot be undone.')) return;
+    const { error } = await supabase.from('attendance').delete().eq('id', id);
+    if (error) {
+      toast('error', 'Failed to delete attendance record');
+    } else {
+      toast('success', 'Attendance record deleted');
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+      setSelectedDate(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -223,6 +239,18 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
                 </div>
                 {selectedRecord.reason && (
                   <p className="text-xs text-stone-500">Reason: {selectedRecord.reason}</p>
+                )}
+                {user?.role === 'head_admin' && (
+                  <button
+                    onClick={() => handleDeleteAttendance(selectedRecord.id)}
+                    title="Delete"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                    <span className="text-xs">Delete</span>
+                  </button>
                 )}
               </div>
             ) : (

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils';
 import type { Incident, Hearing, Warning } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -32,6 +34,8 @@ type TimelineEvent = {
 
 export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -135,6 +139,18 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
     alert('CCMA case file generation coming soon');
   };
 
+  const handleDeleteEvent = async (event: TimelineEvent) => {
+    if (!confirm(`Delete this ${event.type}? This cannot be undone.`)) return;
+    const table = event.type === 'incident' ? 'incidents' : event.type === 'warning' ? 'warnings' : 'hearings';
+    const { error } = await supabase.from(table).delete().eq('id', event.id);
+    if (error) {
+      toast('error', `Failed to delete ${event.type}`);
+    } else {
+      toast('success', `${event.type.charAt(0).toUpperCase() + event.type.slice(1)} deleted`);
+      setTimeline((prev) => prev.filter((e) => !(e.id === event.id && e.type === event.type)));
+    }
+  };
+
   const TypeIcon = ({ type }: { type: string }) => {
     if (type === 'incident') return <AlertTriangle className="h-4 w-4 text-amber-500" />;
     if (type === 'hearing') return <Gavel className="h-4 w-4 text-purple-500" />;
@@ -201,14 +217,27 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
                       <p className="text-sm font-medium text-[#1A1A2E]">{event.title}</p>
                     </div>
 
-                    {event.pdfUrl && (
-                      <button
-                        onClick={() => window.open(event.pdfUrl!, '_blank')}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
-                      >
-                        <FileDown className="h-4 w-4" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {event.pdfUrl && (
+                        <button
+                          onClick={() => window.open(event.pdfUrl!, '_blank')}
+                          className="flex h-8 w-8 items-center justify-center rounded text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
+                        >
+                          <FileDown className="h-4 w-4" />
+                        </button>
+                      )}
+                      {user?.role === 'head_admin' && (
+                        <button
+                          onClick={() => handleDeleteEvent(event)}
+                          title="Delete"
+                          className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {event.description && (

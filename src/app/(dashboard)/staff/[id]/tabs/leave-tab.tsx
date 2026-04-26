@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils';
 import type { Leave, LeaveBalance, LeaveType } from '@/types/database';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
@@ -31,6 +33,8 @@ const LEAVE_TYPE_COLORS: Record<LeaveType, 'green' | 'red' | 'blue' | 'purple' |
 
 export default function LeaveTab({ employeeId }: LeaveTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +67,17 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
   const handleRecordLeave = () => {
     // Placeholder — will be wired to a modal/form
     alert('Record leave form coming soon');
+  };
+
+  const handleDeleteLeave = async (id: string) => {
+    if (!confirm('Delete this leave record? This cannot be undone.')) return;
+    const { error } = await supabase.from('leave').delete().eq('id', id);
+    if (error) {
+      toast('error', 'Failed to delete leave record');
+    } else {
+      toast('success', 'Leave record deleted');
+      setLeaves((prev) => prev.filter((l) => l.id !== id));
+    }
   };
 
   if (loading) {
@@ -174,14 +189,27 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
                   </div>
                 </div>
 
-                {leave.medical_cert_url && (
-                  <button
-                    onClick={() => window.open(leave.medical_cert_url!, '_blank')}
-                    className="text-xs text-[#C4A35A] font-medium whitespace-nowrap min-h-[36px] flex items-center"
-                  >
-                    View cert
-                  </button>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {leave.medical_cert_url && (
+                    <button
+                      onClick={() => window.open(leave.medical_cert_url!, '_blank')}
+                      className="text-xs text-[#C4A35A] font-medium whitespace-nowrap min-h-[36px] flex items-center"
+                    >
+                      View cert
+                    </button>
+                  )}
+                  {user?.role === 'head_admin' && (
+                    <button
+                      onClick={() => handleDeleteLeave(leave.id)}
+                      title="Delete"
+                      className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             </Card>
           ))}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils';
 import type { EmployeeDocument, DocType } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -36,6 +38,8 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
 
 export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [docs, setDocs] = useState<EmployeeDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,6 +108,17 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
   const isExpired = (expiryDate: string | null): boolean => {
     if (!expiryDate) return false;
     return new Date(expiryDate).getTime() < Date.now();
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    if (!confirm('Delete this document? This cannot be undone.')) return;
+    const { error } = await supabase.from('employee_documents').delete().eq('id', id);
+    if (error) {
+      toast('error', 'Failed to delete document');
+    } else {
+      toast('success', 'Document deleted');
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+    }
   };
 
   if (loading) {
@@ -191,6 +206,17 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
                     >
                       <ExternalLink className="h-4 w-4" />
                     </button>
+                    {user?.role === 'head_admin' && (
+                      <button
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        title="Delete"
+                        className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               </Card>

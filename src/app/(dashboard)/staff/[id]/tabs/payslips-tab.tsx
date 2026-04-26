@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { formatCurrency, formatDate, getWeekNumber } from '@/lib/utils';
 import type { Payslip, PayrollRun } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -20,6 +22,8 @@ interface PayslipWithWeek extends Payslip {
 
 export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [payslips, setPayslips] = useState<PayslipWithWeek[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
@@ -82,6 +86,17 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
     filtered.forEach((p) => {
       if (p.pdf_url) window.open(p.pdf_url, '_blank');
     });
+  };
+
+  const handleDeletePayslip = async (id: string) => {
+    if (!confirm('Delete this payslip? This cannot be undone.')) return;
+    const { error } = await supabase.from('payslips').delete().eq('id', id);
+    if (error) {
+      toast('error', 'Failed to delete payslip');
+    } else {
+      toast('success', 'Payslip deleted');
+      setPayslips((prev) => prev.filter((p) => p.id !== id));
+    }
   };
 
   const MONTHS = [
@@ -178,6 +193,9 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase text-right">Net</th>
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase text-center">Signed</th>
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase"></th>
+                  {user?.role === 'head_admin' && (
+                    <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase"></th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -205,6 +223,19 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                         PDF
                       </Button>
                     </td>
+                    {user?.role === 'head_admin' && (
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleDeletePayslip(p.id)}
+                          title="Delete"
+                          className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -231,15 +262,28 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                     <p className="text-xs text-stone-500">Gross: {formatCurrency(p.gross)}</p>
                     <p className="text-lg font-bold text-[#1A1A2E]">{formatCurrency(p.net)}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDownload(p.pdf_url)}
-                    disabled={!p.pdf_url}
-                    icon={<Download className="h-4 w-4" />}
-                  >
-                    PDF
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownload(p.pdf_url)}
+                      disabled={!p.pdf_url}
+                      icon={<Download className="h-4 w-4" />}
+                    >
+                      PDF
+                    </Button>
+                    {user?.role === 'head_admin' && (
+                      <button
+                        onClick={() => handleDeletePayslip(p.id)}
+                        title="Delete"
+                        className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}

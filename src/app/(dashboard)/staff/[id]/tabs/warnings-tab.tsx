@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils';
 import type { Warning } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -20,23 +22,37 @@ interface WarningsTabProps {
 
 export default function WarningsTab({ employeeId }: WarningsTabProps) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadWarnings = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('warnings')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('issued_date', { ascending: false });
+    setWarnings((data ?? []) as Warning[]);
+    setLoading(false);
+  }, [supabase, employeeId]);
+
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const { data } = await supabase
-        .from('warnings')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .order('issued_date', { ascending: false });
-      setWarnings((data ?? []) as Warning[]);
-      setLoading(false);
-    }
-    load();
+    loadWarnings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
+
+  const handleDeleteWarning = async (id: string) => {
+    if (!confirm('Delete this warning? This cannot be undone.')) return;
+    const { error } = await supabase.from('warnings').delete().eq('id', id);
+    if (error) {
+      toast('error', 'Failed to delete warning');
+    } else {
+      toast('success', 'Warning deleted');
+      setWarnings((prev) => prev.filter((w) => w.id !== id));
+    }
+  };
 
   const { active, expired } = useMemo(() => {
     const active: Warning[] = [];
@@ -107,15 +123,28 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
             </div>
           </div>
 
-          {warning.signed_pdf_url && (
-            <button
-              onClick={() => window.open(warning.signed_pdf_url!, '_blank')}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
-              title="View signed PDF"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {warning.signed_pdf_url && (
+              <button
+                onClick={() => window.open(warning.signed_pdf_url!, '_blank')}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
+                title="View signed PDF"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            )}
+            {user?.role === 'head_admin' && (
+              <button
+                onClick={() => handleDeleteWarning(warning.id)}
+                title="Delete"
+                className="rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </Card>
     );
