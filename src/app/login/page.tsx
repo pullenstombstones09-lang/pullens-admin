@@ -1,91 +1,161 @@
-'use client';
-
-import { useState } from 'react';
+import { redirect } from 'next/navigation';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 const USERS = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Lee-Ann', 'Kam'] as const;
 
-export default function LoginPage() {
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState('');
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
+  const error = params.error;
 
-  async function login(name: string) {
-    setLoading(name);
-    setError('');
+  async function loginAction(formData: FormData) {
+    'use server';
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
+    const name = formData.get('name') as string;
+    if (!name) return redirect('/login?error=No+name+provided');
 
-      const data = await res.json();
+    const cookieStore = await cookies();
 
-      if (!res.ok) {
-        setError(data.error || 'Login failed');
-        setLoading('');
-        return;
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll(cookiesToSet) {
+            for (const { name: n, value, options } of cookiesToSet) {
+              cookieStore.set(n, value, options);
+            }
+          },
+        },
       }
+    );
 
-      window.location.href = '/dashboard';
-    } catch {
-      setError('Connection error. Try again.');
-      setLoading('');
+    const { data: user, error: lookupError } = await supabase
+      .from('users')
+      .select('id, name, role, perms')
+      .eq('name', name)
+      .eq('active', true)
+      .single();
+
+    if (lookupError || !user) {
+      return redirect('/login?error=User+not+found');
     }
+
+    // Store session in a cookie
+    cookieStore.set('pullens-user', JSON.stringify({
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      perms: user.perms,
+    }), {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    redirect('/dashboard');
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#1A1A2E' }}>
-      <div className="w-full" style={{ maxWidth: 420 }}>
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black tracking-widest" style={{ color: '#FFFFFF' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      background: '#1A1A2E',
+    }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 900,
+            letterSpacing: '0.15em',
+            color: '#FFFFFF',
+            margin: 0,
+          }}>
             PULLENS ADMIN
           </h1>
-          <p className="text-sm font-semibold mt-1" style={{ color: '#C4A35A', letterSpacing: '0.3em' }}>
+          <p style={{
+            fontSize: 13,
+            fontWeight: 600,
+            marginTop: 4,
+            color: '#C4A35A',
+            letterSpacing: '0.3em',
+          }}>
             CAST IN STONE
           </p>
         </div>
 
-        <div
-          className="rounded-2xl p-6"
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}
-        >
-          <p className="text-center text-sm mb-5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+        <div style={{
+          borderRadius: 16,
+          padding: 24,
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        }}>
+          <p style={{
+            textAlign: 'center',
+            fontSize: 14,
+            marginBottom: 20,
+            color: 'rgba(255,255,255,0.6)',
+          }}>
             Select your name to sign in
           </p>
 
           {error && (
-            <p className="text-center text-sm mb-4" style={{ color: '#f87171' }}>{error}</p>
+            <p style={{
+              textAlign: 'center',
+              fontSize: 14,
+              marginBottom: 16,
+              color: '#f87171',
+            }}>
+              {error}
+            </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 12,
+          }}>
             {USERS.map((name) => (
-              <button
-                key={name}
-                onClick={() => login(name)}
-                disabled={!!loading}
-                className="rounded-xl text-lg font-medium transition-all duration-150"
-                style={{
-                  minHeight: 48,
-                  padding: '12px 16px',
-                  background: loading === name ? '#C4A35A' : 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: loading === name ? '#1A1A2E' : '#FFFFFF',
-                  cursor: loading ? 'wait' : 'pointer',
-                  opacity: loading && loading !== name ? 0.5 : 1,
-                }}
-              >
-                {loading === name ? 'Signing in...' : name}
-              </button>
+              <form key={name} action={loginAction}>
+                <input type="hidden" name="name" value={name} />
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    minHeight: 48,
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    fontSize: 18,
+                    fontWeight: 500,
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {name}
+                </button>
+              </form>
             ))}
           </div>
         </div>
 
-        <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.2)' }}>
+        <p style={{
+          textAlign: 'center',
+          fontSize: 12,
+          marginTop: 24,
+          color: 'rgba(255,255,255,0.2)',
+        }}>
           Pullen&apos;s Tombstones &middot; Est. 1982
         </p>
       </div>
