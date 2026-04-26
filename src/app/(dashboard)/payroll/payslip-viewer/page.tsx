@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Printer,
+  FileStack,
   PenTool,
   Check,
 } from 'lucide-react';
@@ -417,22 +418,60 @@ function PayslipViewerPage() {
     if (!slip) return;
     setSavingSignature(true);
 
-    // In production, upload to Supabase Storage. For now, store the data URL directly.
-    const { error } = await supabase
-      .from('payslips')
-      .update({
-        signature_url: dataUrl,
-        signed_at: new Date().toISOString(),
-      })
-      .eq('id', slip.id);
+    const signedAt = new Date().toISOString();
+    const weekLabel = run?.week_end?.replace(/-/g, '') ?? 'unknown';
+    const storagePath = `signatures/${slip.employee_id}/payslip-${weekLabel}.png`;
 
-    if (error) {
-      toast('error', `Signature save failed: ${error.message}`);
+    // Convert data URL to blob for storage upload
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, blob, { upsert: true, contentType: 'image/png' });
+
+    if (uploadError) {
+      // Fallback: store data URL directly if storage fails
+      console.error('Storage upload failed, using data URL fallback:', uploadError.message);
+      const { error } = await supabase
+        .from('payslips')
+        .update({ signature_url: dataUrl, signed_at: signedAt })
+        .eq('id', slip.id);
+      if (error) {
+        toast('error', `Signature save failed: ${error.message}`);
+        setSavingSignature(false);
+        return;
+      }
     } else {
-      toast('success', `Signature captured for ${slip.employee.full_name}`);
-      await fetchPayslips();
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(storagePath);
+      const publicUrl = urlData.publicUrl;
+
+      // Update payslip with storage URL
+      const { error } = await supabase
+        .from('payslips')
+        .update({ signature_url: publicUrl, signed_at: signedAt })
+        .eq('id', slip.id);
+      if (error) {
+        toast('error', `Signature save failed: ${error.message}`);
+        setSavingSignature(false);
+        return;
+      }
+
+      // Also save to employee's documents for their profile
+      await supabase.from('employee_documents').insert({
+        employee_id: slip.employee_id,
+        doc_type: 'payslip_signature',
+        file_url: publicUrl,
+        uploaded_at: signedAt,
+      });
     }
 
+    toast('success', `Signature captured for ${slip.employee.full_name}`);
+    await fetchPayslips();
     setSavingSignature(false);
   }
 
@@ -480,8 +519,8 @@ function PayslipViewerPage() {
           </div>
         </div>
 
-        {currentSlip && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {currentSlip && (
             <Button
               variant="secondary"
               size="lg"
@@ -492,8 +531,20 @@ function PayslipViewerPage() {
             >
               Print Payslip
             </Button>
-          </div>
-        )}
+          )}
+          {payslips.length > 0 && (
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={<FileStack className="h-4 w-4" />}
+              onClick={() => {
+                window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
+              }}
+            >
+              Print All
+            </Button>
+          )}
+        </div>
       </div>
 
       {loading ? (
