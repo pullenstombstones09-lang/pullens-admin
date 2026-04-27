@@ -2,56 +2,45 @@ const USERS = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Lee-Ann', 'Kam'] as const;
 
 export default function LoginPage() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 16,
-      background: '#1A1A2E',
-      fontFamily: 'Inter, system-ui, sans-serif',
-    }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: '0.15em', color: '#FFFFFF', margin: 0 }}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1A1A2E] font-[Inter,system-ui,sans-serif]">
+      {/* Subtle radial glow behind card */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#C4A35A]/[0.04] blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-[420px] relative z-10">
+        {/* Branding */}
+        <div className="text-center mb-8 animate-fade-in">
+          <h1 className="text-[28px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>
-          <p style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: '#C4A35A', letterSpacing: '0.3em' }}>
+          <p className="text-[13px] font-semibold mt-1.5 text-[#C4A35A] tracking-[0.3em]">
             CAST IN STONE
           </p>
         </div>
 
-        <div style={{
-          borderRadius: 16,
-          padding: 24,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}>
-          <p style={{ textAlign: 'center', fontSize: 14, marginBottom: 20, color: 'rgba(255,255,255,0.6)' }}>
+        {/* Glass card */}
+        <div className="rounded-2xl p-6 bg-white/[0.05] border border-white/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-sm animate-slide-in-up">
+          <p className="text-center text-sm mb-5 text-white/60">
             Select your name to sign in
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {USERS.map((name) => (
+          <div className="grid grid-cols-2 gap-3">
+            {USERS.map((name, i) => (
               <a
                 key={name}
                 href={`/api/auth/login?name=${name}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: 48,
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  fontSize: 18,
-                  fontWeight: 500,
-                  background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#FFFFFF',
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                }}
+                className={`
+                  flex items-center justify-center min-h-[48px] px-4 py-3
+                  rounded-xl text-lg font-medium
+                  bg-white/[0.08] border border-white/[0.08]
+                  text-white no-underline cursor-pointer
+                  transition-all duration-200 ease-out
+                  hover:bg-[#C4A35A]/20 hover:border-[#C4A35A]/30 hover:text-[#C4A35A]
+                  hover:shadow-[0_4px_20px_rgba(196,163,90,0.15)]
+                  active:scale-[0.97] active:bg-[#C4A35A]/25
+                  animate-fade-in-up stagger-${i + 1}
+                `}
               >
                 {name}
               </a>
@@ -59,7 +48,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 12, marginTop: 24, color: 'rgba(255,255,255,0.2)' }}>
+        {/* Footer */}
+        <p className="text-center text-xs mt-6 text-white/20 animate-fade-in stagger-6">
           Pullen&apos;s Tombstones &middot; Est. 1982
         </p>
       </div>

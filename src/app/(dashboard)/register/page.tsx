@@ -17,6 +17,7 @@ import {
   Save,
   Clock,
   Users,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -325,16 +326,30 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <Link
-          href="/register/weekly-view"
-          className={cn(
-            'inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
-            'bg-[#1A1A2E] text-white hover:bg-[#2a2a4e] transition-colors min-h-[48px]'
-          )}
-        >
-          <CalendarDays className="h-4 w-4" />
-          Weekly View
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/pdf/dol-register?month=${selectedDate.slice(0, 7)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
+              'bg-white text-[#333] border border-gray-200 hover:bg-gray-50 transition-colors min-h-[48px] shadow-sm'
+            )}
+          >
+            <Download className="h-4 w-4" />
+            DOL Register
+          </a>
+          <Link
+            href="/register/weekly-view"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
+              'bg-[#1A1A2E] text-white hover:bg-[#2a2a4e] transition-colors min-h-[48px]'
+            )}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Weekly View
+          </Link>
+        </div>
       </div>
 
       {/* Date picker + actions */}

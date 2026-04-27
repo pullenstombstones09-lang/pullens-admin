@@ -33,21 +33,21 @@ function StatCard({
   accentColor: string;
 }) {
   return (
-    <Card>
+    <Card accent>
       <div className="flex items-start gap-4">
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${accentColor}15` }}
+          style={{ backgroundColor: `${accentColor}12`, boxShadow: `0 0 0 1px ${accentColor}15` }}
         >
           <span style={{ color: accentColor }}>{icon}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-500 font-medium">{label}</p>
-          <p className="text-2xl font-bold text-[#333333] mt-0.5 leading-none">
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-bold text-[#1A1A2E] mt-1 leading-none">
             {value}
           </p>
           {subtext && (
-            <p className="text-xs text-gray-400 mt-1.5">{subtext}</p>
+            <p className="text-xs text-gray-400 mt-2">{subtext}</p>
           )}
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6 md:mb-8 flex items-center gap-4">
+      <div className="mb-6 md:mb-8 flex items-center gap-4 animate-fade-in">
         <Image
           src="/logo.png"
           alt="Pullens Tombstones"
@@ -96,15 +96,15 @@ export default function DashboardPage() {
           priority
         />
         <div>
-          <h1 className="text-2xl font-bold text-[#333333]">
+          <h1 className="text-2xl font-bold text-[#1A1A2E]">
             Welcome back, {user?.name || "User"}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">{formattedDate}</p>
+          <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
         </div>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6 md:mb-8 animate-fade-in-up stagger-1">
         <StatCard
           icon={<Users className="h-6 w-6" />}
           label="Staff present today"
@@ -136,7 +136,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Two-column layout: Quick actions + Announcements */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 animate-fade-in-up stagger-3">
         {/* Quick actions */}
         <div className="lg:col-span-2">
           <Card>

@@ -84,20 +84,20 @@ export default function SlipReturnModal({
       const ext = file.name.split(".").pop() || "jpg";
       const path = `petty-cash-slips/${transaction.id}-${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(path, file, { upsert: true });
+      const uploadForm = new FormData();
+      uploadForm.append("file", file);
+      uploadForm.append("path", path);
 
-      if (uploadError) {
-        toast("error", "Failed to upload slip: " + uploadError.message);
+      const uploadRes = await fetch("/api/upload-file", { method: "POST", body: uploadForm });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok) {
+        toast("error", "Failed to upload slip: " + (uploadData.error || "Unknown error"));
         setSubmitting(false);
         return;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("documents")
-        .getPublicUrl(path);
-      slipPhotoUrl = urlData.publicUrl;
+      slipPhotoUrl = uploadData.url;
     }
 
     // Insert slip record

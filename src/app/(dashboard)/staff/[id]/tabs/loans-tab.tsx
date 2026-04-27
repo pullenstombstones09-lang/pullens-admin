@@ -15,6 +15,9 @@ import {
   ChevronDown,
   ChevronUp,
   TrendingDown,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface LoansTabProps {
@@ -32,6 +35,8 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
   const [loans, setLoans] = useState<LoanWithDeductions[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
+  const [editingDeduction, setEditingDeduction] = useState<string | null>(null);
+  const [deductionValue, setDeductionValue] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -107,6 +112,31 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
       toast('success', 'Loan deleted');
       setLoans((prev) => prev.filter((l) => l.id !== id));
     }
+  };
+
+  const handleEditDeduction = (loan: Loan) => {
+    setEditingDeduction(loan.id);
+    setDeductionValue(String(loan.weekly_deduction));
+  };
+
+  const handleSaveDeduction = async (loanId: string) => {
+    const val = Number(deductionValue);
+    if (isNaN(val) || val < 0) {
+      toast('error', 'Enter a valid amount');
+      return;
+    }
+    const { error } = await supabase
+      .from('loans')
+      .update({ weekly_deduction: val })
+      .eq('id', loanId);
+
+    if (error) {
+      toast('error', 'Failed to update: ' + error.message);
+    } else {
+      setLoans(prev => prev.map(l => l.id === loanId ? { ...l, weekly_deduction: val } : l));
+      toast('success', `Deduction updated to ${formatCurrency(val)}/week`);
+    }
+    setEditingDeduction(null);
   };
 
   if (loading) {
@@ -195,8 +225,38 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <div className="flex justify-between text-xs text-stone-500 mb-3">
-                        <span>{formatCurrency(loan.weekly_deduction)}/week</span>
+                      <div className="flex justify-between items-center text-xs text-stone-500 mb-3">
+                        {editingDeduction === loan.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-stone-400">R</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="50"
+                              value={deductionValue}
+                              onChange={(e) => setDeductionValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveDeduction(loan.id); if (e.key === 'Escape') setEditingDeduction(null); }}
+                              className="w-20 h-7 rounded border border-stone-300 px-2 text-xs text-[#1A1A2E] focus:outline-none focus:ring-1 focus:ring-[#C4A35A]"
+                              autoFocus
+                            />
+                            <span className="text-stone-400">/week</span>
+                            <button onClick={() => handleSaveDeduction(loan.id)} className="p-1 rounded hover:bg-emerald-50 text-emerald-600 min-w-[28px] min-h-[28px] flex items-center justify-center">
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => setEditingDeduction(null)} className="p-1 rounded hover:bg-stone-100 text-stone-400 min-w-[28px] min-h-[28px] flex items-center justify-center">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleEditDeduction(loan)}
+                            className="flex items-center gap-1 hover:text-[#C4A35A] transition-colors"
+                            title="Edit weekly deduction"
+                          >
+                            {formatCurrency(loan.weekly_deduction)}/week
+                            <Pencil className="h-3 w-3 opacity-40" />
+                          </button>
+                        )}
                         <span>{weeks > 0 ? `~${weeks} week${weeks === 1 ? '' : 's'} remaining` : 'Final week'}</span>
                       </div>
 

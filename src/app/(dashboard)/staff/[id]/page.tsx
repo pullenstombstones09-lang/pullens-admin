@@ -477,6 +477,7 @@ export default function EmployeeProfilePage({
   const router = useRouter();
   const supabase = createClient();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -564,13 +565,23 @@ export default function EmployeeProfilePage({
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file || !employee) return;
 
-      const ext = file.name.split('.').pop();
-      const path = `employee-photos/${employee.id}.${ext}`;
-      const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
-        await supabase.from('employees').update({ photo_url: urlData.publicUrl }).eq('id', employee.id);
-        setEmployee({ ...employee, photo_url: urlData.publicUrl });
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('employeeId', employee.id);
+
+        const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          toast('error', data.error || 'Photo upload failed');
+          return;
+        }
+
+        setEmployee({ ...employee, photo_url: data.photo_url });
+        toast('success', 'Photo saved');
+      } catch {
+        toast('error', 'Photo upload failed');
       }
     };
     input.click();

@@ -79,13 +79,20 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
 
       const ext = file.name.split('.').pop();
       const path = `employees/${employeeId}/${docType}_${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('documents').upload(path, file);
-      if (uploadError) {
-        alert('Upload failed: ' + uploadError.message);
+
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+      uploadForm.append('path', path);
+
+      const uploadRes = await fetch('/api/upload-file', { method: 'POST', body: uploadForm });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok) {
+        toast('error', 'Upload failed: ' + (uploadData.error || 'Unknown error'));
         return;
       }
 
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+      const urlData = { publicUrl: uploadData.url };
 
       await supabase.from('employee_documents').insert({
         employee_id: employeeId,

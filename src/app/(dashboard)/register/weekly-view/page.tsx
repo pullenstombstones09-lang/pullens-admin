@@ -49,12 +49,12 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
 };
 
 function getWeekDates(baseDate: Date): string[] {
-  // Pullens week: Friday to Thursday + Saturday
-  // Find the most recent Friday on or before baseDate
+  // Pullens week: Saturday to Friday
+  // Find the most recent Saturday on or before baseDate
   const d = new Date(baseDate);
-  const dow = d.getDay(); // 0=Sun
-  // days back to Friday: if dow=5 (Fri) => 0, dow=6 (Sat) => 1, dow=0 (Sun) => 2, etc.
-  const daysBack = (dow + 2) % 7;
+  const dow = d.getDay(); // 0=Sun, 6=Sat
+  // days back to Saturday: if dow=6 (Sat) => 0, dow=0 (Sun) => 1, dow=1 (Mon) => 2, etc.
+  const daysBack = (dow + 1) % 7;
   d.setDate(d.getDate() - daysBack);
 
   const dates: string[] = [];
@@ -63,7 +63,7 @@ function getWeekDates(baseDate: Date): string[] {
     day.setDate(d.getDate() + i);
     dates.push(toDateString(day));
   }
-  // 7 days: Fri, Sat, Sun, Mon, Tue, Wed, Thu
+  // 7 days: Sat, Sun, Mon, Tue, Wed, Thu, Fri
   return dates;
 }
 

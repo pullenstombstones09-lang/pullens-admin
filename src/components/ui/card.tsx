@@ -4,6 +4,8 @@ import type { HTMLAttributes, ReactNode } from "react";
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   padding?: "none" | "sm" | "md" | "lg";
+  hoverable?: boolean;
+  accent?: boolean;
 }
 
 const paddingMap = {
@@ -17,15 +19,18 @@ export function Card({
   children,
   className,
   padding = "md",
+  hoverable = false,
+  accent = false,
   ...props
 }: CardProps) {
   return (
     <div
       className={cn(
         "rounded-xl bg-white",
-        "shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]",
-        "transition-shadow duration-200",
-        "hover:shadow-[0_2px_6px_rgba(0,0,0,0.1),0_8px_24px_rgba(0,0,0,0.06)]",
+        "shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.03)]",
+        "border border-gray-100/80",
+        hoverable && "transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08),0_8px_24px_rgba(0,0,0,0.05)] hover:-translate-y-0.5",
+        accent && "border-t-2 border-t-[#C4A35A]/40",
         paddingMap[padding],
         className
       )}

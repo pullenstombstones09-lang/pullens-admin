@@ -422,50 +422,45 @@ function PayslipViewerPage() {
     const weekLabel = run?.week_end?.replace(/-/g, '') ?? 'unknown';
     const storagePath = `signatures/${slip.employee_id}/payslip-${weekLabel}.png`;
 
-    // Convert data URL to blob for storage upload
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
+    // Convert data URL to blob for upload
+    const blobRes = await fetch(dataUrl);
+    const blob = await blobRes.blob();
+    const sigFile = new File([blob], 'signature.png', { type: 'image/png' });
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, blob, { upsert: true, contentType: 'image/png' });
+    const uploadForm = new FormData();
+    uploadForm.append('file', sigFile);
+    uploadForm.append('path', storagePath);
 
-    if (uploadError) {
+    const uploadRes = await fetch('/api/upload-file', { method: 'POST', body: uploadForm });
+    const uploadData = await uploadRes.json();
+
+    let signatureUrl: string;
+
+    if (!uploadRes.ok) {
       // Fallback: store data URL directly if storage fails
-      console.error('Storage upload failed, using data URL fallback:', uploadError.message);
-      const { error } = await supabase
-        .from('payslips')
-        .update({ signature_url: dataUrl, signed_at: signedAt })
-        .eq('id', slip.id);
-      if (error) {
-        toast('error', `Signature save failed: ${error.message}`);
-        setSavingSignature(false);
-        return;
-      }
+      console.error('Storage upload failed, using data URL fallback:', uploadData.error);
+      signatureUrl = dataUrl;
     } else {
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from('documents')
-        .getPublicUrl(storagePath);
-      const publicUrl = urlData.publicUrl;
+      signatureUrl = uploadData.url;
+    }
 
-      // Update payslip with storage URL
-      const { error } = await supabase
-        .from('payslips')
-        .update({ signature_url: publicUrl, signed_at: signedAt })
-        .eq('id', slip.id);
-      if (error) {
-        toast('error', `Signature save failed: ${error.message}`);
-        setSavingSignature(false);
-        return;
-      }
+    // Update payslip with signature URL
+    const { error } = await supabase
+      .from('payslips')
+      .update({ signature_url: signatureUrl, signed_at: signedAt })
+      .eq('id', slip.id);
+    if (error) {
+      toast('error', `Signature save failed: ${error.message}`);
+      setSavingSignature(false);
+      return;
+    }
 
-      // Also save to employee's documents for their profile
+    // Also save to employee's documents for their profile (only if storage succeeded)
+    if (uploadRes.ok) {
       await supabase.from('employee_documents').insert({
         employee_id: slip.employee_id,
         doc_type: 'payslip_signature',
-        file_url: publicUrl,
+        file_url: signatureUrl,
         uploaded_at: signedAt,
       });
     }

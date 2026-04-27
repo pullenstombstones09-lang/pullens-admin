@@ -80,21 +80,24 @@ export function calculateLateMinutes(timeIn: string | null, supervisorOverride?:
 // Actually spec says 40hrs/week for 5 days = 8hrs/day average
 // The 0.25 comes from the break structure. Let's match V12:
 // Default 8.25 hrs/day if present, 40 hrs/week cap for ordinary
-const DEFAULT_DAILY_HOURS = 8.25;
+const DEFAULT_DAILY_HOURS_40 = 8.25; // 40hr staff: ~8.25hrs/day over Mon-Fri
+const DEFAULT_DAILY_HOURS_45 = 9;    // 45hr staff: 9hrs/day over 5 days
 
 export function calculatePayroll(input: PayrollInput): PayrollResult {
   const { employee, attendance, overtimeRequests, activeLoans, pettyShortfall } = input;
+  const dailyHours = (employee.weekly_hours || 40) >= 45 ? DEFAULT_DAILY_HOURS_45 : DEFAULT_DAILY_HOURS_40;
 
-  // Step 1: hourly rate
-  const hourlyRate = employee.weekly_wage / 40;
+  // Step 1: hourly rate (admin/sales staff work 45hrs, factory 40hrs)
+  const weeklyHours = employee.weekly_hours || 40;
+  const hourlyRate = employee.weekly_wage / weeklyHours;
 
   // Step 2: ordinary hours from attendance (cap at 40)
   let ordinaryHours = 0;
   const dailyBreakdown: PayrollBreakdown['daily_attendance'] = [];
 
   if (attendance.length === 0) {
-    // No attendance records = default 40 hours (spec)
-    ordinaryHours = 40;
+    // No attendance records = default weekly hours
+    ordinaryHours = weeklyHours;
   } else {
     for (const day of attendance) {
       let hoursWorked = 0;
@@ -103,12 +106,12 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
         if (day.time_in && day.time_out) {
           hoursWorked = calculateHoursWorked(day.time_in, day.time_out);
         } else {
-          hoursWorked = DEFAULT_DAILY_HOURS;
+          hoursWorked = dailyHours;
         }
       }
       // leave, sick, ph count as paid hours (ordinary)
       else if (day.status === 'leave' || day.status === 'sick' || day.status === 'ph') {
-        hoursWorked = DEFAULT_DAILY_HOURS;
+        hoursWorked = dailyHours;
       }
       // absent, short_time = 0
 
@@ -123,8 +126,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     }
   }
 
-  // Cap ordinary hours at 40
-  ordinaryHours = Math.min(ordinaryHours, 40);
+  // Cap ordinary hours at weekly limit (40 or 45)
+  ordinaryHours = Math.min(ordinaryHours, weeklyHours);
 
   // Step 3: late deduction
   const totalLateMinutes = attendance.reduce((sum, d) => sum + d.late_minutes, 0);
@@ -148,7 +151,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     });
   }
 
-  // Step 5: gross
+  // Step 5: gross (hourly rate based on weekly_hours: 40 or 45)
   const grossBasic = round2(hourlyRate * ordinaryHours);
   const gross = round2(grossBasic + otAmount - lateDeduction);
 

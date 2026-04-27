@@ -55,6 +55,7 @@ export interface Employee {
   occupation: string | null;
   start_date: string | null;
   weekly_wage: number;
+  weekly_hours: number;
   payment_method: PaymentMethod;
   bank_name: string | null;
   bank_acc: string | null;

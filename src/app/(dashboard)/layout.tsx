@@ -57,8 +57,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mx-4 h-px bg-white/10" />
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="flex flex-col gap-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 sidebar-scroll">
+        <ul className="flex flex-col gap-0.5">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -67,14 +67,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-150",
+                    "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium",
+                    "transition-all duration-200 ease-out",
                     "min-h-[48px]",
                     isActive
-                      ? "border-l-[3px] border-[#C4A35A] bg-white/8 text-[#C4A35A] pl-[9px]"
-                      : "text-white/80 hover:bg-white/5 hover:text-[#C4A35A]"
+                      ? "border-l-[3px] border-[#C4A35A] bg-[#C4A35A]/10 text-[#C4A35A] pl-[9px] shadow-[inset_0_0_20px_rgba(196,163,90,0.05)]"
+                      : "text-white/70 hover:bg-white/[0.06] hover:text-white hover:pl-3.5"
                   )}
                 >
-                  <span className="shrink-0">
+                  <span className={cn(
+                    "shrink-0 transition-transform duration-200",
+                    !isActive && "group-hover:scale-110"
+                  )}>
                     {iconMap[item.icon] || <Home className="h-5 w-5" />}
                   </span>
                   <span className="flex-1">{item.label}</span>
@@ -130,8 +134,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F5F3EF]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+      <div className="flex h-screen flex-col items-center justify-center bg-[#F5F3EF] gap-4">
+        <div className="relative">
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#C4A35A]/20 border-t-[#C4A35A]" />
+        </div>
+        <p className="text-xs font-semibold tracking-[0.2em] text-[#1A1A2E]/30 uppercase">Loading</p>
       </div>
     );
   }
@@ -139,7 +146,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F3EF]">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col bg-[#1A1A2E]">
+      <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col bg-gradient-to-b from-[#1A1A2E] to-[#141425]">
         <SidebarContent />
       </aside>
 
@@ -155,7 +162,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Mobile slide-out sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[280px] bg-[#1A1A2E] lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-[280px] bg-gradient-to-b from-[#1A1A2E] to-[#141425] lg:hidden",
           "transition-transform duration-250 ease-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
@@ -173,7 +180,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <header className="flex h-14 items-center gap-3 border-b-2 border-[#C4A35A]/20 bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-lg p-2 text-[#333333] hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
