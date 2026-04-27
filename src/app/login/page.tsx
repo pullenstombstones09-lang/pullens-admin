@@ -1,6 +1,15 @@
 const USERS = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Lee-Ann', 'Kam'] as const;
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  // Can't await in server component body for Next 16, use sync access pattern
+  return <LoginContent />;
+}
+
+function LoginContent() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#1A1A2E] font-[Inter,system-ui,sans-serif]">
       {/* Subtle radial glow behind card */}
@@ -29,7 +38,7 @@ export default function LoginPage() {
             {USERS.map((name, i) => (
               <a
                 key={name}
-                href={`/api/auth/login?name=${name}`}
+                href={`/login/pin?name=${name}`}
                 className={`
                   flex items-center justify-center min-h-[48px] px-4 py-3
                   rounded-xl text-lg font-medium

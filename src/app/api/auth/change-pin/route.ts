@@ -1,78 +1,89 @@
-import { createServiceRoleSupabase, createServerSupabase } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 
-export async function POST(request: Request) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+function redirect303(url: URL) {
+  return NextResponse.redirect(url, { status: 303 });
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
+    const contentType = request.headers.get('content-type') || '';
+    let name: string | null = null;
+    let newPin: string | null = null;
 
-    // Verify authenticated session
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (!authUser) {
-      return Response.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      name = formData.get('name') as string;
+      newPin = formData.get('newPin') as string;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      name = body.name;
+      newPin = body.newPin;
     }
 
-    const { newPin } = await request.json();
-
-    if (!newPin || newPin.length < 4) {
-      return Response.json(
-        { error: 'PIN must be at least 4 digits' },
-        { status: 400 }
-      );
+    if (!name || !newPin) {
+      return redirect303(new URL(`/login/change-pin?name=${name || ''}&error=PIN+required`, request.url));
     }
 
-    if (!/^\d+$/.test(newPin)) {
-      return Response.json(
-        { error: 'PIN must contain only digits' },
-        { status: 400 }
-      );
+    if (newPin.length < 4 || !/^\d+$/.test(newPin)) {
+      return redirect303(new URL(`/login/change-pin?name=${name}&error=PIN+must+be+4+digits`, request.url));
     }
 
-    // Hash the new PIN
-    const salt = await bcrypt.genSalt(10);
-    const pinHash = await bcrypt.hash(newPin, salt);
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, name, role, perms')
+      .eq('name', name)
+      .eq('active', true)
+      .single();
 
-    // Update pin_hash and clear force_pin_change in users table
-    const serviceSupabase = await createServiceRoleSupabase();
-    const { error: updateError } = await serviceSupabase
+    if (error || !user) {
+      return redirect303(new URL('/login?error=User+not+found', request.url));
+    }
+
+    const pinHash = await bcrypt.hash(newPin, 10);
+    const { error: updateError } = await supabase
       .from('users')
       .update({
         pin_hash: pinHash,
         force_pin_change: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', authUser.id);
+      .eq('id', user.id);
 
     if (updateError) {
-      return Response.json(
-        { error: 'Failed to update PIN' },
-        { status: 500 }
-      );
+      return redirect303(new URL(`/login/change-pin?name=${name}&error=Failed+to+save+PIN`, request.url));
     }
 
-    // Update Supabase Auth password to match
-    const { error: authUpdateError } =
-      await serviceSupabase.auth.admin.updateUserById(authUser.id, {
-        password: newPin.padEnd(6, '_'),
-      });
+    const landingPage = user.role === 'admin' ? '/register'
+      : user.role === 'petty_cash' ? '/petty-cash'
+      : user.role === 'bookkeeper' ? '/payroll'
+      : '/dashboard';
 
-    if (authUpdateError) {
-      return Response.json(
-        { error: 'Failed to update authentication password' },
-        { status: 500 }
-      );
-    }
+    const response = redirect303(new URL(landingPage, request.url));
 
-    return Response.json({ success: true });
-  } catch {
-    return Response.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    response.cookies.set('pullens-user', JSON.stringify({
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      perms: user.perms,
+    }), {
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    response.cookies.delete('pullens-pin-change');
+
+    return response;
+  } catch (err) {
+    console.error('Change PIN error:', err);
+    return redirect303(new URL('/login?error=Something+went+wrong', request.url));
   }
 }
