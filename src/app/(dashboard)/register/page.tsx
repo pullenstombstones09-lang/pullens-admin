@@ -38,6 +38,7 @@ interface RegisterRow {
   time_out: string;
   late_minutes: number;
   late_deduction: number;
+  ot_minutes: number;
   reason: string;
   existing_id: string | null; // attendance record id if already saved
 }
@@ -196,6 +197,12 @@ export default function RegisterPage() {
           time_out: (existing.time_out ?? '').slice(0, 5),
           late_minutes: existing.late_minutes,
           late_deduction: computeLateDeduction(existing.late_minutes, emp.weekly_wage),
+          ot_minutes: (() => {
+            if (!existing.time_out) return 0;
+            const t = (existing.time_out ?? '').slice(0, 5);
+            const [h, m] = t.split(':').map(Number);
+            return (h * 60 + m) > 17 * 60 ? (h * 60 + m) - 17 * 60 : 0;
+          })(),
           reason: existing.reason ?? '',
           existing_id: existing.id,
         };
@@ -212,6 +219,7 @@ export default function RegisterPage() {
         time_out: '',
         late_minutes: 0,
         late_deduction: 0,
+        ot_minutes: 0,
         reason: '',
         existing_id: null,
       };
@@ -271,6 +279,17 @@ export default function RegisterPage() {
       }
 
       row.late_deduction = computeLateDeduction(row.late_minutes, row.weekly_wage);
+
+      // Auto-detect overtime from time_out (after 17:00)
+      if (row.time_out && (row.status === 'present' || row.status === 'late')) {
+        const [h, m] = row.time_out.split(':').map(Number);
+        const totalMin = h * 60 + m;
+        const fivePM = 17 * 60;
+        row.ot_minutes = totalMin > fivePM ? totalMin - fivePM : 0;
+      } else {
+        row.ot_minutes = 0;
+      }
+
       next[idx] = row;
       return next;
     });
@@ -287,6 +306,7 @@ export default function RegisterPage() {
         time_out: '17:00',
         late_minutes: 0,
         late_deduction: 0,
+        ot_minutes: 0,
         reason: '',
       }))
     );
@@ -301,6 +321,7 @@ export default function RegisterPage() {
         time_out: '',
         late_minutes: 0,
         late_deduction: 0,
+        ot_minutes: 0,
         reason: '',
       }))
     );
@@ -622,6 +643,9 @@ export default function RegisterPage() {
                   <th className="px-3 py-3 text-right font-semibold text-[#333] whitespace-nowrap w-[100px]">
                     Deduction
                   </th>
+                  <th className="px-3 py-3 text-right font-semibold text-[#333] whitespace-nowrap w-[80px]">
+                    OT Min
+                  </th>
                   <th className="px-3 py-3 text-left font-semibold text-[#333] whitespace-nowrap">
                     Reason / Note
                   </th>
@@ -750,6 +774,17 @@ export default function RegisterPage() {
                         {row.late_deduction > 0 ? (
                           <span className="font-mono text-red-600 text-xs font-medium">
                             -{formatCurrency(row.late_deduction)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">&mdash;</span>
+                        )}
+                      </td>
+
+                      {/* OT Minutes */}
+                      <td className="px-3 py-2 text-right">
+                        {row.ot_minutes > 0 ? (
+                          <span className="font-mono text-[#1E40AF] text-xs font-semibold">
+                            +{row.ot_minutes}
                           </span>
                         ) : (
                           <span className="text-gray-300">&mdash;</span>
