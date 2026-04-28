@@ -10,6 +10,8 @@ import { calculateLateMinutes } from '@/lib/payroll-engine';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { TimePicker } from '@/components/ui/time-picker';
+import { useUndo } from '@/components/ui/undo-toast';
 import type { Employee, AttendanceStatus } from '@/types/database';
 import {
   CalendarDays,
@@ -18,6 +20,7 @@ import {
   Clock,
   Users,
   Download,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -106,6 +109,8 @@ export default function RegisterPage() {
   const [showSavedOverlay, setShowSavedOverlay] = useState(false);
 
   const [showInactive, setShowInactive] = useState(false);
+  const [registerPhoto, setRegisterPhoto] = useState<string | null>(null);
+  const { showUndo } = useUndo();
 
   const isAdmin = user?.role === 'head_admin';
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
@@ -261,6 +266,8 @@ export default function RegisterPage() {
     if (!canEdit) return;
     setSaving(true);
 
+    const previousRows = JSON.parse(JSON.stringify(rows));
+
     const records = rows.map((row) => ({
       ...(row.existing_id ? { id: row.existing_id } : {}),
       employee_id: row.employee_id,
@@ -287,6 +294,9 @@ export default function RegisterPage() {
       setShowSavedOverlay(true);
       setTimeout(() => setShowSavedOverlay(false), 2000);
       await fetchData();
+      showUndo('Register saved', async () => {
+        setRows(previousRows);
+      });
     }
 
     setSaving(false);
@@ -366,7 +376,7 @@ export default function RegisterPage() {
               onChange={(e) => setSelectedDate(e.target.value)}
               className={cn(
                 'h-12 min-h-[48px] rounded-lg border border-gray-300 px-3.5 text-sm text-[#333]',
-                'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]'
+                'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]'
               )}
             />
           </div>
@@ -399,6 +409,31 @@ export default function RegisterPage() {
         </div>
       </Card>
 
+      {/* Photo upload */}
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:border-[#3B82F6] hover:text-[#1E40AF] transition-colors">
+          <Camera size={18} />
+          <span>Upload Register Photo</span>
+          <input type="file" accept="image/*" capture="environment" className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const form = new FormData()
+              form.append('photo', file)
+              form.append('date', selectedDate)
+              const res = await fetch('/api/register/photo', { method: 'POST', body: form })
+              if (res.ok) {
+                const { url } = await res.json()
+                setRegisterPhoto(url)
+              }
+            }}
+          />
+        </label>
+        {registerPhoto && (
+          <img src={registerPhoto} alt="Register" className="h-12 w-12 rounded-lg object-cover border" />
+        )}
+      </div>
+
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {[
@@ -424,7 +459,7 @@ export default function RegisterPage() {
       {/* Attendance table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#3B82F6] border-t-transparent" />
         </div>
       ) : (
         <>
@@ -515,7 +550,7 @@ export default function RegisterPage() {
                           }
                           className={cn(
                             'h-10 min-h-[44px] w-full rounded-lg border px-2 text-sm font-medium',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40',
+                            'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40',
                             'disabled:cursor-not-allowed disabled:opacity-60',
                             STATUS_COLORS[row.status]
                           )}
@@ -530,35 +565,19 @@ export default function RegisterPage() {
 
                       {/* Time In */}
                       <td className="px-3 py-2">
-                        <input
-                          type="time"
-                          value={row.time_in}
+                        <TimePicker
+                          value={row.time_in || ''}
                           disabled={!canEdit || editLocked}
-                          onChange={(e) =>
-                            updateRow(idx, { time_in: e.target.value })
-                          }
-                          className={cn(
-                            'h-10 min-h-[44px] w-full rounded-lg border border-gray-300 px-2 text-sm',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40',
-                            'disabled:cursor-not-allowed disabled:opacity-60'
-                          )}
+                          onChange={(val) => updateRow(idx, { time_in: val })}
                         />
                       </td>
 
                       {/* Time Out */}
                       <td className="px-3 py-2">
-                        <input
-                          type="time"
-                          value={row.time_out}
+                        <TimePicker
+                          value={row.time_out || ''}
                           disabled={!canEdit || editLocked}
-                          onChange={(e) =>
-                            updateRow(idx, { time_out: e.target.value })
-                          }
-                          className={cn(
-                            'h-10 min-h-[44px] w-full rounded-lg border border-gray-300 px-2 text-sm',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40',
-                            'disabled:cursor-not-allowed disabled:opacity-60'
-                          )}
+                          onChange={(val) => updateRow(idx, { time_out: val })}
                         />
                       </td>
 
@@ -620,7 +639,7 @@ export default function RegisterPage() {
                           }
                           className={cn(
                             'h-10 min-h-[44px] w-full rounded-lg border border-gray-300 px-2 text-sm',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40',
+                            'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40',
                             'placeholder:text-gray-400',
                             'disabled:cursor-not-allowed disabled:opacity-60',
                             (row.status === 'absent' || row.status === 'late') &&
