@@ -71,11 +71,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: loanError.message }, { status: 500 });
     }
 
-    // 5. Fetch petty cash shortfalls (open petty_cash_out where status = 'partial' or 'open')
-    // Sum by employee to get total shortfall
-    const { data: pettyShortfalls, error: pettyError } = await supabase
+    // 5. Fetch open petty cash outs and convert shortfalls to loans
+    const { data: pettyOuts, error: pettyError } = await supabase
       .from('petty_cash_outs')
-      .select('recipient_employee_id, amount')
+      .select('id, recipient_employee_id, amount, category, date')
       .in('status', ['open', 'partial'])
       .not('recipient_employee_id', 'is', null);
 
@@ -83,14 +82,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: pettyError.message }, { status: 500 });
     }
 
-    // Build petty shortfall map (employee_id -> total shortfall)
+    // For each open petty cash out, check slip returns and convert shortfall to loan
     const pettyMap = new Map<string, number>();
-    for (const p of pettyShortfalls ?? []) {
-      if (p.recipient_employee_id) {
-        const current = pettyMap.get(p.recipient_employee_id) ?? 0;
-        pettyMap.set(p.recipient_employee_id, current + (p.amount ?? 0));
+    for (const out of pettyOuts ?? []) {
+      if (!out.recipient_employee_id) continue;
+
+      // Get slip returns for this transaction
+      const { data: slips } = await supabase
+        .from('petty_cash_slips')
+        .select('slip_amount')
+        .eq('petty_cash_out_id', out.id);
+
+      const slipTotal = (slips || []).reduce((sum: number, s: any) => sum + (s.slip_amount || 0), 0);
+      const shortfall = out.amount - slipTotal;
+
+      if (shortfall <= 0) {
+        // Fully squared — update status
+        await supabase
+          .from('petty_cash_outs')
+          .update({ status: 'squared', updated_at: new Date().toISOString() })
+          .eq('id', out.id);
+        continue;
       }
+
+      // Create loan for the shortfall
+      await supabase.from('loans').insert({
+        employee_id: out.recipient_employee_id,
+        date_advanced: new Date().toISOString().slice(0, 10),
+        amount: shortfall,
+        weekly_deduction: shortfall,
+        outstanding: shortfall,
+        purpose: `Petty cash shortfall — ${out.category} (${out.date})`,
+        auto_generated_from_petty: true,
+        petty_cash_ref: out.id,
+        status: 'active',
+      });
+
+      // Mark petty cash out as converted
+      await supabase
+        .from('petty_cash_outs')
+        .update({ status: 'converted_to_loan', updated_at: new Date().toISOString() })
+        .eq('id', out.id);
+
+      // Don't add to pettyMap — it's now a loan deduction, not a petty shortfall
+      // The loan will be picked up by the existing loan fetch (step 4)
     }
+
+    // Re-fetch loans since we just created new ones from petty cash
+    const { data: updatedLoans } = await supabase
+      .from('loans')
+      .select('*')
+      .eq('status', 'active');
+
+    // Replace allLoans with updated list
+    const finalLoans = updatedLoans || allLoans || [];
 
     // 5b. Auto-create PH attendance for public holidays in this week
     const { data: holidays } = await supabase
@@ -149,7 +194,7 @@ export async function POST(request: Request) {
     }
 
     const loanMap = new Map<string, Loan[]>();
-    for (const loan of (allLoans ?? []) as Loan[]) {
+    for (const loan of (finalLoans) as Loan[]) {
       const existing = loanMap.get(loan.employee_id) ?? [];
       existing.push(loan);
       loanMap.set(loan.employee_id, existing);
