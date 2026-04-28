@@ -23,6 +23,7 @@ import {
   PenTool,
   Trash2,
   ClipboardList,
+  CalendarDays,
 } from 'lucide-react';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
 import Link from 'next/link';
@@ -330,53 +331,62 @@ export default function PayrollPage() {
           {/* Week selector */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  const s = new Date(customStart + 'T00:00:00');
-                  const e = new Date(customEnd + 'T00:00:00');
-                  s.setDate(s.getDate() - 7);
-                  e.setDate(e.getDate() - 7);
-                  setCustomStart(toDateString(s));
-                  setCustomEnd(toDateString(e));
-                }}
-                className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
+              {user?.role === 'head_admin' ? (
+                <>
+                  <button
+                    onClick={() => {
+                      const s = new Date(customStart + 'T00:00:00');
+                      const e = new Date(customEnd + 'T00:00:00');
+                      s.setDate(s.getDate() - 7);
+                      e.setDate(e.getDate() - 7);
+                      setCustomStart(toDateString(s));
+                      setCustomEnd(toDateString(e));
+                    }}
+                    className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
-                />
-              </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={customStart}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                      className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
+                    />
+                    <span className="text-gray-400">–</span>
+                    <input
+                      type="date"
+                      value={customEnd}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                      className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
+                    />
+                  </div>
 
-              <button
-                onClick={() => {
-                  const s = new Date(customStart + 'T00:00:00');
-                  const e = new Date(customEnd + 'T00:00:00');
-                  s.setDate(s.getDate() + 7);
-                  e.setDate(e.getDate() + 7);
-                  setCustomStart(toDateString(s));
-                  setCustomEnd(toDateString(e));
-                }}
-                className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+                  <button
+                    onClick={() => {
+                      const s = new Date(customStart + 'T00:00:00');
+                      const e = new Date(customEnd + 'T00:00:00');
+                      s.setDate(s.getDate() + 7);
+                      e.setDate(e.getDate() + 7);
+                      setCustomStart(toDateString(s));
+                      setCustomEnd(toDateString(e));
+                    }}
+                    className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                  <CalendarDays size={18} className="text-[#1E40AF]" />
+                  <span className="text-sm font-semibold text-[#1E293B]">{weekLabel(weekStart, weekEnd)}</span>
+                </div>
+              )}
             </div>
 
             {canRun && (
