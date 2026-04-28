@@ -16,12 +16,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   loading?: boolean;
   icon?: ReactNode;
+  pulse?: boolean;
   children: ReactNode;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[#C4A35A] text-white hover:bg-[#b3943f] active:bg-[#a2852f] shadow-[0_1px_2px_rgba(0,0,0,0.1),0_2px_6px_rgba(196,163,90,0.25)]",
+    "bg-[#1E40AF] text-white hover:bg-[#1E3A8A] active:bg-[#1e3480] shadow-[0_1px_2px_rgba(0,0,0,0.1),0_2px_6px_rgba(30,64,175,0.25)]",
   secondary:
     "bg-[#1A1A2E] text-white hover:bg-[#2a2a4e] active:bg-[#0e0e1a] shadow-[0_1px_2px_rgba(0,0,0,0.1),0_2px_6px_rgba(26,26,46,0.2)]",
   danger:
@@ -43,6 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = "md",
       loading = false,
       icon,
+      pulse = false,
       children,
       className,
       disabled,
@@ -56,12 +58,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           "inline-flex items-center justify-center rounded-lg font-medium",
           "transition-all duration-150 ease-out",
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4A35A]",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B82F6]",
           "disabled:opacity-50 disabled:pointer-events-none",
           "select-none whitespace-nowrap",
           "min-w-[48px]",
           variantStyles[variant],
           sizeStyles[size],
+          pulse && "animate-pulse-blue",
           className
         )}
         disabled={disabled || loading}
