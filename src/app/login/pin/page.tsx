@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 export default async function PinPage({
   searchParams,
 }: {
@@ -25,6 +27,9 @@ export default async function PinPage({
       <div className="w-full max-w-[360px] relative z-10">
         {/* Branding */}
         <div className="text-center mb-6">
+          <div className="flex justify-center mb-5">
+            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain" />
+          </div>
           <h1 className="text-[24px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>

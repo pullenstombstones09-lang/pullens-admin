@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 const USERS = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Lee-Ann', 'Kam'] as const;
 
 export default function LoginPage({
@@ -20,6 +22,9 @@ function LoginContent() {
       <div className="w-full max-w-[420px] relative z-10">
         {/* Branding */}
         <div className="text-center mb-8 animate-fade-in">
+          <div className="flex justify-center mb-6">
+            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain" />
+          </div>
           <h1 className="text-[28px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>
