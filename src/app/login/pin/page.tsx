@@ -28,7 +28,7 @@ export default async function PinPage({
         {/* Branding */}
         <div className="text-center mb-6">
           <div className="flex justify-center mb-5">
-            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain" />
+            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain brightness-0 invert" />
           </div>
           <h1 className="text-[24px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
