@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ProgressRing } from '@/components/ui/progress-ring';
 import {
   Search,
   ArrowUpDown,
@@ -24,7 +25,16 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
-type SortKey = 'pt_code' | 'full_name' | 'start_date' | 'occupation';
+type SortKey = 'pt_code' | 'full_name' | 'start_date' | 'occupation' | 'completeness';
+
+function employeeCompleteness(emp: any): number {
+  const required = ['id_number', 'bank_name', 'bank_acc', 'emergency_name', 'emergency_phone', 'start_date', 'cell', 'eif_on_file'];
+  const filled = required.filter(k => {
+    if (k === 'eif_on_file') return emp[k] === true;
+    return emp[k] && emp[k].toString().trim() !== '';
+  });
+  return Math.round((filled.length / required.length) * 100);
+}
 
 interface StatusFlags {
   finalWarning: boolean;
@@ -151,7 +161,7 @@ function AddEmployeeModal({
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-[#1A1A2E]">Add Employee</h2>
+          <h2 className="text-lg font-semibold text-[#1E293B]">Add Employee</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
@@ -213,7 +223,7 @@ function AddEmployeeModal({
                   onChange={(e) => setForm((p) => ({ ...p, payment_method: e.target.value as 'eft' | 'cash' }))}
                   className={cn(
                     'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                    'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                    'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                     'min-h-[48px] appearance-none'
                   )}
                 >
@@ -409,6 +419,8 @@ export default function StaffListPage() {
           return (a.start_date ?? '').localeCompare(b.start_date ?? '');
         case 'occupation':
           return (a.occupation ?? '').localeCompare(b.occupation ?? '');
+        case 'completeness':
+          return employeeCompleteness(a) - employeeCompleteness(b);
         default:
           return 0;
       }
@@ -470,16 +482,16 @@ export default function StaffListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F3EF]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Page header */}
-      <div className="sticky top-0 z-20 bg-[#F5F3EF]/95 backdrop-blur-sm pb-4 pt-6 px-4 md:px-8">
+      <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm pb-4 pt-6 px-4 md:px-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1A1A2E]">
-              <Users className="h-5 w-5 text-[#C4A35A]" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1E293B]">
+              <Users className="h-5 w-5 text-[#3B82F6]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A2E]">Staff</h1>
+              <h1 className="text-xl font-bold text-[#1E293B]">Staff</h1>
               <p className="text-sm text-stone-500">
                 {loading ? '...' : `${filtered.length} employee${filtered.length !== 1 ? 's' : ''}`}
               </p>
@@ -538,7 +550,7 @@ export default function StaffListPage() {
             className={cn(
               'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
               occupationFilter === 'All'
-                ? 'bg-[#1A1A2E] text-white'
+                ? 'bg-[#1E293B] text-white'
                 : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
             )}
           >
@@ -551,7 +563,7 @@ export default function StaffListPage() {
               className={cn(
                 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
                 occupationFilter === occ
-                  ? 'bg-[#1A1A2E] text-white'
+                  ? 'bg-[#1E293B] text-white'
                   : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
               )}
             >
@@ -570,6 +582,7 @@ export default function StaffListPage() {
               { key: 'full_name', label: 'A-Z' },
               { key: 'start_date', label: 'Start Date' },
               { key: 'occupation', label: 'Occupation' },
+              { key: 'completeness', label: 'Completeness' },
             ] as { key: SortKey; label: string }[]
           ).map((s) => (
             <button
@@ -578,7 +591,7 @@ export default function StaffListPage() {
               className={cn(
                 'text-xs px-2 py-1 rounded transition-colors',
                 sortKey === s.key
-                  ? 'text-[#C4A35A] font-semibold'
+                  ? 'text-[#3B82F6] font-semibold'
                   : 'text-stone-500 hover:text-stone-700'
               )}
             >
@@ -616,7 +629,7 @@ export default function StaffListPage() {
               <button
                 key={emp.id}
                 onClick={() => router.push(`/staff/${emp.id}`)}
-                className="text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4A35A] rounded-xl"
+                className="text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] rounded-xl"
               >
                 <Card padding="md" className="cursor-pointer">
                   <div className="flex items-center gap-3">
@@ -629,7 +642,7 @@ export default function StaffListPage() {
                           className="h-12 w-12 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1A1A2E] text-sm font-bold text-[#C4A35A]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1E293B] text-sm font-bold text-[#3B82F6]">
                           {getInitials(emp.full_name)}
                         </div>
                       )}
@@ -658,17 +671,18 @@ export default function StaffListPage() {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#1A1A2E] truncate">
+                      <p className="text-sm font-semibold text-[#1E293B] truncate">
                         {emp.full_name}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-mono text-[#C4A35A]">{emp.pt_code}</span>
+                        <span className="text-xs font-mono text-[#1E40AF]">{emp.pt_code}</span>
                         {emp.occupation && (
                           <span className="text-xs text-stone-500 truncate">{emp.occupation}</span>
                         )}
                       </div>
                     </div>
 
+                    <ProgressRing percent={employeeCompleteness(emp)} size={28} strokeWidth={3} />
                     <ChevronRight className="h-4 w-4 text-stone-300 shrink-0" />
                   </div>
                 </Card>
