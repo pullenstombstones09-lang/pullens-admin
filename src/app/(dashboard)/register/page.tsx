@@ -20,7 +20,6 @@ import {
   Clock,
   Users,
   Download,
-  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -109,7 +108,6 @@ export default function RegisterPage() {
   const [showSavedOverlay, setShowSavedOverlay] = useState(false);
 
   const [showInactive, setShowInactive] = useState(false);
-  const [registerPhoto, setRegisterPhoto] = useState<string | null>(null);
   const { showUndo } = useUndo();
 
   const isAdmin = user?.role === 'head_admin';
@@ -392,47 +390,11 @@ export default function RegisterPage() {
                 >
                   Mark All Present (08:00-17:00)
                 </Button>
-                {user?.role === 'head_admin' && (
-                  <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer ml-2">
-                    <input
-                      type="checkbox"
-                      checked={showInactive}
-                      onChange={(e) => setShowInactive(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    Show removed
-                  </label>
-                )}
               </>
             )}
           </div>
         </div>
       </Card>
-
-      {/* Photo upload */}
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:border-[#3B82F6] hover:text-[#1E40AF] transition-colors">
-          <Camera size={18} />
-          <span>Upload Register Photo</span>
-          <input type="file" accept="image/*" capture="environment" className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              const form = new FormData()
-              form.append('photo', file)
-              form.append('date', selectedDate)
-              const res = await fetch('/api/register/photo', { method: 'POST', body: form })
-              if (res.ok) {
-                const { url } = await res.json()
-                setRegisterPhoto(url)
-              }
-            }}
-          />
-        </label>
-        {registerPhoto && (
-          <img src={registerPhoto} alt="Register" className="h-12 w-12 rounded-lg object-cover border" />
-        )}
-      </div>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -455,6 +417,20 @@ export default function RegisterPage() {
           </div>
         ))}
       </div>
+
+      {/* Save button — top */}
+      {canEdit && !editLocked && (
+        <div className="flex justify-end">
+          <Button
+            size="lg"
+            loading={saving}
+            icon={<Save className="h-4 w-4" />}
+            onClick={saveRegister}
+          >
+            {savedForDate ? 'Update Register' : 'Save Register'}
+          </Button>
+        </div>
+      )}
 
       {/* Attendance table */}
       {loading ? (
