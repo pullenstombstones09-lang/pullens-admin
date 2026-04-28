@@ -12,13 +12,16 @@ export const PERMISSIONS = {
   edit_register: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
 
   // Payroll
-  view_payroll: ['head_admin', 'head_of_admin', 'head_of_sales', 'bookkeeper'],
-  run_payroll: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  view_payroll: ['head_admin', 'bookkeeper'],
+  run_payroll: ['head_admin', 'bookkeeper'],
   approve_payroll: ['head_admin'],
-  mark_paid: ['head_admin', 'head_of_admin', 'head_of_sales', 'bookkeeper'],
+  mark_paid: ['head_admin', 'bookkeeper'],
 
   // Payslips
-  view_payslips: ['head_admin', 'head_of_admin', 'head_of_sales', 'bookkeeper'],
+  view_payslips: ['head_admin', 'bookkeeper'],
+  sign_payslips: ['head_admin', 'head_of_admin', 'head_of_sales', 'bookkeeper'],
+  print_payslips: ['head_admin', 'bookkeeper'],
+  bank_payroll: ['head_admin', 'bookkeeper'],
 
   // Loans
   view_loans: ['head_admin', 'head_of_admin', 'head_of_sales'],
@@ -76,6 +79,7 @@ export function getNavItems(role: UserRole) {
     { label: 'Staff', href: '/staff', icon: 'users', permission: 'view_staff_list' },
     { label: 'Register', href: '/register', icon: 'clipboard-check', permission: 'view_register' },
     { label: 'Payroll', href: '/payroll', icon: 'banknotes', permission: 'view_payroll' },
+    { label: 'Sign Payslips', href: '/payroll/sign', icon: 'clipboard-check', permission: 'sign_payslips' },
     { label: 'Petty Cash', href: '/petty-cash', icon: 'wallet', permission: 'view_petty_cash' },
     { label: 'HR Advisor', href: '/hr-advisor', icon: 'scale', permission: 'view_hr_advisor' },
     { label: 'Alerts', href: '/alerts', icon: 'bell', permission: 'view_alerts' },
