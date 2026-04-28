@@ -92,6 +92,47 @@ export async function POST(request: Request) {
       }
     }
 
+    // 5b. Auto-create PH attendance for public holidays in this week
+    const { data: holidays } = await supabase
+      .from('public_holidays')
+      .select('date, name')
+      .gte('date', week_start)
+      .lte('date', week_end);
+
+    if (holidays && holidays.length > 0 && employees) {
+      for (const hol of holidays) {
+        // Check which employees already have attendance for this holiday
+        const existingForDay = (allAttendance ?? []).filter(
+          (a: any) => a.date === hol.date
+        );
+        const existingIds = new Set(existingForDay.map((a: any) => a.employee_id));
+
+        // Create PH records for employees missing attendance on this holiday
+        const missingEmployees = employees.filter((e: any) => !existingIds.has(e.id));
+        if (missingEmployees.length > 0) {
+          const phRows = missingEmployees.map((e: any) => ({
+            employee_id: e.id,
+            date: hol.date,
+            status: 'ph',
+            time_in: null,
+            time_out: null,
+            late_minutes: 0,
+            reason: hol.name,
+          }));
+
+          const { data: inserted } = await supabase
+            .from('attendance')
+            .upsert(phRows, { onConflict: 'employee_id,date' })
+            .select();
+
+          // Add to allAttendance so payroll calc includes them
+          if (inserted) {
+            (allAttendance as any[]).push(...inserted);
+          }
+        }
+      }
+    }
+
     // Index data by employee
     const attendanceMap = new Map<string, Attendance[]>();
     for (const att of (allAttendance ?? []) as Attendance[]) {
