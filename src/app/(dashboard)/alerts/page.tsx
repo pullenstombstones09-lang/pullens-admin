@@ -23,6 +23,7 @@ import {
   ClipboardList,
   RefreshCw,
   Filter,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -94,6 +95,13 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Severity | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem('pullens-dismissed-alerts');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -119,11 +127,26 @@ export default function AlertsPage() {
     fetchAlerts();
   };
 
-  const filtered = filter === 'all' ? alerts : alerts.filter((a) => a.severity === filter);
+  const dismissAlert = (alertId: string) => {
+    const next = new Set(dismissed);
+    next.add(alertId);
+    setDismissed(next);
+    localStorage.setItem('pullens-dismissed-alerts', JSON.stringify([...next]));
+  };
 
-  // Severity counts for filter badges
-  const counts: Record<string, number> = { all: alerts.length };
-  for (const a of alerts) {
+  const restoreAll = () => {
+    setDismissed(new Set());
+    localStorage.removeItem('pullens-dismissed-alerts');
+  };
+
+  const visibleAlerts = alerts.filter((a: any) => !dismissed.has(a.id));
+  const dismissedCount = alerts.length - visibleAlerts.length;
+
+  const filtered = filter === 'all' ? visibleAlerts : visibleAlerts.filter((a) => a.severity === filter);
+
+  // Severity counts for filter badges (based on visible, not dismissed)
+  const counts: Record<string, number> = { all: visibleAlerts.length };
+  for (const a of visibleAlerts) {
     counts[a.severity] = (counts[a.severity] || 0) + 1;
   }
 
@@ -145,18 +168,25 @@ export default function AlertsPage() {
             Alerts
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {alerts.length} active alert{alerts.length === 1 ? '' : 's'}
+            {visibleAlerts.length} active alert{visibleAlerts.length === 1 ? '' : 's'}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          loading={refreshing}
-          icon={<RefreshCw className="h-4 w-4" />}
-        >
-          Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          {dismissedCount > 0 && (
+            <button onClick={restoreAll} className="text-sm text-[#3B82F6] hover:underline">
+              Show {dismissedCount} dismissed alert{dismissedCount > 1 ? 's' : ''}
+            </button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            loading={refreshing}
+            icon={<RefreshCw className="h-4 w-4" />}
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -245,9 +275,18 @@ export default function AlertsPage() {
                         </h3>
                         <p className="text-sm text-gray-500 mt-0.5">{alert.description}</p>
                       </div>
-                      <Badge color={config.badgeColor} className="shrink-0">
-                        {config.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge color={config.badgeColor}>
+                          {config.label}
+                        </Badge>
+                        <button
+                          onClick={() => dismissAlert(alert.id)}
+                          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Dismiss"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Employee name + action */}

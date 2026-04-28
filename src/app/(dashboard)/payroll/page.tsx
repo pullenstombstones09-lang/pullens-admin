@@ -21,6 +21,7 @@ import {
   ChevronRight,
   FileText,
   PenTool,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -118,6 +119,50 @@ export default function PayrollPage() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // ---------- delete payroll run ----------
+
+  async function handleDeleteRun(runId: string) {
+    if (!confirm('Delete this payroll run and all its payslips? This cannot be undone.')) return;
+
+    const supabase = createClient();
+
+    // Must delete loan_deductions first (FK RESTRICT, won't cascade)
+    const { error: loanErr } = await supabase
+      .from('loan_deductions')
+      .delete()
+      .eq('payroll_run_id', runId);
+
+    if (loanErr) {
+      toast('error', 'Failed to clear loan deductions: ' + loanErr.message);
+      return;
+    }
+
+    const { error: runErr } = await supabase
+      .from('payroll_runs')
+      .delete()
+      .eq('id', runId);
+
+    if (runErr) {
+      toast('error', 'Failed to delete payroll run: ' + runErr.message);
+      return;
+    }
+
+    toast('success', 'Payroll run deleted');
+    fetchHistory();
+  }
+
+  // ---------- discard current draft ----------
+
+  async function handleDiscardDraft() {
+    if (!runId) return;
+    if (!confirm('Discard this payroll calculation? This will delete the draft run.')) return;
+    await handleDeleteRun(runId);
+    setResults(null);
+    setRunId(null);
+    setAnomalies([]);
+    setSelected(new Set());
+  }
 
   // ---------- calculate payroll ----------
 
@@ -348,6 +393,16 @@ export default function PayrollPage() {
                       Calculated — {results.length} employees
                     </span>
                   </div>
+                  {user?.role === 'head_admin' && (
+                    <button
+                      onClick={handleDiscardDraft}
+                      className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
+                      title="Discard this payroll calculation"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Discard
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -655,6 +710,15 @@ export default function PayrollPage() {
                       >
                         <FileStack className="h-4 w-4" />
                       </button>
+                      {user?.role === 'head_admin' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteRun(run.id); }}
+                          className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete payroll run"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
