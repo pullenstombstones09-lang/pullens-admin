@@ -77,7 +77,7 @@ export default function ChangePinPage() {
   }, [newPin, confirmPin]);
 
   return (
-    <div className="min-h-screen bg-[#1E293B] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E40AF] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Branding */}
         <div className="text-center mb-8">

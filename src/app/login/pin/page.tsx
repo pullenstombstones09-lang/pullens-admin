@@ -17,7 +17,7 @@ export default async function PinPage({
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]"
+      className="min-h-screen flex items-center justify-center p-4 bg-[#1E40AF] font-[Inter,system-ui,sans-serif]"
     >
       {/* Radial glow */}
       <div className="fixed inset-0 pointer-events-none">
