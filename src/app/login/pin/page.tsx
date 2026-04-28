@@ -27,8 +27,8 @@ export default async function PinPage({
       <div className="w-full max-w-[360px] relative z-10">
         {/* Branding */}
         <div className="text-center mb-6">
-          <div className="flex justify-center mb-5">
-            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain brightness-0 invert" />
+          <div className="flex justify-center mb-5 bg-white/10 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit">
+            <Image src="/logo.png" alt="Pullens Tombstones" width={200} height={100} className="object-contain" />
           </div>
           <h1 className="text-[24px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
