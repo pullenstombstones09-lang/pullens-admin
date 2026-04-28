@@ -38,6 +38,7 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
   const { toast } = useToast();
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generatingCcma, setGeneratingCcma] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -134,9 +135,21 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
-  const handleGenerateCCMA = () => {
-    // Placeholder — will generate a compiled CCMA case file
-    alert('CCMA case file generation coming soon');
+  const handleGenerateCCMA = async () => {
+    setGeneratingCcma(true);
+    try {
+      const res = await fetch(`/api/exports/ccma-case?employee=${employeeId}`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        toast('error', 'Failed to generate CCMA case file');
+      }
+    } catch {
+      toast('error', 'Failed to generate CCMA case file');
+    }
+    setGeneratingCcma(false);
   };
 
   const handleDeleteEvent = async (event: TimelineEvent) => {
@@ -182,9 +195,10 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
           variant="secondary"
           size="md"
           onClick={handleGenerateCCMA}
+          disabled={generatingCcma}
           icon={<FileDown className="h-4 w-4" />}
         >
-          Generate CCMA Case File
+          {generatingCcma ? 'Generating...' : 'Generate CCMA Case File'}
         </Button>
       </div>
 
@@ -214,7 +228,7 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
                         <Badge color={event.badge.color}>{event.badge.label}</Badge>
                         <span className="text-xs text-stone-400">{formatDate(event.date)}</span>
                       </div>
-                      <p className="text-sm font-medium text-[#1A1A2E]">{event.title}</p>
+                      <p className="text-sm font-medium text-[#1E293B]">{event.title}</p>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
