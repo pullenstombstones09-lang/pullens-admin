@@ -468,8 +468,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {canEdit && (
-              {!publicHoliday && (
+            {canEdit && !publicHoliday && (
                 <Button
                   variant="secondary"
                   size="lg"
@@ -478,7 +477,6 @@ export default function RegisterPage() {
                 >
                   Mark All Present (08:00-17:00)
                 </Button>
-              )}
             )}
           </div>
         </div>
