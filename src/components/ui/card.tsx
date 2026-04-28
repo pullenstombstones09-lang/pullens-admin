@@ -27,10 +27,10 @@ export function Card({
     <div
       className={cn(
         "rounded-xl bg-white",
-        "shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.03)]",
-        "border border-gray-100/80",
-        hoverable && "transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08),0_8px_24px_rgba(0,0,0,0.05)] hover:-translate-y-0.5",
-        accent && "border-t-2 border-t-[#C4A35A]/40",
+        "shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]",
+        "border border-gray-100/60",
+        hoverable && "card-hover",
+        accent && "border-t-2 border-t-[#1E40AF]",
         paddingMap[padding],
         className
       )}
