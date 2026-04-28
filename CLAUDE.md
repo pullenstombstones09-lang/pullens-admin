@@ -47,47 +47,61 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 28 April 2026
+## Status — 28 April 2026 (evening session)
 
-### SYSTEM OVERHAUL (branch: overhaul/system-ux-v2, 21 commits)
+### CURRENT BUILD — main branch, deployed to Vercel
 
-Full UX overhaul completed 2026-04-28. Design spec: `docs/superpowers/specs/2026-04-28-system-overhaul-design.md`. Plan: `docs/superpowers/plans/2026-04-28-system-overhaul.md`.
+**Session work (28 April):** Full UX overhaul + payroll workflow restructure + register improvements + petty cash fixes.
 
 **Visual refresh:**
-- Royal blue palette (#1E40AF primary, #3B82F6 light, #F8FAFC background) — replaces old beige/navy/gold
-- Pulsing animations, hover lift on cards, gradient sidebar
-- All pages colour-swept (24+ files updated)
+- Royal blue palette (#1E40AF primary, #3B82F6 light, #F8FAFC background)
+- Login pages: royal blue bg, logo on frosted glass card
+- Gradient sidebar, pulsing animations, hover lift on cards
+- All pages colour-swept (40+ files)
 
-**New shared components:**
-- `workflow-stepper.tsx` — 5-step weekly cycle (Register→Payroll→Sign→Print→Bank) with API status
-- `undo-toast.tsx` — 10-second countdown toast with undo callback, provider + hook
-- `time-picker.tsx` — tap-friendly hour/minute grid (replaces native time input)
-- `slide-panel.tsx` — right-side slide-out panel for forms
-- `progress-ring.tsx` — SVG donut ring for data completeness
-- `employee-info-card.tsx` — sectioned employee info with inline edit
+**Dashboard:** "This Week" view — workflow stepper, 4 vibrant gradient metric cards, quick action buttons
 
-**Dashboard:** Rebuilt as "This Week" view — workflow stepper, 4 metric cards (Lark-style), quick action buttons
+**Register (major rework):**
+- TimePicker (tap-friendly grid, replaces native time input)
+- Time drives status: time_in after 08:05 → auto-late, time_out after 17:00 → shows OT minutes
+- "Mark All Present" + "Clear All" buttons (hidden on public holidays)
+- Auto-advance to next uncaptured day after save
+- Public holidays auto-detected + auto-marked PH for all employees
+- Date picker: non-admin locked to current week, admin gets warning for old dates
+- Undo on save, save button at top + bottom
 
-**Sidebar:** Royal blue gradient, white text, compact stepper at top, UndoProvider wraps all pages
+**Payroll (restructured into 4 pages):**
+- `/payroll` — Command view (Annika + Leeann): calculate, results table with clickable names → quick-view slide panel, 4 workflow step cards
+- `/payroll/sign` — Simple signing (Nisha + Veshi): one employee at a time, big name, sign canvas, auto-advance
+- `/payroll/print` — Print (Annika + Leeann): print all, print summary, individual print with signed status
+- `/payroll/bank` — Banking (Leeann): tick-off payments, mark week complete
+- Payroll auto-creates PH attendance for holidays in pay week
+- Petty cash shortfalls auto-convert to loans when payroll runs
+- Delete payroll run (head_admin, handles loan_deductions FK)
 
-**Register:** TimePicker replaces native inputs, photo upload button (needs storage bucket), undo on save
+**Permissions updated:**
+- Nisha/Veshi: signing only (removed from full payroll view)
+- Leeann: payroll + print + bank
+- Marlyn: register only
+- Kam: petty cash only
+- Sidebar shows "Sign Payslips" nav for Nisha/Veshi
 
-**Payroll:** Tick boxes per employee, inline loan deduction editing, sticky action bar (Print Selected, Print Summary, View & Sign)
+**Staff profiles:** Employee info card visible to all roles, inline edit for head_admin, completeness ring on staff list
 
-**Payslip viewer:** Employee dropdown nav, signing progress bar, auto-advance after sign, auto-file PDF to employee documents
+**Working features (were stubs):** New Loan, Record Leave, CCMA Case File — all functional with slide panels + undo
 
-**Staff profiles:** Employee info card visible to all roles (personal, contact, employment, banking, compliance), inline edit for head_admin, warning banner for missing data notes
+**HR Advisor:** User attribution, specific error messages, DB save failure warning
 
-**Staff list:** Completeness ring per employee (red/amber/green), sort by data completeness
+**Alerts:** Dismiss with localStorage, restore dismissed
 
-**Working features (were stubs):**
-- New Loan form (slide panel, undo, weeks-to-repay calc)
-- Record Leave form (slide panel, creates attendance records, undo)
-- CCMA Case File generator (calls /api/exports/ccma-case, opens PDF)
+**Petty cash fixes:**
+- Balance now computed (total in - total out), not stored value
+- "Casual Worker" → "Supplier"
+- Categories: Sundries, Diesel, Tolls, Materials, Airtime, Transport, Other
+- Sources: Bank Withdrawal, Nisha, Other
+- Shortfalls auto-convert to loans at payroll run
 
-**HR Advisor:** User attribution from cookie, specific error messages (401/400/429), DB save failure warning
-
-**Banking step:** Leeann tick-off API + UI, "Mark Week Complete" button, banked_at column (needs SQL migration)
+**New shared components:** workflow-stepper, undo-toast, time-picker, slide-panel, progress-ring, employee-info-card
 
 ### NEEDS SQL MIGRATION (run in Supabase SQL Editor)
 ```sql
@@ -97,22 +111,14 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures
 ALTER TABLE payslips ADD COLUMN IF NOT EXISTS banked_at timestamptz;
 ```
 
-### PREVIOUS BUILD (26 April, main branch)
-- All original features intact (auth, register, payroll engine, petty cash, HR advisor, alerts, exports, settings)
-- 38 employees seeded, 6 users, test data cleared
-- Auth: cookie-based, no PIN in cookie, service role key bypasses RLS
-- Vercel auto-deploy broken — use `vercel deploy --prod`
-
 ### KNOWN BUGS (parked)
 - Client component hydration fails on Vercel (login page was server component workaround)
 - Seed route creates duplicate user rows on re-run (upsert ID is null when auth user exists)
 
 ### NOT YET DONE
-- [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month
+- [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month reporting
 - [ ] **Monthly reporting** — payroll/attendance/petty cash summaries per month
 - [ ] Run SQL migration (storage buckets + banked_at) — see above
-- [ ] Merge overhaul/system-ux-v2 → main after testing
-- [ ] Delete capability on all pages (HR incidents, warnings, loans, notes) — head_admin + confirm
 - [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)
 - [ ] Garnishee: add 25% net pay cap per Magistrates' Courts Act s65J
 - [ ] Document template engine (filling HR pack Word templates)
