@@ -24,6 +24,7 @@ import {
   Trash2,
   ClipboardList,
   CalendarDays,
+  Landmark,
 } from 'lucide-react';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
 import Link from 'next/link';
@@ -84,6 +85,7 @@ export default function PayrollPage() {
   const [editingLoan, setEditingLoan] = useState<string | null>(null);
   const [loanValue, setLoanValue] = useState('');
   const [banked, setBanked] = useState<Set<string>>(new Set());
+  const [showBanking, setShowBanking] = useState(false);
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -424,45 +426,23 @@ export default function PayrollPage() {
           {/* Results */}
           {results && (
             <>
-              {/* Status + actions bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-semibold text-green-800">
-                      Calculated — {results.length} employees
-                    </span>
-                  </div>
-                  {user?.role === 'head_admin' && (
-                    <button
-                      onClick={handleDiscardDraft}
-                      className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
-                      title="Discard this payroll calculation"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Discard
-                    </button>
-                  )}
-                </div>
-
+              {/* Results header */}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    icon={<Printer className="h-4 w-4" />}
-                    onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
-                  >
-                    Print Summary
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    icon={<FileStack className="h-4 w-4" />}
-                    onClick={() => window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank')}
-                  >
-                    Print All Payslips
-                  </Button>
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="text-lg font-bold text-[#1E293B]">
+                    Payroll — {weekLabel(weekStart, weekEnd)}
+                  </span>
+                  <span className="text-sm text-gray-500">({results.length} employees)</span>
                 </div>
+                {user?.role === 'head_admin' && (
+                  <button
+                    onClick={handleDiscardDraft}
+                    className="text-sm text-red-500 hover:text-red-700"
+                  >
+                    Discard
+                  </button>
+                )}
               </div>
 
               {/* Results table — full detail on screen */}
@@ -594,6 +574,48 @@ export default function PayrollPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Single action row */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">{selected.size} selected</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    icon={<FileText size={16} />}
+                    onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
+                  >
+                    Print Summary
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    icon={<Printer size={16} />}
+                    disabled={selected.size === 0}
+                    onClick={() => {
+                      const ids = Array.from(selected).join(',');
+                      window.open(`/api/pdf/payslips-all?run=${runId}&employees=${ids}`, '_blank');
+                    }}
+                  >
+                    Print Selected ({selected.size})
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    pulse
+                    icon={<PenTool size={16} />}
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      if (runId) params.set('run', runId);
+                      window.location.href = `/payroll/payslip-viewer?${params}`;
+                    }}
+                  >
+                    View &amp; Sign
+                  </Button>
+                </div>
+              </div>
             </>
           )}
           </>
@@ -601,97 +623,62 @@ export default function PayrollPage() {
         </CardContent>
       </Card>
 
-      {/* Sticky action bar */}
+      {/* Banking Section — collapsible */}
       {results && results.length > 0 && (
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-b-xl mt-4">
-          <span className="text-sm text-gray-500">
-            {selected.size} of {results.length} selected
-          </span>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
-              icon={<FileText size={16} />}
-            >
-              Print Summary
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              disabled={selected.size === 0}
-              onClick={() => {
-                const ids = Array.from(selected).join(',');
-                window.open(`/api/pdf/payslips-all?run=${runId}&employees=${ids}`, '_blank');
-              }}
-              icon={<Printer size={16} />}
-            >
-              Print Selected ({selected.size})
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => {
-                const params = new URLSearchParams();
-                if (runId) params.set('run', runId);
-                if (selected.size > 0 && selected.size < results.length) {
-                  params.set('employees', Array.from(selected).join(','));
-                }
-                window.location.href = `/payroll/payslip-viewer?${params}`;
-              }}
-              icon={<PenTool size={16} />}
-            >
-              View &amp; Sign
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Banking Section */}
-      {results && results.length > 0 && (
-        <div className="rounded-xl border border-gray-100/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] p-6 mt-6">
-          <h2 className="text-lg font-bold text-[#1E293B] mb-4">Banking — Tick Off Payments</h2>
-          <div className="space-y-2">
-            {results.map((r: any) => (
-              <div key={r.employee_id}
-                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox"
-                    checked={banked.has(r.employee_id)}
-                    onChange={async () => {
-                      const next = new Set(banked)
-                      if (next.has(r.employee_id)) {
-                        next.delete(r.employee_id)
-                      } else {
-                        next.add(r.employee_id)
-                      }
-                      setBanked(next)
-                      await fetch('/api/payroll/bank', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ run_id: runId, employee_ids: [r.employee_id] }),
-                      })
-                    }}
-                    className="w-5 h-5 rounded accent-[#10B981]" />
-                  <span className="text-sm font-medium text-[#1E293B]">{r.full_name}</span>
-                </div>
-                <span className="text-sm font-bold text-[#1E293B]">R{r.net?.toFixed(2)}</span>
+        <div className="mt-6">
+          <button
+            onClick={() => setShowBanking(!showBanking)}
+            className="flex items-center gap-2 text-sm font-semibold text-[#1E40AF] hover:text-[#1E3A8A]"
+          >
+            <Landmark size={16} />
+            Banking — Tick Off Payments
+            <ChevronRight size={16} className={`transition-transform ${showBanking ? 'rotate-90' : ''}`} />
+          </button>
+          {showBanking && (
+            <div className="rounded-xl border border-gray-100/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] p-6 mt-3">
+              <div className="space-y-2">
+                {results.map((r: any) => (
+                  <div key={r.employee_id}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox"
+                        checked={banked.has(r.employee_id)}
+                        onChange={async () => {
+                          const next = new Set(banked)
+                          if (next.has(r.employee_id)) {
+                            next.delete(r.employee_id)
+                          } else {
+                            next.add(r.employee_id)
+                          }
+                          setBanked(next)
+                          await fetch('/api/payroll/bank', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ run_id: runId, employee_ids: [r.employee_id] }),
+                          })
+                        }}
+                        className="w-5 h-5 rounded accent-[#10B981]" />
+                      <span className="text-sm font-medium text-[#1E293B]">{r.full_name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-[#1E293B]">R{r.net?.toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {banked.size === results.length && results.length > 0 && (
-            <button
-              onClick={async () => {
-                await fetch('/api/payroll/bank', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ run_id: runId, employee_ids: Array.from(banked) }),
-                })
-              }}
-              className="w-full h-11 mt-4 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] animate-pulse-blue transition-colors"
-            >
-              Mark Week Complete
-            </button>
+              {banked.size === results.length && results.length > 0 && (
+                <button
+                  onClick={async () => {
+                    await fetch('/api/payroll/bank', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ run_id: runId, employee_ids: Array.from(banked) }),
+                    })
+                  }}
+                  className="w-full h-11 mt-4 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] animate-pulse-blue transition-colors"
+                >
+                  Mark Week Complete
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
