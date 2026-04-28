@@ -77,7 +77,7 @@ function SignatureCanvas({
     const ctx = canvasRef.current!.getContext('2d')!;
     const { x, y } = getPos(e);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = '#1A1A2E';
+    ctx.strokeStyle = '#1E293B';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -156,7 +156,7 @@ function PayslipDisplay({
     >
       {/* Header */}
       <div className="mb-5 border-b border-gray-200 pb-4">
-        <h2 className="text-lg font-black text-[#1A1A2E] tracking-tight">
+        <h2 className="text-lg font-black text-[#1E293B] tracking-tight">
           PULLENS TOMBSTONES
         </h2>
         <p className="text-xs text-gray-500">
@@ -190,7 +190,7 @@ function PayslipDisplay({
 
       {/* Earnings */}
       <div className="mb-4">
-        <h3 className="mb-2 text-xs font-bold text-[#1A1A2E] uppercase tracking-wider">
+        <h3 className="mb-2 text-xs font-bold text-[#1E293B] uppercase tracking-wider">
           Earnings
         </h3>
         <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -242,7 +242,7 @@ function PayslipDisplay({
 
       {/* Deductions */}
       <div className="mb-4">
-        <h3 className="mb-2 text-xs font-bold text-[#1A1A2E] uppercase tracking-wider">
+        <h3 className="mb-2 text-xs font-bold text-[#1E293B] uppercase tracking-wider">
           Deductions
         </h3>
         <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -310,11 +310,11 @@ function PayslipDisplay({
       </div>
 
       {/* Net Pay */}
-      <div className="rounded-lg bg-[#1A1A2E] px-5 py-4 flex items-center justify-between">
+      <div className="rounded-lg bg-[#1E293B] px-5 py-4 flex items-center justify-between">
         <span className="text-sm font-bold text-white uppercase tracking-wider">
           Net Pay
         </span>
-        <span className="text-xl font-black text-[#C4A35A]">
+        <span className="text-xl font-black text-[#3B82F6]">
           {formatCurrency(slip.net)}
         </span>
       </div>
@@ -364,7 +364,7 @@ function Row({
 
 export default function PayslipViewerPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C4A35A]" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B82F6]" /></div>}>
       <PayslipViewerPage />
     </Suspense>
   );
@@ -382,6 +382,8 @@ function PayslipViewerPage() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingSignature, setSavingSignature] = useState(false);
+  const [progressSigned, setProgressSigned] = useState(0);
+  const [progressTotal, setProgressTotal] = useState(0);
 
   const fetchPayslips = useCallback(async () => {
     if (!runId) return;
@@ -404,6 +406,8 @@ function PayslipViewerPage() {
     })) as PayslipWithEmployee[];
 
     setPayslips(slips);
+    setProgressTotal(slips.length);
+    setProgressSigned(slips.filter((p: any) => p.signed_at).length);
     setLoading(false);
   }, [supabase, runId]);
 
@@ -466,6 +470,31 @@ function PayslipViewerPage() {
     }
 
     toast('success', `Signature captured for ${slip.employee.full_name}`);
+
+    // Update progress
+    setProgressSigned(prev => prev + 1);
+
+    // Auto-advance to next unsigned
+    const nextUnsigned = payslips.findIndex((p: any, i: number) => i > currentIdx && !p.signed_at);
+    if (nextUnsigned >= 0) {
+      setCurrentIdx(nextUnsigned);
+    }
+
+    // Auto-file PDF to employee documents (non-blocking)
+    try {
+      const pdfRes = await fetch(`/api/pdf/payslip?id=${slip.id}`);
+      if (pdfRes.ok) {
+        const pdfBlob = await pdfRes.blob();
+        const pdfPath = `documents/${slip.employee_id}/payslips/week-${run?.week_end ?? 'unknown'}.pdf`;
+        await supabase.storage
+          .from('documents')
+          .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      }
+    } catch (err) {
+      console.error('Auto-file failed:', err);
+      // Non-blocking — signature is already saved
+    }
+
     await fetchPayslips();
     setSavingSignature(false);
   }
@@ -503,7 +532,7 @@ function PayslipViewerPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-[#1A1A2E] tracking-tight">
+            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
               Payslip Viewer
             </h1>
             {run && (
@@ -544,7 +573,7 @@ function PayslipViewerPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#3B82F6] border-t-transparent" />
         </div>
       ) : payslips.length === 0 ? (
         <div className="text-center py-16">
@@ -553,12 +582,12 @@ function PayslipViewerPage() {
       ) : (
         <>
           {/* Navigation between payslips */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center gap-4 mb-6">
             <button
               disabled={currentIdx === 0}
               onClick={() => setCurrentIdx((i) => i - 1)}
               className={cn(
-                'flex h-12 w-12 items-center justify-center rounded-lg transition-colors min-h-[48px]',
+                'flex h-12 w-12 items-center justify-center rounded-lg transition-colors min-h-[48px] flex-shrink-0',
                 currentIdx === 0
                   ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                   : 'bg-white text-[#333] shadow-sm hover:bg-gray-50'
@@ -566,19 +595,27 @@ function PayslipViewerPage() {
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <div className="text-center min-w-[180px]">
-              <p className="text-sm font-semibold text-[#1A1A2E]">
-                {currentSlip?.employee.full_name}
-              </p>
-              <p className="text-xs text-gray-500">
-                {currentIdx + 1} of {payslips.length}
-              </p>
-            </div>
+
+            <select
+              value={currentSlip?.id || ''}
+              onChange={(e) => {
+                const idx = payslips.findIndex((p: any) => p.id === e.target.value);
+                if (idx >= 0) setCurrentIdx(idx);
+              }}
+              className="flex-1 h-11 rounded-lg border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+            >
+              {payslips.map((p: any, i: number) => (
+                <option key={p.id} value={p.id}>
+                  {p.employee?.full_name || `Employee ${i + 1}`} {p.signed_at ? '✓' : ''}
+                </option>
+              ))}
+            </select>
+
             <button
               disabled={currentIdx === payslips.length - 1}
               onClick={() => setCurrentIdx((i) => i + 1)}
               className={cn(
-                'flex h-12 w-12 items-center justify-center rounded-lg transition-colors min-h-[48px]',
+                'flex h-12 w-12 items-center justify-center rounded-lg transition-colors min-h-[48px] flex-shrink-0',
                 currentIdx === payslips.length - 1
                   ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                   : 'bg-white text-[#333] shadow-sm hover:bg-gray-50'
@@ -586,6 +623,18 @@ function PayslipViewerPage() {
             >
               <ChevronRight className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mb-6">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>{progressSigned} of {progressTotal} signed</span>
+              <span>{progressTotal > 0 ? Math.round((progressSigned / progressTotal) * 100) : 0}%</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-[#10B981] rounded-full transition-all duration-500"
+                   style={{ width: `${progressTotal > 0 ? (progressSigned / progressTotal) * 100 : 0}%` }} />
+            </div>
           </div>
 
           {/* Payslip */}
