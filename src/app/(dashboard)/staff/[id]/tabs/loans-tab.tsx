@@ -19,6 +19,8 @@ import {
   Check,
   X,
 } from 'lucide-react';
+import { SlidePanel } from '@/components/ui/slide-panel';
+import { useUndo } from '@/components/ui/undo-toast';
 
 interface LoansTabProps {
   employeeId: string;
@@ -38,43 +40,51 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
   const [editingDeduction, setEditingDeduction] = useState<string | null>(null);
   const [deductionValue, setDeductionValue] = useState('');
 
+  // New loan form state
+  const [showNewLoan, setShowNewLoan] = useState(false);
+  const [newLoan, setNewLoan] = useState({ amount: '', purpose: '', weekly_deduction: '', from_petty: false });
+  const [savingLoan, setSavingLoan] = useState(false);
+  const { showUndo } = useUndo();
+
+  const fetchLoans = async () => {
+    const { data: loanData } = await supabase
+      .from('loans')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('date_advanced', { ascending: false });
+
+    const allLoans = (loanData ?? []) as Loan[];
+
+    const loanIds = allLoans.map((l) => l.id);
+    let deductions: LoanDeduction[] = [];
+    if (loanIds.length > 0) {
+      const { data: dedData } = await supabase
+        .from('loan_deductions')
+        .select('*')
+        .in('loan_id', loanIds)
+        .order('deducted_at', { ascending: true });
+      deductions = (dedData ?? []) as LoanDeduction[];
+    }
+
+    const dedByLoan = new Map<string, LoanDeduction[]>();
+    deductions.forEach((d) => {
+      const arr = dedByLoan.get(d.loan_id) ?? [];
+      arr.push(d);
+      dedByLoan.set(d.loan_id, arr);
+    });
+
+    const enriched: LoanWithDeductions[] = allLoans.map((l) => ({
+      ...l,
+      deductions: dedByLoan.get(l.id) ?? [],
+    }));
+
+    setLoans(enriched);
+  };
+
   useEffect(() => {
     async function load() {
       setLoading(true);
-
-      const { data: loanData } = await supabase
-        .from('loans')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .order('date_advanced', { ascending: false });
-
-      const allLoans = (loanData ?? []) as Loan[];
-
-      // Fetch deductions for all loans
-      const loanIds = allLoans.map((l) => l.id);
-      let deductions: LoanDeduction[] = [];
-      if (loanIds.length > 0) {
-        const { data: dedData } = await supabase
-          .from('loan_deductions')
-          .select('*')
-          .in('loan_id', loanIds)
-          .order('deducted_at', { ascending: true });
-        deductions = (dedData ?? []) as LoanDeduction[];
-      }
-
-      const dedByLoan = new Map<string, LoanDeduction[]>();
-      deductions.forEach((d) => {
-        const arr = dedByLoan.get(d.loan_id) ?? [];
-        arr.push(d);
-        dedByLoan.set(d.loan_id, arr);
-      });
-
-      const enriched: LoanWithDeductions[] = allLoans.map((l) => ({
-        ...l,
-        deductions: dedByLoan.get(l.id) ?? [],
-      }));
-
-      setLoans(enriched);
+      await fetchLoans();
       setLoading(false);
     }
     load();
@@ -91,11 +101,6 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
     return { active, closed };
   }, [loans]);
 
-  const handleNewLoan = () => {
-    // Placeholder — will be wired to a modal/form
-    alert('New loan form coming soon');
-  };
-
   const weeksRemaining = (loan: Loan): number => {
     if (loan.weekly_deduction <= 0) return 0;
     return Math.ceil(loan.outstanding / loan.weekly_deduction);
@@ -103,7 +108,6 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
 
   const handleDeleteLoan = async (id: string) => {
     if (!confirm('Delete this loan? This cannot be undone.')) return;
-    // Delete deductions first, then the loan
     await supabase.from('loan_deductions').delete().eq('loan_id', id);
     const { error } = await supabase.from('loans').delete().eq('id', id);
     if (error) {
@@ -158,7 +162,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
     <div>
       {/* New loan button */}
       <div className="mb-5">
-        <Button variant="primary" size="md" onClick={handleNewLoan} icon={<Plus className="h-4 w-4" />}>
+        <Button variant="primary" size="md" onClick={() => setShowNewLoan(true)} icon={<Plus className="h-4 w-4" />}>
           New Loan
         </Button>
       </div>
@@ -221,7 +225,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                       {/* Progress bar */}
                       <div className="h-2 rounded-full bg-stone-100 overflow-hidden mb-2">
                         <div
-                          className="h-full rounded-full bg-[#C4A35A] transition-all"
+                          className="h-full rounded-full bg-[#1E40AF] transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -236,7 +240,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                               value={deductionValue}
                               onChange={(e) => setDeductionValue(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveDeduction(loan.id); if (e.key === 'Escape') setEditingDeduction(null); }}
-                              className="w-20 h-7 rounded border border-stone-300 px-2 text-xs text-[#1A1A2E] focus:outline-none focus:ring-1 focus:ring-[#C4A35A]"
+                              className="w-20 h-7 rounded border border-stone-300 px-2 text-xs text-[#1A1A2E] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
                               autoFocus
                             />
                             <span className="text-stone-400">/week</span>
@@ -250,7 +254,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                         ) : (
                           <button
                             onClick={() => handleEditDeduction(loan)}
-                            className="flex items-center gap-1 hover:text-[#C4A35A] transition-colors"
+                            className="flex items-center gap-1 hover:text-[#3B82F6] transition-colors"
                             title="Edit weekly deduction"
                           >
                             {formatCurrency(loan.weekly_deduction)}/week
@@ -263,7 +267,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                       {/* Repayment schedule toggle */}
                       <button
                         onClick={() => setExpandedLoan(isExpanded ? null : loan.id)}
-                        className="flex items-center gap-1 text-xs text-[#C4A35A] font-medium min-h-[36px]"
+                        className="flex items-center gap-1 text-xs text-[#1E40AF] font-medium min-h-[36px]"
                       >
                         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                         {isExpanded ? 'Hide' : 'Show'} repayment history
@@ -335,6 +339,74 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
           )}
         </div>
       )}
+
+      <SlidePanel open={showNewLoan} onClose={() => setShowNewLoan(false)} title="New Loan">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (R)</label>
+            <input type="number" value={newLoan.amount}
+              onChange={(e) => setNewLoan(prev => ({ ...prev, amount: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+              placeholder="e.g. 500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+            <input type="text" value={newLoan.purpose}
+              onChange={(e) => setNewLoan(prev => ({ ...prev, purpose: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+              placeholder="e.g. Advance, Transport" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Weekly Deduction (R)</label>
+            <input type="number" value={newLoan.weekly_deduction}
+              onChange={(e) => setNewLoan(prev => ({ ...prev, weekly_deduction: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+              placeholder="e.g. 100" />
+            {newLoan.amount && newLoan.weekly_deduction && parseFloat(newLoan.weekly_deduction) > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                ~{Math.ceil(parseFloat(newLoan.amount) / parseFloat(newLoan.weekly_deduction))} weeks to repay
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="fromPetty" checked={newLoan.from_petty}
+              onChange={(e) => setNewLoan(prev => ({ ...prev, from_petty: e.target.checked }))}
+              className="w-5 h-5 rounded accent-[#1E40AF]" />
+            <label htmlFor="fromPetty" className="text-sm text-gray-700">From petty cash</label>
+          </div>
+          <button
+            disabled={!newLoan.amount || !newLoan.weekly_deduction || savingLoan}
+            onClick={async () => {
+              setSavingLoan(true);
+              const amount = parseFloat(newLoan.amount);
+              const { data, error } = await supabase.from('loans').insert({
+                employee_id: employeeId,
+                amount,
+                outstanding: amount,
+                weekly_deduction: parseFloat(newLoan.weekly_deduction),
+                purpose: newLoan.purpose || null,
+                date_advanced: new Date().toISOString().split('T')[0],
+                status: 'active',
+                auto_generated_from_petty: newLoan.from_petty,
+              }).select().single();
+
+              setSavingLoan(false);
+              if (!error && data) {
+                setShowNewLoan(false);
+                setNewLoan({ amount: '', purpose: '', weekly_deduction: '', from_petty: false });
+                fetchLoans();
+                showUndo('Loan added', async () => {
+                  await supabase.from('loans').delete().eq('id', data.id);
+                  fetchLoans();
+                });
+              }
+            }}
+            className="w-full h-11 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {savingLoan ? 'Saving...' : 'Add Loan'}
+          </button>
+        </div>
+      </SlidePanel>
     </div>
   );
 }
