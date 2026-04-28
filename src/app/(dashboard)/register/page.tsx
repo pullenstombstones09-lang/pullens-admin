@@ -108,6 +108,7 @@ export default function RegisterPage() {
   const [showSavedOverlay, setShowSavedOverlay] = useState(false);
 
   const [showInactive, setShowInactive] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const { showUndo } = useUndo();
 
   const isAdmin = user?.role === 'head_admin';
@@ -258,6 +259,38 @@ export default function RegisterPage() {
     }
   }
 
+  // ---------- auto-advance ----------
+
+  const advanceToNextDay = useCallback(async () => {
+    const current = new Date(selectedDate);
+
+    // Try the next 7 days to find one without attendance data
+    for (let i = 1; i <= 7; i++) {
+      const next = new Date(current);
+      next.setDate(next.getDate() + i);
+
+      // Skip Sundays (day 0)
+      if (next.getDay() === 0) continue;
+
+      // Don't go past today
+      if (next > new Date()) break;
+
+      const dateStr = next.toISOString().split('T')[0];
+
+      // Check if this day already has attendance
+      const { count } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('date', dateStr);
+
+      if ((count || 0) === 0) {
+        setSelectedDate(dateStr);
+        return;
+      }
+    }
+    // All days captured — stay on current day
+  }, [selectedDate, supabase]);
+
   // ---------- save ----------
 
   async function saveRegister() {
@@ -295,6 +328,12 @@ export default function RegisterPage() {
       showUndo('Register saved', async () => {
         setRows(previousRows);
       });
+      // Auto-advance to next uncaptured weekday after 1.5s
+      setAdvancing(true);
+      setTimeout(() => {
+        advanceToNextDay();
+        setAdvancing(false);
+      }, 1500);
     }
 
     setSaving(false);
@@ -377,6 +416,11 @@ export default function RegisterPage() {
                 'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]'
               )}
             />
+            {advancing && (
+              <span className="text-sm text-[#3B82F6] font-medium animate-pulse">
+                Moving to next day...
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
