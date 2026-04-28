@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { useToast } from '@/components/ui/toast';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
+import { startOfWeek } from 'date-fns';
 import { calculateLateMinutes } from '@/lib/payroll-engine';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -469,6 +470,10 @@ export default function RegisterPage() {
               type="date"
               value={selectedDate}
               max={toDateString(new Date())}
+              min={user?.role !== 'head_admin' ? (() => {
+                const mon = startOfWeek(new Date(), { weekStartsOn: 1 })
+                return toDateString(mon)
+              })() : undefined}
               onChange={(e) => {
                 const picked = new Date(e.target.value + 'T00:00:00')
                 const today = new Date()
@@ -477,8 +482,17 @@ export default function RegisterPage() {
                   alert('Cannot capture register for a future date')
                   return
                 }
+                // Non-admin: only current week
+                if (user?.role !== 'head_admin') {
+                  const mon = startOfWeek(today, { weekStartsOn: 1 })
+                  if (picked < mon) {
+                    alert('You can only capture register for the current week')
+                    return
+                  }
+                }
+                // Admin going far back: confirm
                 const diffDays = Math.floor((today.getTime() - picked.getTime()) / (1000 * 60 * 60 * 24))
-                if (diffDays > 7) {
+                if (diffDays > 7 && user?.role === 'head_admin') {
                   if (!confirm(`This date is ${diffDays} days ago. Are you sure?`)) return
                 }
                 setSelectedDate(e.target.value)
