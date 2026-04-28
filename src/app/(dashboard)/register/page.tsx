@@ -109,6 +109,7 @@ export default function RegisterPage() {
 
   const [showInactive, setShowInactive] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [publicHoliday, setPublicHoliday] = useState<string | null>(null);
   const { showUndo } = useUndo();
 
   const isAdmin = user?.role === 'head_admin';
@@ -135,6 +136,49 @@ export default function RegisterPage() {
     }>;
 
     const attMap = new Map(attendance.map((a) => [a.employee_id, a]));
+
+    // Check if selected date is a public holiday
+    const { data: holiday } = await supabase
+      .from('public_holidays')
+      .select('name')
+      .eq('date', selectedDate)
+      .maybeSingle();
+
+    setPublicHoliday(holiday?.name || null);
+
+    const hasExistingRecords = attendance.length > 0;
+
+    // If it's a public holiday with no records yet, auto-create PH records
+    if (holiday && !hasExistingRecords) {
+      const activeEmps = employees.filter(e => e.status === 'active');
+      const phRows = activeEmps.map(emp => ({
+        employee_id: emp.id,
+        date: selectedDate,
+        status: 'ph' as AttendanceStatus,
+        time_in: null,
+        time_out: null,
+        late_minutes: 0,
+        reason: holiday.name,
+      }));
+
+      if (phRows.length > 0) {
+        await supabase.from('attendance').upsert(phRows, { onConflict: 'employee_id,date' });
+
+        // Re-fetch attendance after auto-save
+        const res2 = await fetch(`/api/register?date=${selectedDate}&showInactive=${showInactive}`);
+        const data2 = await res2.json();
+        const savedAttendance = (data2.attendance ?? []) as Array<{
+          id: string;
+          employee_id: string;
+          status: AttendanceStatus;
+          time_in: string | null;
+          time_out: string | null;
+          late_minutes: number;
+          reason: string | null;
+        }>;
+        savedAttendance.forEach(a => attMap.set(a.employee_id, a));
+      }
+    }
 
     const newRows: RegisterRow[] = employees.map((emp) => {
       const existing = attMap.get(emp.id);
@@ -473,6 +517,17 @@ export default function RegisterPage() {
           >
             {savedForDate ? 'Update Register' : 'Save Register'}
           </Button>
+        </div>
+      )}
+
+      {/* Public holiday banner */}
+      {publicHoliday && (
+        <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 flex items-center gap-3">
+          <span className="text-2xl">🏖</span>
+          <div>
+            <p className="text-sm font-bold text-[#1E293B]">Public Holiday — {publicHoliday}</p>
+            <p className="text-xs text-gray-500">All staff automatically marked as PH. Counted as paid day in payroll.</p>
+          </div>
         </div>
       )}
 
