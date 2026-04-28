@@ -157,6 +157,9 @@ export default function HRAdvisorPage() {
 
       const data = await res.json();
       setResponse(data);
+      if (data._warning) {
+        toast("error", data._warning);
+      }
       await fetchData(); // Refresh incidents list
     } catch (err) {
       toast("error", err instanceof Error ? err.message : "Something went wrong");
@@ -168,7 +171,7 @@ export default function HRAdvisorPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#3B82F6] border-t-transparent" />
       </div>
     );
   }
@@ -176,11 +179,11 @@ export default function HRAdvisorPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1A1A2E]">
-          <Scale className="h-6 w-6 text-[#C4A35A]" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E293B]">
+          <Scale className="h-6 w-6 text-[#3B82F6]" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-[#1A1A2E]">HR Advisor</h1>
+          <h1 className="text-2xl font-black text-[#1E293B]">HR Advisor</h1>
           <p className="text-sm text-gray-500">
             SA Labour Law compliance engine
           </p>
@@ -204,7 +207,7 @@ export default function HRAdvisorPage() {
                   <select
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
-                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]"
+                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]"
                   >
                     <option value="">Select employee...</option>
                     {employees.map((emp) => (
@@ -223,7 +226,7 @@ export default function HRAdvisorPage() {
                   <select
                     value={incidentType}
                     onChange={(e) => setIncidentType(e.target.value)}
-                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]"
+                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]"
                   >
                     <option value="">Pick a type or type below...</option>
                     {COMMON_INCIDENTS.map((i) => (
@@ -244,7 +247,7 @@ export default function HRAdvisorPage() {
                     onChange={(e) => setFreeText(e.target.value)}
                     rows={4}
                     placeholder="Describe the incident in detail..."
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A] resize-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6] resize-none"
                   />
                 </div>
 
@@ -268,7 +271,7 @@ export default function HRAdvisorPage() {
           {advising && (
             <Card padding="lg">
               <div className="flex flex-col items-center gap-3 py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-[#C4A35A]" />
+                <Loader2 className="h-8 w-8 animate-spin text-[#3B82F6]" />
                 <p className="text-sm font-medium text-gray-500">
                   Consulting SA labour law...
                 </p>
@@ -281,8 +284,8 @@ export default function HRAdvisorPage() {
               {/* Classification */}
               <Card padding="lg">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1A1A2E] shrink-0">
-                    <ShieldAlert className="h-6 w-6 text-[#C4A35A]" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E293B] shrink-0">
+                    <ShieldAlert className="h-6 w-6 text-[#3B82F6]" />
                   </div>
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -305,7 +308,7 @@ export default function HRAdvisorPage() {
                         </Badge>
                       )}
                     </div>
-                    <h3 className="text-base font-bold text-[#1A1A2E]">
+                    <h3 className="text-base font-bold text-[#1E293B]">
                       {response.classification.misconduct_type}
                     </h3>
                     <p className="mt-1 text-sm text-gray-600">
@@ -334,7 +337,7 @@ export default function HRAdvisorPage() {
                         key={i}
                         className="flex items-start gap-2 text-sm text-[#333333]"
                       >
-                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#C4A35A] shrink-0" />
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#3B82F6] shrink-0" />
                         {item}
                       </li>
                     ))}
@@ -351,7 +354,7 @@ export default function HRAdvisorPage() {
                   <ol className="flex flex-col gap-3">
                     {response.steps.map((step, i) => (
                       <li key={i} className="flex items-start gap-3 text-sm">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1A2E] text-xs font-bold text-white shrink-0">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E293B] text-xs font-bold text-white shrink-0">
                           {i + 1}
                         </span>
                         <span className="text-[#333333] pt-0.5">{step}</span>
@@ -483,7 +486,7 @@ export default function HRAdvisorPage() {
 
       {/* --- HISTORY --- */}
       <div className="mt-8">
-        <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">
+        <h2 className="text-lg font-bold text-[#1E293B] mb-4">
           Past Incidents
         </h2>
         <Card padding="none">

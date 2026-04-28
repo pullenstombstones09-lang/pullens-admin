@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServiceRoleSupabase } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -71,6 +72,16 @@ interface RequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const userCookie = cookieStore.get("pullens-user");
+    let advisedBy: string | null = null;
+    if (userCookie?.value) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(userCookie.value));
+        advisedBy = parsed.name || parsed.id || null;
+      } catch {}
+    }
+
     const body = (await request.json()) as RequestBody;
     const { employee_id, incident_description, incident_type } = body;
 
@@ -209,13 +220,14 @@ Provide your compliance advice as the specified JSON structure.`;
       description: incident_description,
       classification: `Category ${advisorResponse.classification?.category || "?"} — ${advisorResponse.classification?.misconduct_type || incident_type}`,
       advisor_output: advisorResponse,
-      advised_by: null, // Server-side, no user context from cookie in service role
+      advised_by: advisedBy,
       advised_at: new Date().toISOString(),
       resolved: false,
     });
 
     if (incidentError) {
-      console.error("Failed to log incident:", incidentError.message);
+      console.error("Incident save failed:", incidentError.message);
+      advisorResponse._warning = "Advice generated but could not be saved to history";
     }
 
     // Audit log
@@ -232,11 +244,16 @@ Provide your compliance advice as the specified JSON structure.`;
     });
 
     return NextResponse.json(advisorResponse);
-  } catch (err) {
-    console.error("HR Advisor error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("HR Advisor error:", error);
+    const message =
+      error?.status === 401
+        ? "AI service authentication failed — check API key"
+        : error?.status === 400
+        ? "AI service rejected the request — try rephrasing"
+        : error?.status === 429
+        ? "AI service is busy — try again in a moment"
+        : "AI service unavailable — try again in a moment";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
