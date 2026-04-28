@@ -47,63 +47,75 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 26 April 2026
+## Status — 28 April 2026
 
-### DONE
-- [x] Next.js 16 project scaffolded (App Router, TypeScript, Tailwind)
-- [x] All dependencies installed (supabase, bcryptjs, date-fns, lucide-react, @anthropic-ai/sdk)
-- [x] 4 SQL migrations written and applied (23 tables, 15 enums, RLS policies, triggers)
-- [x] 38 employees seeded via /api/seed (all OK)
-- [x] 6 users seeded (Annika PIN 4682, others PIN 0000 with force_pin_change)
-- [x] Leave balances initialized (38 employees)
-- [x] Public holidays 2026-2028 seeded
-- [x] Default settings seeded
-- [x] Auth system (PIN login, proxy.ts, session management, force PIN change)
-- [x] App layout (sidebar nav, dashboard, 7 UI components)
-- [x] Staff list + employee profiles (all 8 tabs)
-- [x] Daily register (attendance capture + weekly grid view)
-- [x] Payroll engine (exact formula from spec) + payroll page + payslip viewer
-- [x] Petty cash (cash in/out, slip return, Thursday 16:00 cutoff)
-- [x] HR Advisor (Claude API, SA labour law system prompt)
-- [x] Alerts (16 notification types)
-- [x] Exports (UI-19, EMP201, EMP501, ROE, CCMA case file)
-- [x] Settings + audit log viewer
-- [x] GitHub repo pushed (all code committed)
-- [x] Vercel deployment configured (env vars set)
-- [x] Build passes clean (TypeScript, no errors)
+### SYSTEM OVERHAUL (branch: overhaul/system-ux-v2, 21 commits)
 
-### CURRENT BUILD — 2912780 (2026-04-26)
-- **Auth:** Cookie-based, no PIN, no Supabase Auth. Tap name → cookie → dashboard
-- **Login:** Server component with `<a>` links → `/api/auth/login?name=X` (GET, sets cookie, redirects)
-- **Proxy:** Checks `pullens-user` cookie, redirects to `/login` if missing, API routes are public
-- **RLS bypassed:** Browser Supabase client uses service role key (`NEXT_PUBLIC_SUPABASE_SERVICE_KEY`)
-- **Role-based landing:** admin→register, petty_cash→petty-cash, bookkeeper→payroll, others→dashboard
-- **Marlyn (admin):** Sees only Register + Alerts in sidebar, no wages/payroll/staff list
-- **Register:** Data fetches via `/api/register` API route (service role key)
-- **Add/Remove employees:** Bottom of register page, collapsible, head_admin only
-- **Delete records:** Trash icon per row on register, head_admin only, with confirm alert
-- **Albert = Thabiso** (PT018) — register nickname mapping
-- **Garnishee:** Last pay week of month only (Marlyn R250, Junior R300) — confirmed correct
-- **Duplicate users cleaned:** Supabase users table has 6 unique rows now
-- **Vercel auto-deploy broken** — use `vercel deploy --prod` from CLI
-- PDF generator: warning, hearing notice, payslip via jsPDF
-- **Payroll flow simplified:** Calculate → auto-approve → auto-generate payslips. Two buttons: Print Summary (name+net PDF) + Print All Payslips (individual payslip PDFs). History rows have inline print icons.
-- **Signature capture:** Canvas on payslip viewer, uploads to Supabase Storage, saves to employee_documents, payslip_unsigned alert clears on sign
-- **Favicon:** Gold P on navy (#1A1A2E) — public/icon-32.png, icon-192.png, apple-icon.png
-- **Dashboard logo:** Pullens logo via next/image on dashboard header
-- **TEST DATA CLEARED 2026-04-26** — all attendance, payroll, payslips, petty cash, warnings, loans, documents, announcements, audit log wiped via /api/cleanup. Employees + users + settings + holidays kept. Ready for real use Tuesday 2026-04-29.
+Full UX overhaul completed 2026-04-28. Design spec: `docs/superpowers/specs/2026-04-28-system-overhaul-design.md`. Plan: `docs/superpowers/plans/2026-04-28-system-overhaul.md`.
+
+**Visual refresh:**
+- Royal blue palette (#1E40AF primary, #3B82F6 light, #F8FAFC background) — replaces old beige/navy/gold
+- Pulsing animations, hover lift on cards, gradient sidebar
+- All pages colour-swept (24+ files updated)
+
+**New shared components:**
+- `workflow-stepper.tsx` — 5-step weekly cycle (Register→Payroll→Sign→Print→Bank) with API status
+- `undo-toast.tsx` — 10-second countdown toast with undo callback, provider + hook
+- `time-picker.tsx` — tap-friendly hour/minute grid (replaces native time input)
+- `slide-panel.tsx` — right-side slide-out panel for forms
+- `progress-ring.tsx` — SVG donut ring for data completeness
+- `employee-info-card.tsx` — sectioned employee info with inline edit
+
+**Dashboard:** Rebuilt as "This Week" view — workflow stepper, 4 metric cards (Lark-style), quick action buttons
+
+**Sidebar:** Royal blue gradient, white text, compact stepper at top, UndoProvider wraps all pages
+
+**Register:** TimePicker replaces native inputs, photo upload button (needs storage bucket), undo on save
+
+**Payroll:** Tick boxes per employee, inline loan deduction editing, sticky action bar (Print Selected, Print Summary, View & Sign)
+
+**Payslip viewer:** Employee dropdown nav, signing progress bar, auto-advance after sign, auto-file PDF to employee documents
+
+**Staff profiles:** Employee info card visible to all roles (personal, contact, employment, banking, compliance), inline edit for head_admin, warning banner for missing data notes
+
+**Staff list:** Completeness ring per employee (red/amber/green), sort by data completeness
+
+**Working features (were stubs):**
+- New Loan form (slide panel, undo, weeks-to-repay calc)
+- Record Leave form (slide panel, creates attendance records, undo)
+- CCMA Case File generator (calls /api/exports/ccma-case, opens PDF)
+
+**HR Advisor:** User attribution from cookie, specific error messages (401/400/429), DB save failure warning
+
+**Banking step:** Leeann tick-off API + UI, "Mark Week Complete" button, banked_at column (needs SQL migration)
+
+### NEEDS SQL MIGRATION (run in Supabase SQL Editor)
+```sql
+INSERT INTO storage.buckets (id, name, public) VALUES ('registers', 'registers', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('documents', 'documents', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures', true) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS banked_at timestamptz;
+```
+
+### PREVIOUS BUILD (26 April, main branch)
+- All original features intact (auth, register, payroll engine, petty cash, HR advisor, alerts, exports, settings)
+- 38 employees seeded, 6 users, test data cleared
+- Auth: cookie-based, no PIN in cookie, service role key bypasses RLS
+- Vercel auto-deploy broken — use `vercel deploy --prod`
 
 ### KNOWN BUGS (parked)
 - Client component hydration fails on Vercel (login page was server component workaround)
 - Seed route creates duplicate user rows on re-run (upsert ID is null when auth user exists)
 
 ### NOT YET DONE
+- [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month
+- [ ] **Monthly reporting** — payroll/attendance/petty cash summaries per month
+- [ ] Run SQL migration (storage buckets + banked_at) — see above
+- [ ] Merge overhaul/system-ux-v2 → main after testing
 - [ ] Delete capability on all pages (HR incidents, warnings, loans, notes) — head_admin + confirm
-- [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals
+- [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)
 - [ ] Garnishee: add 25% net pay cap per Magistrates' Courts Act s65J
 - [ ] Document template engine (filling HR pack Word templates)
-- [ ] Camera/file upload integration for documents and petty cash slips
-- [ ] Supabase Storage bucket setup (photos, payslips, documents, hr_templates)
 - [ ] Thursday 16:00 petty cash cron trigger (Vercel cron)
 - [ ] V12 parity testing (parallel run with old spreadsheet)
 - [ ] Custom domain (admin.pullens.co.za) — non-blocking
