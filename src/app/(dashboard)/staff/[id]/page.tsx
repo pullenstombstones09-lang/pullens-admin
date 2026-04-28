@@ -21,6 +21,9 @@ import {
   Scale,
   Pencil,
   X,
+  Phone,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 
 import OverviewTab from './tabs/overview-tab';
@@ -146,7 +149,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
   };
 
   const inputCls =
-    'w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-[#1A1A2E] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A] transition-colors';
+    'w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-[#1E293B] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/40 focus:border-[#1E40AF] transition-colors';
   const labelCls = 'block text-xs font-medium text-stone-500 mb-1';
 
   return (
@@ -159,7 +162,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
       <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-          <h2 className="text-lg font-bold text-[#1A1A2E]">Edit Employee</h2>
+          <h2 className="text-lg font-bold text-[#1E293B]">Edit Employee</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
@@ -458,7 +461,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white bg-[#C4A35A] hover:bg-[#b3923f] disabled:opacity-50 transition-colors min-h-[48px]"
+            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white bg-[#1E40AF] hover:bg-[#b3923f] disabled:opacity-50 transition-colors min-h-[48px]"
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
@@ -616,7 +619,7 @@ export default function EmployeeProfilePage({
       <div className="min-h-screen bg-[#F5F3EF] flex items-center justify-center">
         <div className="text-center">
           <p className="text-stone-500 mb-4">Employee not found</p>
-          <button onClick={() => router.push('/staff')} className="text-[#C4A35A] text-sm font-medium">
+          <button onClick={() => router.push('/staff')} className="text-[#1E40AF] text-sm font-medium">
             Back to staff list
           </button>
         </div>
@@ -652,7 +655,7 @@ export default function EmployeeProfilePage({
                   className="h-20 w-20 rounded-full object-cover ring-2 ring-white shadow-md"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1A1A2E] text-lg font-bold text-[#C4A35A] ring-2 ring-white shadow-md">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1E293B] text-lg font-bold text-[#1E40AF] ring-2 ring-white shadow-md">
                   {getInitials(employee.full_name)}
                 </div>
               )}
@@ -664,13 +667,13 @@ export default function EmployeeProfilePage({
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-[#1A1A2E] truncate leading-tight">
+                <h1 className="text-2xl font-bold text-[#1E293B] truncate leading-tight">
                   {employee.full_name}
                 </h1>
                 {user?.role === 'head_admin' && (
                   <button
                     onClick={() => setEditOpen(true)}
-                    className="shrink-0 rounded-lg p-2 text-stone-400 hover:text-[#C4A35A] hover:bg-stone-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    className="shrink-0 rounded-lg p-2 text-stone-400 hover:text-[#1E40AF] hover:bg-stone-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="Edit employee"
                   >
                     <Pencil className="h-4 w-4" />
@@ -678,7 +681,7 @@ export default function EmployeeProfilePage({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-                <span className="text-sm font-mono text-[#C4A35A] font-semibold">{employee.pt_code}</span>
+                <span className="text-sm font-mono text-[#1E40AF] font-semibold">{employee.pt_code}</span>
                 {employee.id_number && (
                   <span className="text-xs text-stone-500">{employee.id_number}</span>
                 )}
@@ -690,6 +693,25 @@ export default function EmployeeProfilePage({
                 {employee.start_date && (
                   <span className="text-xs text-stone-400">
                     Started {formatDate(employee.start_date)} ({yearsOfService(employee.start_date)})
+                  </span>
+                )}
+              </div>
+
+              {/* Quick-info row */}
+              <div className="flex items-center gap-4 text-sm text-gray-500 mt-2 flex-wrap">
+                {employee.cell && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={14} /> {employee.cell}
+                  </span>
+                )}
+                {employee.start_date && (
+                  <span className="flex items-center gap-1">
+                    <Calendar size={14} /> Started {employee.start_date}
+                  </span>
+                )}
+                {employee.start_date && (
+                  <span className="flex items-center gap-1">
+                    <Clock size={14} /> {Math.floor((Date.now() - new Date(employee.start_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years
                   </span>
                 )}
               </div>
@@ -718,7 +740,7 @@ export default function EmployeeProfilePage({
                   'flex items-center gap-1.5 px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors min-h-[48px] shrink-0',
                   'border-b-2',
                   activeTab === tab.key
-                    ? 'border-[#C4A35A] text-[#C4A35A]'
+                    ? 'border-[#1E40AF] text-[#1E40AF]'
                     : 'border-transparent text-stone-500 hover:text-stone-700'
                 )}
               >
@@ -732,7 +754,14 @@ export default function EmployeeProfilePage({
 
       {/* Tab content */}
       <div className="px-4 md:px-8 py-6">
-        {activeTab === 'overview' && <OverviewTab employeeId={id} />}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            employeeId={id}
+            employee={employee}
+            userRole={user?.role}
+            setEmployee={setEmployee}
+          />
+        )}
         {activeTab === 'payslips' && <PayslipsTab employeeId={id} />}
         {activeTab === 'documents' && <DocumentsTab employeeId={id} />}
         {activeTab === 'attendance' && <AttendanceTab employeeId={id} />}

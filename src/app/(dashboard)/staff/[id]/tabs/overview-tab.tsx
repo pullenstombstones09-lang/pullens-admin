@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmployeeInfoCard } from '@/components/ui/employee-info-card';
 import {
   CalendarCheck,
   Banknote,
@@ -16,6 +17,9 @@ import {
 
 interface OverviewTabProps {
   employeeId: string;
+  employee: any;
+  userRole: string | undefined;
+  setEmployee: (updater: (prev: any) => any) => void;
 }
 
 interface OverviewData {
@@ -34,7 +38,7 @@ const REQUIRED_DOCS = [
   { key: 'bank', label: 'Banking Details' },
 ];
 
-export default function OverviewTab({ employeeId }: OverviewTabProps) {
+export default function OverviewTab({ employeeId, employee, userRole, setEmployee }: OverviewTabProps) {
   const supabase = createClient();
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +140,17 @@ export default function OverviewTab({ employeeId }: OverviewTabProps) {
   if (!data) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-6">
+      <EmployeeInfoCard
+        employee={employee}
+        canEdit={userRole === 'head_admin'}
+        onUpdate={async (updates) => {
+          await supabase.from('employees').update(updates).eq('id', employee.id);
+          setEmployee((prev: any) => ({ ...prev, ...updates }));
+        }}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/* This week's attendance */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
@@ -250,6 +264,7 @@ export default function OverviewTab({ employeeId }: OverviewTabProps) {
           )}
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
