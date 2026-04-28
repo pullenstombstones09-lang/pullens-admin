@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { WorkflowStepper } from '@/components/ui/workflow-stepper'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Users, Calculator, PenTool, AlertTriangle, ClipboardList, Brain } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -58,10 +57,10 @@ export default function DashboardPage() {
   }, [])
 
   const metrics = stats ? [
-    { label: 'Captured Today', value: `${stats.attendanceToday}/${stats.totalStaff}`, icon: <Users size={24} />, color: stats.attendanceToday > 0 ? '#10B981' : '#F59E0B' },
-    { label: 'Payroll', value: stats.payrollStatus || 'Not run', icon: <Calculator size={24} />, color: stats.payrollStatus === 'generated' ? '#10B981' : '#3B82F6' },
-    { label: 'Unsigned', value: stats.unsignedCount.toString(), icon: <PenTool size={24} />, color: stats.unsignedCount > 0 ? '#F59E0B' : '#10B981' },
-    { label: 'Alerts', value: stats.alertCount.toString(), icon: <AlertTriangle size={24} />, color: stats.alertCount > 0 ? '#EF4444' : '#10B981' },
+    { label: 'Captured Today', value: `${stats.attendanceToday}/${stats.totalStaff}`, icon: <Users size={24} />, color: '#1E40AF', colorEnd: '#3B82F6' },
+    { label: 'Payroll', value: stats.payrollStatus || 'Not run', icon: <Calculator size={24} />, color: stats.payrollStatus === 'generated' ? '#059669' : '#1E40AF', colorEnd: stats.payrollStatus === 'generated' ? '#10B981' : '#3B82F6' },
+    { label: 'Unsigned', value: stats.unsignedCount.toString(), icon: <PenTool size={24} />, color: stats.unsignedCount > 0 ? '#D97706' : '#059669', colorEnd: stats.unsignedCount > 0 ? '#F59E0B' : '#10B981' },
+    { label: 'Alerts', value: stats.alertCount.toString(), icon: <AlertTriangle size={24} />, color: stats.alertCount > 0 ? '#DC2626' : '#059669', colorEnd: stats.alertCount > 0 ? '#EF4444' : '#10B981' },
   ] : []
 
   return (
@@ -79,19 +78,18 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((m, i) => (
-          <Card key={i} hoverable>
-            <CardContent>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{m.label}</p>
-                  <p className="text-3xl font-bold mt-1" style={{ color: m.color }}>{m.value}</p>
-                </div>
-                <div className="p-2 rounded-lg" style={{ backgroundColor: m.color + '15', color: m.color }}>
-                  {m.icon}
-                </div>
+          <div key={i} className="rounded-xl p-5 card-hover shadow-md"
+               style={{ background: `linear-gradient(135deg, ${m.color}, ${m.colorEnd})` }}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">{m.label}</p>
+                <p className="text-3xl font-bold text-white mt-1">{m.value}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="p-2 rounded-lg bg-white/20 text-white">
+                {m.icon}
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 

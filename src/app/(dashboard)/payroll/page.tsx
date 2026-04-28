@@ -22,7 +22,9 @@ import {
   FileText,
   PenTool,
   Trash2,
+  ClipboardList,
 } from 'lucide-react';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 import Link from 'next/link';
 
 // ---------- helpers ----------
@@ -74,6 +76,7 @@ export default function PayrollPage() {
   const [history, setHistory] = useState<PayrollRun[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
+  const [hasAttendance, setHasAttendance] = useState<boolean | null>(null);
 
   // Selection + inline loan edit state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -119,6 +122,20 @@ export default function PayrollPage() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  useEffect(() => {
+    async function checkAttendance() {
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const { count } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', weekStart)
+        .lte('date', weekEnd);
+      setHasAttendance((count || 0) > 0);
+    }
+    checkAttendance();
+  }, []);
 
   // ---------- delete payroll run ----------
 
@@ -297,6 +314,19 @@ export default function PayrollPage() {
           <CardTitle>Run Payroll</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hasAttendance === false ? (
+            <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-8 text-center">
+              <ClipboardList size={40} className="mx-auto text-amber-400 mb-3" />
+              <h3 className="text-lg font-bold text-[#1E293B]">No register data for this week</h3>
+              <p className="text-sm text-gray-500 mt-1">Capture the daily register first before running payroll.</p>
+              <a href="/register" className="inline-block mt-4">
+                <button className="h-11 px-6 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] transition-colors">
+                  Go to Register
+                </button>
+              </a>
+            </div>
+          ) : (
+          <>
           {/* Week selector */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
@@ -555,6 +585,8 @@ export default function PayrollPage() {
                 </table>
               </div>
             </>
+          )}
+          </>
           )}
         </CardContent>
       </Card>
