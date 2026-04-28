@@ -155,7 +155,7 @@ export default function SlipReturnModal({
       <div className="relative z-10 w-full max-w-md mx-4 rounded-2xl bg-white shadow-[0_8px_32px_rgba(0,0,0,0.16),0_2px_8px_rgba(0,0,0,0.08)] max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-[#1A1A2E]">Return Slip</h2>
+          <h2 className="text-lg font-bold text-[#1E293B]">Return Slip</h2>
           <button
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
@@ -184,7 +184,7 @@ export default function SlipReturnModal({
             </div>
             <div>
               <p className="text-gray-400 text-xs">Cash Given</p>
-              <p className="font-bold text-lg text-[#1A1A2E]">
+              <p className="font-bold text-lg text-[#1E293B]">
                 {formatCurrency(transaction.amount)}
               </p>
             </div>
@@ -235,7 +235,7 @@ export default function SlipReturnModal({
                 <button
                   type="button"
                   onClick={handleCapture}
-                  className="flex flex-1 flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-6 text-gray-400 hover:border-[#C4A35A] hover:text-[#C4A35A] transition-colors min-h-[48px]"
+                  className="flex flex-1 flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-6 text-gray-400 hover:border-[#1E40AF] hover:text-[#1E40AF] transition-colors min-h-[48px]"
                 >
                   <Camera className="h-6 w-6" />
                   <span className="text-xs font-medium">Take Photo</span>
@@ -243,7 +243,7 @@ export default function SlipReturnModal({
                 <button
                   type="button"
                   onClick={handleUpload}
-                  className="flex flex-1 flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-6 text-gray-400 hover:border-[#C4A35A] hover:text-[#C4A35A] transition-colors min-h-[48px]"
+                  className="flex flex-1 flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-6 text-gray-400 hover:border-[#1E40AF] hover:text-[#1E40AF] transition-colors min-h-[48px]"
                 >
                   <Upload className="h-6 w-6" />
                   <span className="text-xs font-medium">Upload File</span>

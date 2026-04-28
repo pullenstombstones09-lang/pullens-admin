@@ -77,14 +77,14 @@ export default function ChangePinPage() {
   }, [newPin, confirmPin]);
 
   return (
-    <div className="min-h-screen bg-[#1A1A2E] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E293B] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Branding */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black tracking-widest text-white">
             PULLENS ADMIN
           </h1>
-          <p className="text-[#C4A35A] text-sm font-semibold tracking-[0.3em] mt-1">
+          <p className="text-[#1E40AF] text-sm font-semibold tracking-[0.3em] mt-1">
             CAST IN STONE
           </p>
         </div>
@@ -104,9 +104,9 @@ export default function ChangePinPage() {
           <div className="flex gap-2 mb-5">
             <button
               onClick={() => setActiveField('new')}
-              className={`flex-1 min-h-[48px] rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50 ${
+              className={`flex-1 min-h-[48px] rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 ${
                 activeField === 'new'
-                  ? 'bg-[#C4A35A]/20 border border-[#C4A35A]/40 text-[#C4A35A]'
+                  ? 'bg-[#1E40AF]/20 border border-[#1E40AF]/40 text-[#1E40AF]'
                   : 'bg-white/5 border border-white/10 text-white/40'
               }`}
             >
@@ -119,9 +119,9 @@ export default function ChangePinPage() {
             </button>
             <button
               onClick={() => setActiveField('confirm')}
-              className={`flex-1 min-h-[48px] rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50 ${
+              className={`flex-1 min-h-[48px] rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 ${
                 activeField === 'confirm'
-                  ? 'bg-[#C4A35A]/20 border border-[#C4A35A]/40 text-[#C4A35A]'
+                  ? 'bg-[#1E40AF]/20 border border-[#1E40AF]/40 text-[#1E40AF]'
                   : 'bg-white/5 border border-white/10 text-white/40'
               }`}
             >
@@ -141,7 +141,7 @@ export default function ChangePinPage() {
                 key={i}
                 className={`w-3.5 h-3.5 rounded-full transition-all duration-150 ${
                   i < currentPin.length
-                    ? 'bg-[#C4A35A] scale-110'
+                    ? 'bg-[#1E40AF] scale-110'
                     : 'bg-white/15 border border-white/20'
                 }`}
               />
@@ -160,7 +160,7 @@ export default function ChangePinPage() {
                 key={digit}
                 onClick={() => handleKeyPress(digit)}
                 disabled={loading}
-                className="min-h-[56px] rounded-xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-2xl font-semibold transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50"
+                className="min-h-[56px] rounded-xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-2xl font-semibold transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50"
               >
                 {digit}
               </button>
@@ -168,21 +168,21 @@ export default function ChangePinPage() {
             <button
               onClick={handleClear}
               disabled={loading}
-              className="min-h-[56px] rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 text-xs font-semibold uppercase tracking-wider transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50"
+              className="min-h-[56px] rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 text-xs font-semibold uppercase tracking-wider transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50"
             >
               Clear
             </button>
             <button
               onClick={() => handleKeyPress('0')}
               disabled={loading}
-              className="min-h-[56px] rounded-xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-2xl font-semibold transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50"
+              className="min-h-[56px] rounded-xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-2xl font-semibold transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
               disabled={loading}
-              className="min-h-[56px] rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50 flex items-center justify-center"
+              className="min-h-[56px] rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/50 transition-all duration-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 flex items-center justify-center"
               aria-label="Backspace"
             >
               <svg
@@ -208,7 +208,7 @@ export default function ChangePinPage() {
             disabled={
               loading || newPin.length < 4 || confirmPin.length < 4
             }
-            className="w-full min-h-[52px] rounded-xl bg-[#C4A35A] hover:bg-[#B89344] active:bg-[#A8832E] text-[#1A1A2E] text-lg font-bold transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/50 focus:ring-offset-2 focus:ring-offset-[#1A1A2E]"
+            className="w-full min-h-[52px] rounded-xl bg-[#1E40AF] hover:bg-[#1E3A8A] active:bg-[#1e3480] text-white text-lg font-bold transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 focus:ring-offset-2 focus:ring-offset-[#1E293B]"
           >
             {loading ? (
               <span className="inline-flex items-center gap-2">

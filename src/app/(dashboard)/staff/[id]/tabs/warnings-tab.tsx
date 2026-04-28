@@ -110,7 +110,7 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
               )}
             </div>
 
-            <p className="text-sm font-medium text-[#1A1A2E]">{warning.offence}</p>
+            <p className="text-sm font-medium text-[#1E293B]">{warning.offence}</p>
             {warning.description && (
               <p className="text-xs text-stone-500 mt-1 line-clamp-2">{warning.description}</p>
             )}
@@ -181,7 +181,7 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
       {/* Active warnings */}
       {active.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-[#1A1A2E] mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-red-500" />
             Active Warnings ({active.length})
           </h3>

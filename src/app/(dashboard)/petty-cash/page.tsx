@@ -229,21 +229,21 @@ export default function PettyCashPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
-      <h1 className="text-2xl font-black text-[#1A1A2E] mb-6">Petty Cash</h1>
+      <h1 className="text-2xl font-black text-[#1E293B] mb-6">Petty Cash</h1>
 
       {/* --- TIN BALANCE STRIP --- */}
-      <Card className="mb-6 bg-[#1A1A2E] text-white" padding="lg">
+      <Card className="mb-6 bg-[#1E293B] text-white" padding="lg">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#C4A35A]/20">
-              <Wallet className="h-7 w-7 text-[#C4A35A]" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1E40AF]/20">
+              <Wallet className="h-7 w-7 text-[#1E40AF]" />
             </div>
             <div>
               <p className="text-sm text-white/60 font-medium">Tin Balance</p>
@@ -308,7 +308,7 @@ export default function PettyCashPage() {
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all duration-150 min-h-[48px]",
               tab === t.key
-                ? "bg-[#1A1A2E] text-white shadow-[0_2px_6px_rgba(26,26,46,0.3)]"
+                ? "bg-[#1E293B] text-white shadow-[0_2px_6px_rgba(26,26,46,0.3)]"
                 : "text-[#333333]/60 hover:text-[#333333]"
             )}
           >
@@ -345,7 +345,7 @@ export default function PettyCashPage() {
                       className={cn(
                         "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-all min-h-[48px]",
                         recipientType === "employee"
-                          ? "border-[#C4A35A] bg-[#C4A35A]/10 text-[#C4A35A]"
+                          ? "border-[#1E40AF] bg-[#1E40AF]/10 text-[#1E40AF]"
                           : "border-gray-300 text-gray-500 hover:border-gray-400"
                       )}
                     >
@@ -357,7 +357,7 @@ export default function PettyCashPage() {
                       className={cn(
                         "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-all min-h-[48px]",
                         recipientType === "casual"
-                          ? "border-[#C4A35A] bg-[#C4A35A]/10 text-[#C4A35A]"
+                          ? "border-[#1E40AF] bg-[#1E40AF]/10 text-[#1E40AF]"
                           : "border-gray-300 text-gray-500 hover:border-gray-400"
                       )}
                     >
@@ -369,7 +369,7 @@ export default function PettyCashPage() {
                     <select
                       value={recipientEmployeeId}
                       onChange={(e) => setRecipientEmployeeId(e.target.value)}
-                      className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]"
+                      className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]"
                     >
                       <option value="">Select employee...</option>
                       {employees.map((emp) => (
@@ -395,7 +395,7 @@ export default function PettyCashPage() {
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as PettyCashCategory)}
-                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]"
+                    className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]"
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c.value} value={c.value}>
@@ -426,7 +426,7 @@ export default function PettyCashPage() {
                     onChange={(e) => setReason(e.target.value)}
                     rows={2}
                     placeholder="What's it for?"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A] resize-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6] resize-none"
                   />
                 </div>
 
@@ -548,7 +548,7 @@ export default function PettyCashPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as PettyCashOutStatus | "all")}
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                 >
                   <option value="all">All</option>
                   <option value="open">Open</option>
@@ -563,7 +563,7 @@ export default function PettyCashPage() {
                   type="date"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                 />
               </div>
               <div className="flex flex-col gap-1 min-w-[140px]">
@@ -572,7 +572,7 @@ export default function PettyCashPage() {
                   type="date"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                 />
               </div>
               <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
@@ -584,7 +584,7 @@ export default function PettyCashPage() {
                     placeholder="Search name..."
                     value={filterRecipient}
                     onChange={(e) => setFilterRecipient(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                    className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                   />
                 </div>
               </div>

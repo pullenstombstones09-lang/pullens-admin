@@ -159,7 +159,7 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
       <Card padding="md">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-[#C4A35A]" />
+            <CalendarDays className="h-4 w-4 text-[#1E40AF]" />
             <CardTitle>Attendance Heatmap</CardTitle>
           </div>
           <div className="flex gap-1">
@@ -203,7 +203,7 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
                   className={cn(
                     'aspect-square rounded-sm transition-all min-h-[20px]',
                     day.status ? STATUS_COLORS[day.status] : 'bg-stone-100',
-                    selectedDate === day.date && 'ring-2 ring-[#C4A35A] ring-offset-1',
+                    selectedDate === day.date && 'ring-2 ring-[#1E40AF] ring-offset-1',
                     'hover:opacity-80'
                   )}
                 />

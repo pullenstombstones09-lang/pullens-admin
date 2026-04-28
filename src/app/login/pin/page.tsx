@@ -15,11 +15,11 @@ export default async function PinPage({
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 bg-[#1A1A2E] font-[Inter,system-ui,sans-serif]"
+      className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]"
     >
       {/* Radial glow */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#C4A35A]/[0.04] blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#1E40AF]/[0.04] blur-[120px]" />
       </div>
 
       <div className="w-full max-w-[360px] relative z-10">
@@ -28,7 +28,7 @@ export default async function PinPage({
           <h1 className="text-[24px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>
-          <p className="text-[12px] font-semibold mt-1 text-[#C4A35A] tracking-[0.3em]">
+          <p className="text-[12px] font-semibold mt-1 text-[#1E40AF] tracking-[0.3em]">
             CAST IN STONE
           </p>
         </div>
@@ -37,8 +37,8 @@ export default async function PinPage({
         <div className="rounded-2xl p-6 bg-white/[0.05] border border-white/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-sm">
           {/* User name */}
           <div className="text-center mb-5">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#C4A35A]/20 border border-[#C4A35A]/30 mb-3">
-              <span className="text-2xl font-black text-[#C4A35A]">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#1E40AF]/20 border border-[#1E40AF]/30 mb-3">
+              <span className="text-2xl font-black text-[#1E40AF]">
                 {name.charAt(0).toUpperCase()}
               </span>
             </div>
@@ -125,8 +125,8 @@ export default async function PinPage({
           function updateDots() {
             dots.forEach(function(dot, i) {
               if (i < pin.length) {
-                dot.style.backgroundColor = '#C4A35A';
-                dot.style.borderColor = '#C4A35A';
+                dot.style.backgroundColor = '#1E40AF';
+                dot.style.borderColor = '#1E40AF';
                 dot.style.transform = 'scale(1.15)';
               } else {
                 dot.style.backgroundColor = 'rgba(255,255,255,0.15)';

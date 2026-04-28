@@ -11,10 +11,10 @@ export default function LoginPage({
 
 function LoginContent() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1A1A2E] font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]">
       {/* Subtle radial glow behind card */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#C4A35A]/[0.04] blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#1E40AF]/[0.04] blur-[120px]" />
       </div>
 
       <div className="w-full max-w-[420px] relative z-10">
@@ -23,7 +23,7 @@ function LoginContent() {
           <h1 className="text-[28px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>
-          <p className="text-[13px] font-semibold mt-1.5 text-[#C4A35A] tracking-[0.3em]">
+          <p className="text-[13px] font-semibold mt-1.5 text-[#1E40AF] tracking-[0.3em]">
             CAST IN STONE
           </p>
         </div>
@@ -45,9 +45,9 @@ function LoginContent() {
                   bg-white/[0.08] border border-white/[0.08]
                   text-white no-underline cursor-pointer
                   transition-all duration-200 ease-out
-                  hover:bg-[#C4A35A]/20 hover:border-[#C4A35A]/30 hover:text-[#C4A35A]
+                  hover:bg-[#1E40AF]/20 hover:border-[#1E40AF]/30 hover:text-[#1E40AF]
                   hover:shadow-[0_4px_20px_rgba(196,163,90,0.15)]
-                  active:scale-[0.97] active:bg-[#C4A35A]/25
+                  active:scale-[0.97] active:bg-[#1E40AF]/25
                   animate-fade-in-up stagger-${i + 1}
                 `}
               >

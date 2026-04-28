@@ -592,7 +592,7 @@ export default function EmployeeProfilePage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F3EF]">
+      <div className="min-h-screen bg-[#F8FAFC]">
         <div className="p-4 md:p-8">
           {/* Skeleton header */}
           <div className="animate-pulse">
@@ -616,7 +616,7 @@ export default function EmployeeProfilePage({
 
   if (!employee) {
     return (
-      <div className="min-h-screen bg-[#F5F3EF] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="text-center">
           <p className="text-stone-500 mb-4">Employee not found</p>
           <button onClick={() => router.push('/staff')} className="text-[#1E40AF] text-sm font-medium">
@@ -628,9 +628,9 @@ export default function EmployeeProfilePage({
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F3EF]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Profile header — always visible */}
-      <div className="sticky top-0 z-20 bg-[#F5F3EF]/95 backdrop-blur-sm border-b border-stone-200">
+      <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-stone-200">
         <div className="px-4 md:px-8 pt-4 pb-3">
           {/* Back button */}
           <button

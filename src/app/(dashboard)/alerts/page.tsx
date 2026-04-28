@@ -81,7 +81,7 @@ const SEVERITY_ICON_COLORS: Record<Severity, string> = {
 };
 
 const FILTER_OPTIONS: { value: Severity | 'all'; label: string; color: string }[] = [
-  { value: 'all', label: 'All', color: 'bg-[#1A1A2E] text-white' },
+  { value: 'all', label: 'All', color: 'bg-[#1E293B] text-white' },
   { value: 'red', label: 'Critical', color: 'bg-red-500 text-white' },
   { value: 'amber', label: 'Warning', color: 'bg-amber-500 text-white' },
   { value: 'yellow', label: 'Notice', color: 'bg-yellow-400 text-[#333]' },
@@ -130,7 +130,7 @@ export default function AlertsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" />
       </div>
     );
   }
@@ -141,7 +141,7 @@ export default function AlertsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#333333] flex items-center gap-2">
-            <Bell className="h-6 w-6 text-[#C4A35A]" />
+            <Bell className="h-6 w-6 text-[#1E40AF]" />
             Alerts
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -253,7 +253,7 @@ export default function AlertsPage() {
                     {/* Employee name + action */}
                     <div className="flex items-center justify-between mt-3 gap-2">
                       {alert.employee_name ? (
-                        <span className="text-xs font-medium text-[#1A1A2E] bg-[#1A1A2E]/5 rounded px-2 py-1">
+                        <span className="text-xs font-medium text-[#1E293B] bg-[#1E293B]/5 rounded px-2 py-1">
                           {alert.employee_name}
                         </span>
                       ) : (

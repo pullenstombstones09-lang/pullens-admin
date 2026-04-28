@@ -12,9 +12,9 @@ export default async function ChangePinPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1A1A2E] font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]">
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#C4A35A]/[0.04] blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#1E40AF]/[0.04] blur-[120px]" />
       </div>
 
       <div className="w-full max-w-[360px] relative z-10">
@@ -22,7 +22,7 @@ export default async function ChangePinPage({
           <h1 className="text-[24px] font-black tracking-[0.15em] text-white leading-none">
             PULLENS ADMIN
           </h1>
-          <p className="text-[12px] font-semibold mt-1 text-[#C4A35A] tracking-[0.3em]">
+          <p className="text-[12px] font-semibold mt-1 text-[#1E40AF] tracking-[0.3em]">
             CAST IN STONE
           </p>
         </div>
@@ -117,8 +117,8 @@ export default async function ChangePinPage({
             var p = currentPin();
             dots.forEach(function(dot, i) {
               if (i < p.length) {
-                dot.style.backgroundColor = step === 'new' ? '#C4A35A' : '#10B981';
-                dot.style.borderColor = step === 'new' ? '#C4A35A' : '#10B981';
+                dot.style.backgroundColor = step === 'new' ? '#1E40AF' : '#10B981';
+                dot.style.borderColor = step === 'new' ? '#1E40AF' : '#10B981';
                 dot.style.transform = 'scale(1.15)';
               } else {
                 dot.style.backgroundColor = 'rgba(255,255,255,0.15)';

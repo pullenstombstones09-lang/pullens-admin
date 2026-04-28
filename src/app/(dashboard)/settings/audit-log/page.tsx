@@ -156,7 +156,7 @@ export default function AuditLogViewer() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-[#333333] flex items-center gap-2">
-              <ScrollText className="h-6 w-6 text-[#C4A35A]" />
+              <ScrollText className="h-6 w-6 text-[#1E40AF]" />
               Audit Log
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -220,7 +220,7 @@ export default function AuditLogViewer() {
                   }}
                   className={cn(
                     'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                    'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                    'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                     'min-h-[48px] appearance-none'
                   )}
                 >
@@ -245,7 +245,7 @@ export default function AuditLogViewer() {
                   }}
                   className={cn(
                     'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                    'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                    'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                     'min-h-[48px] appearance-none'
                   )}
                 >
@@ -281,7 +281,7 @@ export default function AuditLogViewer() {
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" />
         </div>
       ) : logs.length === 0 ? (
         <Card className="flex flex-col items-center justify-center py-16">

@@ -177,7 +177,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
           {/* Active loans */}
           {active.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-[#1A1A2E] mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 Active Loans ({active.length})
               </h3>
@@ -192,7 +192,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-lg font-bold text-[#1A1A2E]">
+                            <p className="text-lg font-bold text-[#1E293B]">
                               {formatCurrency(loan.outstanding)}
                             </p>
                             <Badge color="amber">Outstanding</Badge>
@@ -240,7 +240,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                               value={deductionValue}
                               onChange={(e) => setDeductionValue(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveDeduction(loan.id); if (e.key === 'Escape') setEditingDeduction(null); }}
-                              className="w-20 h-7 rounded border border-stone-300 px-2 text-xs text-[#1A1A2E] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
+                              className="w-20 h-7 rounded border border-stone-300 px-2 text-xs text-[#1E293B] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
                               autoFocus
                             />
                             <span className="text-stone-400">/week</span>

@@ -154,7 +154,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* This week's attendance */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <CalendarCheck className="h-4 w-4 text-[#C4A35A]" />
+          <CalendarCheck className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>This Week</CardTitle>
         </div>
         <CardContent>
@@ -182,7 +182,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* Loan balance */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <Banknote className="h-4 w-4 text-[#C4A35A]" />
+          <Banknote className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>Loan Balance</CardTitle>
         </div>
         <CardContent>
@@ -195,7 +195,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* Active warnings */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle className="h-4 w-4 text-[#C4A35A]" />
+          <AlertTriangle className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>Warnings</CardTitle>
         </div>
         <CardContent>
@@ -209,7 +209,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* Leave balance */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <Palmtree className="h-4 w-4 text-[#C4A35A]" />
+          <Palmtree className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>Leave Balance</CardTitle>
         </div>
         <CardContent>
@@ -233,11 +233,11 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* Last payslip */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <Receipt className="h-4 w-4 text-[#C4A35A]" />
+          <Receipt className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>Last Payslip</CardTitle>
         </div>
         <CardContent>
-          <p className="text-2xl font-bold text-[#1A1A2E]">
+          <p className="text-2xl font-bold text-[#1E293B]">
             {data.lastPayslipNet !== null ? formatCurrency(data.lastPayslipNet) : '---'}
           </p>
           <p className="text-xs text-stone-500 mt-1">Net pay</p>
@@ -247,7 +247,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
       {/* Missing documents */}
       <Card padding="md">
         <div className="flex items-center gap-2 mb-3">
-          <FileWarning className="h-4 w-4 text-[#C4A35A]" />
+          <FileWarning className="h-4 w-4 text-[#1E40AF]" />
           <CardTitle>Documents</CardTitle>
         </div>
         <CardContent>

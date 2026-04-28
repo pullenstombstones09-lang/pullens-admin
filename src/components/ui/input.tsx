@@ -30,7 +30,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             "h-12 w-full rounded-lg border bg-white px-3.5 text-sm text-[#333333]",
             "placeholder:text-gray-400",
             "transition-colors duration-150",
-            "focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]",
+            "focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]",
             "disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed",
             "min-h-[48px]",
             error

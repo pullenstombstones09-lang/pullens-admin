@@ -144,7 +144,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
             onClick={() => setFilterMonth(null)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
               filterMonth === null
-                ? 'bg-[#1A1A2E] text-white'
+                ? 'bg-[#1E293B] text-white'
                 : 'bg-white text-stone-600 border border-stone-200'
             }`}
           >
@@ -156,7 +156,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
               onClick={() => setFilterMonth(i)}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
                 filterMonth === i
-                  ? 'bg-[#1A1A2E] text-white'
+                  ? 'bg-[#1E293B] text-white'
                   : 'bg-white text-stone-600 border border-stone-200'
               }`}
             >
@@ -204,7 +204,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                     <td className="py-3 px-3 font-mono text-stone-600">W{p.week_number}</td>
                     <td className="py-3 px-3 text-stone-700">{formatDate(p.week_end)}</td>
                     <td className="py-3 px-3 text-right text-stone-700">{formatCurrency(p.gross)}</td>
-                    <td className="py-3 px-3 text-right font-semibold text-[#1A1A2E]">{formatCurrency(p.net)}</td>
+                    <td className="py-3 px-3 text-right font-semibold text-[#1E293B]">{formatCurrency(p.net)}</td>
                     <td className="py-3 px-3 text-center">
                       {p.signed_at ? (
                         <Check className="h-4 w-4 text-emerald-500 mx-auto" />
@@ -260,7 +260,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-xs text-stone-500">Gross: {formatCurrency(p.gross)}</p>
-                    <p className="text-lg font-bold text-[#1A1A2E]">{formatCurrency(p.net)}</p>
+                    <p className="text-lg font-bold text-[#1E293B]">{formatCurrency(p.net)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button

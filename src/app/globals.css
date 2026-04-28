@@ -95,11 +95,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(26, 26, 46, 0.15);
+  background: rgba(30, 41, 59, 0.15);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(26, 26, 46, 0.3);
+  background: rgba(30, 41, 59, 0.3);
 }
 
 /* Sidebar scrollbar — lighter for dark bg */

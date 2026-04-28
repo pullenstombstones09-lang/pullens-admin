@@ -50,8 +50,8 @@ function Section({
         className="flex w-full items-center justify-between px-5 py-4 text-left min-h-[48px]"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1A2E]/5">
-            <span className="text-[#1A1A2E]">{icon}</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1E293B]/5">
+            <span className="text-[#1E293B]">{icon}</span>
           </div>
           <h2 className="text-base font-semibold text-[#333333]">{title}</h2>
         </div>
@@ -354,7 +354,7 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[#333333] flex items-center gap-2">
-            <SettingsIcon className="h-6 w-6 text-[#C4A35A]" />
+            <SettingsIcon className="h-6 w-6 text-[#1E40AF]" />
             Settings
           </h1>
           <p className="text-sm text-gray-500 mt-1">System configuration — head admin only</p>
@@ -618,7 +618,7 @@ export default function SettingsPage() {
                   }
                   className={cn(
                     'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                    'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                    'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                     'min-h-[48px] appearance-none'
                   )}
                 >
@@ -667,7 +667,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'fixed'
-                    ? 'bg-[#1A1A2E] text-white'
+                    ? 'bg-[#1E293B] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >
@@ -678,7 +678,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'custom'
-                    ? 'bg-[#1A1A2E] text-white'
+                    ? 'bg-[#1E293B] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >
@@ -696,7 +696,7 @@ export default function SettingsPage() {
                       onChange={(e) => setPayWeek((p) => ({ ...p, start_day: e.target.value }))}
                       className={cn(
                         'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                        'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                        'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                         'min-h-[48px] appearance-none'
                       )}
                     >
@@ -715,7 +715,7 @@ export default function SettingsPage() {
                       onChange={(e) => setPayWeek((p) => ({ ...p, end_day: e.target.value }))}
                       className={cn(
                         'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                        'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                        'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                         'min-h-[48px] appearance-none'
                       )}
                     >
@@ -913,7 +913,7 @@ export default function SettingsPage() {
                                   setEditingUser(u.id);
                                   setEditRole(u.role as UserRole);
                                 }}
-                                className="rounded px-2 py-1.5 text-xs font-medium text-[#C4A35A] hover:bg-[#C4A35A]/10 transition-colors min-h-[36px]"
+                                className="rounded px-2 py-1.5 text-xs font-medium text-[#1E40AF] hover:bg-[#1E40AF]/10 transition-colors min-h-[36px]"
                               >
                                 Edit Role
                               </button>

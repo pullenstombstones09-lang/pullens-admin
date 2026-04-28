@@ -96,7 +96,7 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
               <Plus className="h-5 w-5 text-emerald-600" />
             </div>
-            <h2 className="text-lg font-bold text-[#1A1A2E]">Cash In</h2>
+            <h2 className="text-lg font-bold text-[#1E293B]">Cash In</h2>
           </div>
           <button
             onClick={onClose}
@@ -130,7 +130,7 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
                   className={cn(
                     "rounded-lg border py-3 text-sm font-medium transition-all min-h-[48px]",
                     source === s.value
-                      ? "border-[#C4A35A] bg-[#C4A35A]/10 text-[#C4A35A]"
+                      ? "border-[#1E40AF] bg-[#1E40AF]/10 text-[#1E40AF]"
                       : "border-gray-300 text-gray-500 hover:border-gray-400"
                   )}
                 >
@@ -147,7 +147,7 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Optional notes..."
-              className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A] resize-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-sm text-[#333333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6] resize-none"
             />
           </div>
 

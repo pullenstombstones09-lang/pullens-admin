@@ -172,7 +172,7 @@ export default function WeeklyViewPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-[#1A1A2E] tracking-tight">
+            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
               Weekly View
             </h1>
             <p className="mt-0.5 text-sm text-gray-500">
@@ -193,7 +193,7 @@ export default function WeeklyViewPage() {
             className={cn(
               'h-12 min-h-[48px] rounded-lg px-4 text-sm font-medium transition-colors',
               weekOffset === 0
-                ? 'bg-[#C4A35A] text-white'
+                ? 'bg-[#1E40AF] text-white'
                 : 'bg-white text-[#333] shadow-sm hover:bg-gray-50'
             )}
           >
@@ -234,7 +234,7 @@ export default function WeeklyViewPage() {
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C4A35A] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" />
         </div>
       ) : (
         <Card padding="none">
@@ -281,7 +281,7 @@ export default function WeeklyViewPage() {
                             className="h-7 w-7 rounded-full object-cover shrink-0"
                           />
                         ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1A1A2E] text-white text-[10px] font-bold shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E293B] text-white text-[10px] font-bold shrink-0">
                             {getInitials(emp.full_name)}
                           </div>
                         )}

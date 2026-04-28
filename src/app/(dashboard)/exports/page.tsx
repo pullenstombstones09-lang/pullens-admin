@@ -197,7 +197,7 @@ export default function ExportsPage() {
       {/* Header */}
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl font-bold text-[#333333] flex items-center gap-2">
-          <Download className="h-6 w-6 text-[#C4A35A]" />
+          <Download className="h-6 w-6 text-[#1E40AF]" />
           Compliance Exports
         </h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -215,8 +215,8 @@ export default function ExportsPage() {
             <Card key={card.id}>
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1A1A2E]/5">
-                    <span className="text-[#1A1A2E]">{card.icon}</span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1E293B]/5">
+                    <span className="text-[#1E293B]">{card.icon}</span>
                   </div>
                   <div>
                     <CardTitle>{card.title}</CardTitle>
@@ -244,7 +244,7 @@ export default function ExportsPage() {
                           }
                           className={cn(
                             'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                            'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                             'min-h-[48px] appearance-none'
                           )}
                         >
@@ -272,7 +272,7 @@ export default function ExportsPage() {
                           }
                           className={cn(
                             'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
-                            'focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40 focus:border-[#C4A35A]',
+                            'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
                             'min-h-[48px] appearance-none'
                           )}
                         >
