@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
 import { getNavItems } from "@/lib/permissions";
 import { ToastProvider } from "@/components/ui/toast";
+import { UndoProvider } from "@/components/ui/undo-toast";
+import { WorkflowStepper } from "@/components/ui/workflow-stepper";
 import { AlertBadge } from "@/components/alert-badge";
 import {
   Home,
@@ -50,12 +52,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <h1 className="text-xl font-black tracking-wide text-white leading-none">
           PULLENS ADMIN
         </h1>
-        <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-[#C4A35A] uppercase">
+        <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase">
           Cast in Stone
         </p>
       </div>
 
       <div className="mx-4 h-px bg-white/10" />
+
+      <div className="px-2 mb-4 mt-3">
+        <WorkflowStepper compact />
+      </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 sidebar-scroll">
         <ul className="flex flex-col gap-0.5">
@@ -71,8 +77,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     "transition-all duration-200 ease-out",
                     "min-h-[48px]",
                     isActive
-                      ? "border-l-[3px] border-[#C4A35A] bg-[#C4A35A]/10 text-[#C4A35A] pl-[9px] shadow-[inset_0_0_20px_rgba(196,163,90,0.05)]"
-                      : "text-white/70 hover:bg-white/[0.06] hover:text-white hover:pl-3.5"
+                      ? "bg-white/15 text-white font-semibold pl-3 shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]"
+                      : "text-blue-200 hover:text-white hover:bg-white/10 hover:pl-3.5"
                   )}
                 >
                   <span className={cn(
@@ -134,19 +140,19 @@ function DashboardShell({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-[#F5F3EF] gap-4">
+      <div className="flex h-screen flex-col items-center justify-center bg-[#F8FAFC] gap-4">
         <div className="relative">
-          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#C4A35A]/20 border-t-[#C4A35A]" />
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#3B82F6]/20 border-t-[#3B82F6]" />
         </div>
-        <p className="text-xs font-semibold tracking-[0.2em] text-[#1A1A2E]/30 uppercase">Loading</p>
+        <p className="text-xs font-semibold tracking-[0.2em] text-[#1E3A8A]/30 uppercase">Loading</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F3EF]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col bg-gradient-to-b from-[#1A1A2E] to-[#141425]">
+      <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col gradient-sidebar">
         <SidebarContent />
       </aside>
 
@@ -162,7 +168,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Mobile slide-out sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[280px] bg-gradient-to-b from-[#1A1A2E] to-[#141425] lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-[280px] gradient-sidebar lg:hidden",
           "transition-transform duration-250 ease-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
@@ -180,7 +186,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="flex h-14 items-center gap-3 border-b-2 border-[#C4A35A]/20 bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <header className="flex h-14 items-center gap-3 border-b-2 border-[#3B82F6]/20 bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-lg p-2 text-[#333333] hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -188,14 +194,16 @@ function DashboardShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-bold text-[#1A1A2E]">
+          <span className="text-sm font-bold text-[#1E3A8A]">
             PULLENS ADMIN
           </span>
         </header>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
-          {children}
+          <UndoProvider>
+            {children}
+          </UndoProvider>
         </main>
       </div>
     </div>
