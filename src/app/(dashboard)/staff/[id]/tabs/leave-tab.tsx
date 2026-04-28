@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
 import { formatDate } from '@/lib/utils';
 import type { Leave, LeaveBalance, LeaveType } from '@/types/database';
-import { Card, CardTitle, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SlidePanel } from '@/components/ui/slide-panel';
+import { useUndo } from '@/components/ui/undo-toast';
 import { Palmtree, Plus, Calendar } from 'lucide-react';
 
 interface LeaveTabProps {
@@ -31,43 +33,45 @@ const LEAVE_TYPE_COLORS: Record<LeaveType, 'green' | 'red' | 'blue' | 'purple' |
   unpaid: 'grey',
 };
 
+const EMPTY_FORM = { type: 'annual', from_date: '', to_date: '', reason: '' };
+
 export default function LeaveTab({ employeeId }: LeaveTabProps) {
   const supabase = createClient();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { showUndo } = useUndo();
+
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Record leave panel
+  const [showRecordLeave, setShowRecordLeave] = useState(false);
+  const [leaveForm, setLeaveForm] = useState(EMPTY_FORM);
+  const [savingLeave, setSavingLeave] = useState(false);
+
+  const fetchLeave = useCallback(async () => {
+    const [balRes, leaveRes] = await Promise.all([
+      supabase
+        .from('leave_balances')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .single(),
+      supabase
+        .from('leave')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('from_date', { ascending: false }),
+    ]);
+
+    setBalance((balRes.data as LeaveBalance) ?? null);
+    setLeaves((leaveRes.data ?? []) as Leave[]);
+  }, [employeeId, supabase]);
+
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-
-      const [balRes, leaveRes] = await Promise.all([
-        supabase
-          .from('leave_balances')
-          .select('*')
-          .eq('employee_id', employeeId)
-          .single(),
-        supabase
-          .from('leave')
-          .select('*')
-          .eq('employee_id', employeeId)
-          .order('from_date', { ascending: false }),
-      ]);
-
-      setBalance((balRes.data as LeaveBalance) ?? null);
-      setLeaves((leaveRes.data ?? []) as Leave[]);
-      setLoading(false);
-    }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeId]);
-
-  const handleRecordLeave = () => {
-    // Placeholder — will be wired to a modal/form
-    alert('Record leave form coming soon');
-  };
+    setLoading(true);
+    fetchLeave().finally(() => setLoading(false));
+  }, [fetchLeave]);
 
   const handleDeleteLeave = async (id: string) => {
     if (!confirm('Delete this leave record? This cannot be undone.')) return;
@@ -78,6 +82,83 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       toast('success', 'Leave record deleted');
       setLeaves((prev) => prev.filter((l) => l.id !== id));
     }
+  };
+
+  /** Count non-Sunday days between two date strings (inclusive) */
+  function getDatesInRange(from: string, to: string): string[] {
+    const dates: string[] = [];
+    const current = new Date(from);
+    const end = new Date(to);
+    while (current <= end) {
+      if (current.getDay() !== 0) {
+        dates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  }
+
+  const handleSaveLeave = async () => {
+    setSavingLeave(true);
+
+    const dates = getDatesInRange(leaveForm.from_date, leaveForm.to_date);
+    const days = dates.length;
+
+    const { data, error } = await supabase
+      .from('leave')
+      .insert({
+        employee_id: employeeId,
+        leave_type: leaveForm.type as LeaveType,
+        from_date: leaveForm.from_date,
+        to_date: leaveForm.to_date,
+        days,
+        reason: leaveForm.reason || null,
+        approved_by: user?.name ?? null,
+        approved_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      toast('error', 'Failed to record leave');
+      setSavingLeave(false);
+      return;
+    }
+
+    // Create attendance records for leave days (skip Sundays)
+    if (dates.length > 0) {
+      await supabase.from('attendance').upsert(
+        dates.map((d) => ({
+          employee_id: employeeId,
+          date: d,
+          status: leaveForm.type === 'sick' ? 'sick' : 'leave',
+          time_in: null,
+          time_out: null,
+          late_minutes: 0,
+        })),
+        { onConflict: 'employee_id,date' }
+      );
+    }
+
+    setSavingLeave(false);
+    setShowRecordLeave(false);
+    setLeaveForm(EMPTY_FORM);
+    fetchLeave();
+
+    showUndo('Leave recorded', async () => {
+      await supabase.from('leave').delete().eq('id', data.id);
+      if (dates.length > 0) {
+        for (const d of dates) {
+          await supabase
+            .from('attendance')
+            .delete()
+            .eq('employee_id', employeeId)
+            .eq('date', d)
+            .in('status', ['leave', 'sick']);
+        }
+      }
+      fetchLeave();
+    });
   };
 
   if (loading) {
@@ -101,12 +182,11 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       <div className="grid grid-cols-3 gap-3">
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1A1A2E]">
+            <p className="text-2xl font-bold text-[#1E293B]">
               {balance?.annual_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/21</span>
             </p>
             <p className="text-xs text-stone-500 mt-1">Annual</p>
-            {/* Progress ring */}
             <div className="mt-2 h-1.5 rounded-full bg-stone-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-400 transition-all"
@@ -118,7 +198,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
 
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1A1A2E]">
+            <p className="text-2xl font-bold text-[#1E293B]">
               {balance?.sick_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/30</span>
             </p>
@@ -134,7 +214,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
 
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1A1A2E]">
+            <p className="text-2xl font-bold text-[#1E293B]">
               {balance?.family_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/3</span>
             </p>
@@ -150,7 +230,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       </div>
 
       {/* Record leave button */}
-      <Button variant="primary" size="md" onClick={handleRecordLeave} icon={<Plus className="h-4 w-4" />}>
+      <Button variant="primary" size="md" onClick={() => setShowRecordLeave(true)} icon={<Plus className="h-4 w-4" />}>
         Record Leave
       </Button>
 
@@ -193,7 +273,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
                   {leave.medical_cert_url && (
                     <button
                       onClick={() => window.open(leave.medical_cert_url!, '_blank')}
-                      className="text-xs text-[#C4A35A] font-medium whitespace-nowrap min-h-[36px] flex items-center"
+                      className="text-xs text-[#3B82F6] font-medium whitespace-nowrap min-h-[36px] flex items-center"
                     >
                       View cert
                     </button>
@@ -215,6 +295,65 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
           ))}
         </div>
       )}
+
+      {/* Record Leave slide panel */}
+      <SlidePanel open={showRecordLeave} onClose={() => setShowRecordLeave(false)} title="Record Leave">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+            <select
+              value={leaveForm.type}
+              onChange={(e) => setLeaveForm((prev) => ({ ...prev, type: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+            >
+              <option value="annual">Annual Leave</option>
+              <option value="sick">Sick Leave</option>
+              <option value="family">Family Responsibility</option>
+              <option value="unpaid">Unpaid Leave</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={leaveForm.from_date}
+              onChange={(e) => setLeaveForm((prev) => ({ ...prev, from_date: e.target.value }))}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={leaveForm.to_date}
+              onChange={(e) => setLeaveForm((prev) => ({ ...prev, to_date: e.target.value }))}
+              min={leaveForm.from_date || undefined}
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <textarea
+              value={leaveForm.reason}
+              onChange={(e) => setLeaveForm((prev) => ({ ...prev, reason: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none resize-none"
+              placeholder="Optional reason"
+            />
+          </div>
+
+          <button
+            disabled={!leaveForm.from_date || !leaveForm.to_date || savingLeave}
+            onClick={handleSaveLeave}
+            className="w-full h-11 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {savingLeave ? 'Saving...' : 'Record Leave'}
+          </button>
+        </div>
+      </SlidePanel>
     </div>
   );
 }
