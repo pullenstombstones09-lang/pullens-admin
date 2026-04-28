@@ -9,6 +9,7 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import type { PayrollRun, PayrollStatus } from '@/types/database';
 import type { PayrollResult } from '@/lib/payroll-engine';
 import {
@@ -18,16 +19,15 @@ import {
   CheckCircle,
   AlertTriangle,
   Clock,
-  ChevronRight,
   FileText,
   PenTool,
   Trash2,
   ClipboardList,
   CalendarDays,
   Landmark,
+  CreditCard,
 } from 'lucide-react';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
-import Link from 'next/link';
 
 // ---------- helpers ----------
 
@@ -79,13 +79,15 @@ export default function PayrollPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
   const [hasAttendance, setHasAttendance] = useState<boolean | null>(null);
+  const [signedCount, setSignedCount] = useState(0);
 
   // Selection + inline loan edit state
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLoan, setEditingLoan] = useState<string | null>(null);
   const [loanValue, setLoanValue] = useState('');
-  const [banked, setBanked] = useState<Set<string>>(new Set());
-  const [showBanking, setShowBanking] = useState(false);
+
+  // Quick-view slide panel
+  const [quickView, setQuickView] = useState<PayrollResult | null>(null);
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -140,6 +142,20 @@ export default function PayrollPage() {
     checkAttendance();
   }, []);
 
+  // Fetch signed count when runId changes
+  useEffect(() => {
+    if (!runId) return;
+    async function fetchSignedCount() {
+      const { count } = await supabase
+        .from('payslips')
+        .select('*', { count: 'exact', head: true })
+        .eq('payroll_run_id', runId)
+        .not('signed_at', 'is', null);
+      setSignedCount(count || 0);
+    }
+    fetchSignedCount();
+  }, [runId, supabase]);
+
   // ---------- delete payroll run ----------
 
   async function handleDeleteRun(runId: string) {
@@ -182,6 +198,7 @@ export default function PayrollPage() {
     setRunId(null);
     setAnomalies([]);
     setSelected(new Set());
+    setSignedCount(0);
   }
 
   // ---------- calculate payroll ----------
@@ -192,6 +209,7 @@ export default function PayrollPage() {
     setResults(null);
     setAnomalies([]);
     setSelected(new Set());
+    setSignedCount(0);
 
     try {
       // Attendance validation gate
@@ -301,106 +319,30 @@ export default function PayrollPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
-          Payroll
-        </h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          Weekly payroll processing
-        </p>
-      </div>
 
-      {/* Run Payroll */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Run Payroll</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {hasAttendance === false ? (
-            <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-8 text-center">
-              <ClipboardList size={40} className="mx-auto text-amber-400 mb-3" />
-              <h3 className="text-lg font-bold text-[#1E293B]">No register data for this week</h3>
-              <p className="text-sm text-gray-500 mt-1">Capture the daily register first before running payroll.</p>
-              <a href="/register" className="inline-block mt-4">
-                <button className="h-11 px-6 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] transition-colors">
-                  Go to Register
-                </button>
-              </a>
+      {/* ── POST-CALCULATION COMMAND VIEW ── */}
+      {results && totals ? (
+        <>
+          {/* 1. Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-[#1E293B]">
+                Payroll — {weekLabel(weekStart, weekEnd)}
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {results.length} employees • Total: {formatCurrency(totals.net)}
+              </p>
             </div>
-          ) : (
-          <>
-          {/* Week selector */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              {user?.role === 'head_admin' ? (
-                <>
-                  <button
-                    onClick={() => {
-                      const s = new Date(customStart + 'T00:00:00');
-                      const e = new Date(customEnd + 'T00:00:00');
-                      s.setDate(s.getDate() - 7);
-                      e.setDate(e.getDate() - 7);
-                      setCustomStart(toDateString(s));
-                      setCustomEnd(toDateString(e));
-                    }}
-                    className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
-                    />
-                    <span className="text-gray-400">–</span>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      const s = new Date(customStart + 'T00:00:00');
-                      const e = new Date(customEnd + 'T00:00:00');
-                      s.setDate(s.getDate() + 7);
-                      e.setDate(e.getDate() + 7);
-                      setCustomStart(toDateString(s));
-                      setCustomEnd(toDateString(e));
-                    }}
-                    className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
-                  <CalendarDays size={18} className="text-[#1E40AF]" />
-                  <span className="text-sm font-semibold text-[#1E293B]">{weekLabel(weekStart, weekEnd)}</span>
-                </div>
+            <div className="flex items-center gap-2">
+              {user?.role === 'head_admin' && (
+                <button
+                  onClick={handleDiscardDraft}
+                  className="text-sm text-red-500 hover:text-red-700"
+                >
+                  Discard
+                </button>
               )}
             </div>
-
-            {canRun && (
-              <Button
-                size="lg"
-                loading={calculating}
-                icon={<Calculator className="h-4 w-4" />}
-                onClick={handleCalculate}
-              >
-                Calculate Payroll
-              </Button>
-            )}
           </div>
 
           {/* Anomalies */}
@@ -423,267 +365,367 @@ export default function PayrollPage() {
             </div>
           )}
 
-          {/* Results */}
-          {results && (
-            <>
-              {/* Results header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="text-lg font-bold text-[#1E293B]">
-                    Payroll — {weekLabel(weekStart, weekEnd)}
-                  </span>
-                  <span className="text-sm text-gray-500">({results.length} employees)</span>
-                </div>
-                {user?.role === 'head_admin' && (
-                  <button
-                    onClick={handleDiscardDraft}
-                    className="text-sm text-red-500 hover:text-red-700"
-                  >
-                    Discard
-                  </button>
-                )}
+          {/* 2. Workflow progress cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Calculate — completed */}
+            <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
+              <div className="flex items-center gap-2 mb-2">
+                <Calculator size={18} className="opacity-80" />
+                <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 1</span>
               </div>
+              <div className="text-base font-bold">Calculate</div>
+              <div className="text-xs mt-1 opacity-90 flex items-center gap-1">
+                <CheckCircle size={13} />
+                Done
+              </div>
+            </div>
 
-              {/* Results table — full detail on screen */}
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-[#1E293B] text-white">
-                      <th className="px-3 py-3 text-left">
+            {/* Sign — active/in progress */}
+            <a href="/payroll/sign" className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <PenTool size={18} className="opacity-80" />
+                <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
+              </div>
+              <div className="text-base font-bold">Sign</div>
+              <div className="text-xs mt-1 opacity-90">
+                {signedCount}/{results.length} signed
+              </div>
+            </a>
+
+            {/* Print — pending */}
+            <a href="/payroll/print" className="block rounded-xl p-4 bg-white border border-gray-200 text-[#1E293B] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <Printer size={18} className="text-gray-400" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
+              </div>
+              <div className="text-base font-bold">Print</div>
+              <div className="text-xs mt-1 text-gray-400">Payslips &amp; summary</div>
+            </a>
+
+            {/* Bank — pending */}
+            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[#1E293B] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <Landmark size={18} className="text-gray-400" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 4</span>
+              </div>
+              <div className="text-base font-bold">Bank</div>
+              <div className="text-xs mt-1 text-gray-400">Mark payments done</div>
+            </a>
+          </div>
+
+          {/* 3. Results table */}
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-[#1E293B] text-white">
+                  <th className="px-3 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === results.length && results.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-5 h-5 rounded accent-[#1E40AF]"
+                    />
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">PT</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">Name</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Hrs</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">OT</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Gross</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Loan</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Deductions</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, idx) => {
+                  const hasAnomaly = r.net < 0 || r.ordinary_hours === 0 || r.gross === 0;
+                  const totalDeductions = r.uif_employee + r.paye + r.late_deduction +
+                    r.loan_deduction + r.garnishee + r.petty_shortfall;
+                  return (
+                    <tr
+                      key={r.employee_id}
+                      className={cn(
+                        'border-b border-gray-100 transition-colors',
+                        selected.has(r.employee_id) && 'bg-blue-50/60',
+                        !selected.has(r.employee_id) && hasAnomaly && 'bg-red-50/60',
+                        !selected.has(r.employee_id) && !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
+                      )}
+                    >
+                      <td className="px-3 py-3">
                         <input
                           type="checkbox"
-                          checked={selected.size === results.length && results.length > 0}
-                          onChange={toggleSelectAll}
+                          checked={selected.has(r.employee_id)}
+                          onChange={() => toggleSelect(r.employee_id)}
                           className="w-5 h-5 rounded accent-[#1E40AF]"
                         />
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">PT</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">Name</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Hrs</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">OT</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Gross</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Loan</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Deductions</th>
-                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Net</th>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
+                      <td
+                        className="px-3 py-2 font-medium text-[#1E40AF] cursor-pointer hover:underline whitespace-nowrap"
+                        onClick={() => setQuickView(r)}
+                      >
+                        {r.full_name}
+                        {hasAnomaly && (
+                          <AlertTriangle className="inline-block ml-1.5 h-3.5 w-3.5 text-red-500" />
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs">{r.ordinary_hours.toFixed(1)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-xs">
+                        {r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs font-medium">
+                        {formatCurrency(r.gross)}
+                      </td>
+                      <td className="px-3 py-3 text-sm">
+                        {editingLoan === r.employee_id ? (
+                          <input
+                            type="number"
+                            value={loanValue}
+                            autoFocus
+                            onChange={(e) => setLoanValue(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                const supabase = createClient();
+                                await supabase
+                                  .from('loans')
+                                  .update({ weekly_deduction: parseFloat(loanValue) })
+                                  .eq('employee_id', r.employee_id)
+                                  .eq('status', 'active');
+                                r.loan_deduction = parseFloat(loanValue);
+                                setEditingLoan(null);
+                              }
+                              if (e.key === 'Escape') setEditingLoan(null);
+                            }}
+                            onBlur={() => setEditingLoan(null)}
+                            className="w-20 h-9 rounded border border-[#3B82F6] px-2 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+                          />
+                        ) : (
+                          <span
+                            onClick={() => { setEditingLoan(r.employee_id); setLoanValue(r.loan_deduction?.toString() || '0'); }}
+                            className={r.loan_deduction > 0 ? 'cursor-pointer text-[#1E40AF] underline decoration-dotted' : 'text-gray-400'}
+                            title="Click to edit"
+                          >
+                            {r.loan_deduction > 0 ? `R${r.loan_deduction.toFixed(2)}` : '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
+                        {totalDeductions > 0 ? formatCurrency(totalDeductions) : '—'}
+                      </td>
+                      <td className={cn(
+                        'px-3 py-2 text-right font-mono text-xs font-bold',
+                        r.net < 0 ? 'text-red-600' : 'text-[#1E293B]'
+                      )}>
+                        {formatCurrency(r.net)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {results.map((r, idx) => {
-                      const hasAnomaly = r.net < 0 || r.ordinary_hours === 0 || r.gross === 0;
-                      const totalDeductions = r.uif_employee + r.paye + r.late_deduction +
-                        r.loan_deduction + r.garnishee + r.petty_shortfall;
-                      return (
-                        <tr
-                          key={r.employee_id}
-                          className={cn(
-                            'border-b border-gray-100 transition-colors',
-                            selected.has(r.employee_id) && 'bg-blue-50/60',
-                            !selected.has(r.employee_id) && hasAnomaly && 'bg-red-50/60',
-                            !selected.has(r.employee_id) && !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
-                          )}
-                        >
-                          <td className="px-3 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selected.has(r.employee_id)}
-                              onChange={() => toggleSelect(r.employee_id)}
-                              className="w-5 h-5 rounded accent-[#1E40AF]"
-                            />
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
-                          <td className="px-3 py-2 font-medium text-[#333] whitespace-nowrap">
-                            {r.full_name}
-                            {hasAnomaly && (
-                              <AlertTriangle className="inline-block ml-1.5 h-3.5 w-3.5 text-red-500" />
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{r.ordinary_hours.toFixed(1)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
-                            {r.ot_hours > 0 ? r.ot_hours.toFixed(1) : '—'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
-                            {formatCurrency(r.gross)}
-                          </td>
-                          <td className="px-3 py-3 text-sm">
-                            {editingLoan === r.employee_id ? (
-                              <input
-                                type="number"
-                                value={loanValue}
-                                autoFocus
-                                onChange={(e) => setLoanValue(e.target.value)}
-                                onKeyDown={async (e) => {
-                                  if (e.key === 'Enter') {
-                                    const supabase = createClient();
-                                    await supabase
-                                      .from('loans')
-                                      .update({ weekly_deduction: parseFloat(loanValue) })
-                                      .eq('employee_id', r.employee_id)
-                                      .eq('status', 'active');
-                                    r.loan_deduction = parseFloat(loanValue);
-                                    setEditingLoan(null);
-                                  }
-                                  if (e.key === 'Escape') setEditingLoan(null);
-                                }}
-                                onBlur={() => setEditingLoan(null)}
-                                className="w-20 h-9 rounded border border-[#3B82F6] px-2 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
-                              />
-                            ) : (
-                              <span
-                                onClick={() => { setEditingLoan(r.employee_id); setLoanValue(r.loan_deduction?.toString() || '0'); }}
-                                className={r.loan_deduction > 0 ? 'cursor-pointer text-[#1E40AF] underline decoration-dotted' : 'text-gray-400'}
-                                title="Click to edit"
-                              >
-                                {r.loan_deduction > 0 ? `R${r.loan_deduction.toFixed(2)}` : '—'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
-                            {totalDeductions > 0 ? formatCurrency(totalDeductions) : '—'}
-                          </td>
-                          <td className={cn(
-                            'px-3 py-2 text-right font-mono text-xs font-bold',
-                            r.net < 0 ? 'text-red-600' : 'text-[#1E293B]'
-                          )}>
-                            {formatCurrency(r.net)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                  );
+                })}
 
-                    {/* Totals */}
-                    {totals && (
-                      <tr className="border-t-2 border-[#1E293B] bg-[#F8FAFC] font-bold">
-                        <td className="px-3 py-3" />
-                        <td className="px-3 py-3" />
-                        <td className="px-3 py-3 text-sm text-[#1E293B]">
-                          TOTAL ({results.length})
-                        </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">{totals.ordinaryHours.toFixed(1)}</td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">{totals.otHours.toFixed(1)}</td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.gross)}</td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.loans)}</td>
-                        <td className="px-3 py-3 text-right font-mono text-xs">
-                          {formatCurrency(totals.lateDeduction + totals.uif + totals.paye + totals.loans + totals.garnishee + totals.petty)}
-                        </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs text-[#1E293B]">
-                          {formatCurrency(totals.net)}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                {/* Totals row */}
+                <tr className="border-t-2 border-[#1E293B] bg-[#F8FAFC] font-bold">
+                  <td className="px-3 py-3" />
+                  <td className="px-3 py-3" />
+                  <td className="px-3 py-3 text-sm text-[#1E293B]">
+                    TOTAL ({results.length})
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">{totals.ordinaryHours.toFixed(1)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">{totals.otHours.toFixed(1)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.gross)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.loans)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">
+                    {formatCurrency(totals.lateDeduction + totals.uif + totals.paye + totals.loans + totals.garnishee + totals.petty)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-xs text-[#1E293B]">
+                    {formatCurrency(totals.net)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-              {/* Single action row */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">{selected.size} selected</span>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    icon={<FileText size={16} />}
-                    onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
-                  >
-                    Print Summary
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    icon={<Printer size={16} />}
-                    disabled={selected.size === 0}
-                    onClick={() => {
-                      const ids = Array.from(selected).join(',');
-                      window.open(`/api/pdf/payslips-all?run=${runId}&employees=${ids}`, '_blank');
-                    }}
-                  >
-                    Print Selected ({selected.size})
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="md"
-                    pulse
-                    icon={<PenTool size={16} />}
-                    onClick={() => {
-                      const params = new URLSearchParams();
-                      if (runId) params.set('run', runId);
-                      window.location.href = `/payroll/payslip-viewer?${params}`;
-                    }}
-                  >
-                    View &amp; Sign
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-          </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Banking Section — collapsible */}
-      {results && results.length > 0 && (
-        <div className="mt-6">
-          <button
-            onClick={() => setShowBanking(!showBanking)}
-            className="flex items-center gap-2 text-sm font-semibold text-[#1E40AF] hover:text-[#1E3A8A]"
-          >
-            <Landmark size={16} />
-            Banking — Tick Off Payments
-            <ChevronRight size={16} className={`transition-transform ${showBanking ? 'rotate-90' : ''}`} />
-          </button>
-          {showBanking && (
-            <div className="rounded-xl border border-gray-100/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] p-6 mt-3">
-              <div className="space-y-2">
-                {results.map((r: any) => (
-                  <div key={r.employee_id}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <input type="checkbox"
-                        checked={banked.has(r.employee_id)}
-                        onChange={async () => {
-                          const next = new Set(banked)
-                          if (next.has(r.employee_id)) {
-                            next.delete(r.employee_id)
-                          } else {
-                            next.add(r.employee_id)
-                          }
-                          setBanked(next)
-                          await fetch('/api/payroll/bank', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ run_id: runId, employee_ids: [r.employee_id] }),
-                          })
-                        }}
-                        className="w-5 h-5 rounded accent-[#10B981]" />
-                      <span className="text-sm font-medium text-[#1E293B]">{r.full_name}</span>
-                    </div>
-                    <span className="text-sm font-bold text-[#1E293B]">R{r.net?.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-              {banked.size === results.length && results.length > 0 && (
-                <button
-                  onClick={async () => {
-                    await fetch('/api/payroll/bank', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ run_id: runId, employee_ids: Array.from(banked) }),
-                    })
-                  }}
-                  className="w-full h-11 mt-4 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] animate-pulse-blue transition-colors"
-                >
-                  Mark Week Complete
-                </button>
-              )}
+          {/* 4. Single action row */}
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            <span className="text-sm text-gray-500">{selected.size} selected</span>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="md"
+                icon={<FileText size={16} />}
+                onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
+              >
+                Print Summary
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<PenTool size={16} />}
+                onClick={() => { window.location.href = '/payroll/sign'; }}
+              >
+                Go to Signing
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+
+          {/* 5. Quick-view slide panel */}
+          <SlidePanel open={!!quickView} onClose={() => setQuickView(null)} title={quickView?.full_name || ''}>
+            {quickView && (
+              <div className="space-y-4">
+                <div className="text-sm text-gray-500">{quickView.pt_code} • {(quickView as any).occupation || 'Employee'}</div>
+
+                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                  <h3 className="text-xs font-bold text-gray-500 uppercase">Earnings</h3>
+                  <div className="flex justify-between text-sm">
+                    <span>Ordinary ({quickView.ordinary_hours}h)</span>
+                    <span className="font-mono">{formatCurrency(quickView.gross - ((quickView as any).ot_amount || 0) + quickView.late_deduction)}</span>
+                  </div>
+                  {quickView.ot_hours > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>Overtime ({quickView.ot_hours}h)</span>
+                      <span className="font-mono">{formatCurrency((quickView as any).ot_amount || 0)}</span>
+                    </div>
+                  )}
+                  {quickView.late_deduction > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>Late deduction</span>
+                      <span className="font-mono">-{formatCurrency(quickView.late_deduction)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-bold border-t pt-2">
+                    <span>Gross</span>
+                    <span className="font-mono">{formatCurrency(quickView.gross)}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                  <h3 className="text-xs font-bold text-gray-500 uppercase">Deductions</h3>
+                  <div className="flex justify-between text-sm"><span>UIF</span><span className="font-mono">{formatCurrency(quickView.uif_employee)}</span></div>
+                  <div className="flex justify-between text-sm"><span>PAYE</span><span className="font-mono">{formatCurrency(quickView.paye)}</span></div>
+                  {quickView.loan_deduction > 0 && (
+                    <div className="flex justify-between text-sm"><span>Loan</span><span className="font-mono">{formatCurrency(quickView.loan_deduction)}</span></div>
+                  )}
+                  {quickView.garnishee > 0 && (
+                    <div className="flex justify-between text-sm"><span>Garnishee</span><span className="font-mono">{formatCurrency(quickView.garnishee)}</span></div>
+                  )}
+                  {quickView.petty_shortfall > 0 && (
+                    <div className="flex justify-between text-sm"><span>Petty cash</span><span className="font-mono">{formatCurrency(quickView.petty_shortfall)}</span></div>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-[#1E40AF] p-4 text-center">
+                  <p className="text-xs text-blue-200 uppercase font-bold">Net Pay</p>
+                  <p className="text-3xl font-bold text-white">{formatCurrency(quickView.net)}</p>
+                </div>
+              </div>
+            )}
+          </SlidePanel>
+        </>
+      ) : (
+        <>
+          {/* ── PRE-CALCULATION VIEW ── */}
+          <div>
+            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">Payroll</h1>
+            <p className="mt-0.5 text-sm text-gray-500">Weekly payroll processing</p>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Run Payroll</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hasAttendance === false ? (
+                <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-8 text-center">
+                  <ClipboardList size={40} className="mx-auto text-amber-400 mb-3" />
+                  <h3 className="text-lg font-bold text-[#1E293B]">No register data for this week</h3>
+                  <p className="text-sm text-gray-500 mt-1">Capture the daily register first before running payroll.</p>
+                  <a href="/register" className="inline-block mt-4">
+                    <button className="h-11 px-6 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] transition-colors">
+                      Go to Register
+                    </button>
+                  </a>
+                </div>
+              ) : (
+                <>
+                  {/* Week selector */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      {user?.role === 'head_admin' ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              const s = new Date(customStart + 'T00:00:00');
+                              const e = new Date(customEnd + 'T00:00:00');
+                              s.setDate(s.getDate() - 7);
+                              e.setDate(e.getDate() - 7);
+                              setCustomStart(toDateString(s));
+                              setCustomEnd(toDateString(e));
+                            }}
+                            className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
+                          >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={customStart}
+                              onChange={(e) => setCustomStart(e.target.value)}
+                              className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
+                            />
+                            <span className="text-gray-400">–</span>
+                            <input
+                              type="date"
+                              value={customEnd}
+                              onChange={(e) => setCustomEnd(e.target.value)}
+                              className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              const s = new Date(customStart + 'T00:00:00');
+                              const e = new Date(customEnd + 'T00:00:00');
+                              s.setDate(s.getDate() + 7);
+                              e.setDate(e.getDate() + 7);
+                              setCustomStart(toDateString(s));
+                              setCustomEnd(toDateString(e));
+                            }}
+                            className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-[#333] hover:bg-gray-200 transition-colors min-h-[48px]"
+                          >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                          <CalendarDays size={18} className="text-[#1E40AF]" />
+                          <span className="text-sm font-semibold text-[#1E293B]">{weekLabel(weekStart, weekEnd)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {canRun && (
+                      <Button
+                        size="lg"
+                        loading={calculating}
+                        icon={<Calculator className="h-4 w-4" />}
+                        onClick={handleCalculate}
+                      >
+                        Calculate Payroll
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
 
-      {/* Payroll History */}
+      {/* Payroll History — always visible */}
       <Card>
         <CardHeader>
           <CardTitle>Payroll History</CardTitle>
