@@ -10,9 +10,8 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { X, Plus } from "lucide-react";
 
 const SOURCES = [
-  { value: "atm", label: "ATM" },
-  { value: "customer", label: "Customer" },
-  { value: "topup", label: "Top-up" },
+  { value: "bank", label: "Bank Withdrawal" },
+  { value: "nisha", label: "Nisha" },
   { value: "other", label: "Other" },
 ];
 
@@ -27,7 +26,7 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
   const { toast } = useToast();
 
   const [amount, setAmount] = useState("");
-  const [source, setSource] = useState("atm");
+  const [source, setSource] = useState("bank");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,25 +53,6 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
     if (error) {
       toast("error", "Failed to save: " + error.message);
     } else {
-      // Update tin balance setting
-      const { data: current } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "petty_cash_balance")
-        .single();
-
-      const currentBal = current?.value ? Number(current.value) : 0;
-      const newBal = currentBal + Number(amount);
-
-      await supabase
-        .from("settings")
-        .upsert({
-          key: "petty_cash_balance",
-          value: newBal,
-          updated_by: user?.id || null,
-          updated_at: new Date().toISOString(),
-        });
-
       toast("success", `${formatCurrency(Number(amount))} added to tin`);
       onSaved();
     }

@@ -34,12 +34,12 @@ import type {
 type Tab = "cash-out" | "slips" | "history";
 
 const CATEGORIES: { value: PettyCashCategory; label: string }[] = [
+  { value: "sundries", label: "Sundries" },
   { value: "diesel", label: "Diesel" },
   { value: "tolls", label: "Tolls" },
-  { value: "airtime", label: "Airtime" },
   { value: "materials", label: "Materials" },
-  { value: "casual_wages", label: "Casual wages" },
-  { value: "taxi", label: "Taxi" },
+  { value: "airtime", label: "Airtime" },
+  { value: "transport", label: "Transport" },
   { value: "other", label: "Other" },
 ];
 
@@ -107,13 +107,6 @@ export default function PettyCashPage() {
       .select("*")
       .order("date", { ascending: false });
 
-    // Fetch tin balance from settings
-    const { data: balSetting } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "petty_cash_balance")
-      .single();
-
     const { data: countSetting } = await supabase
       .from("settings")
       .select("value")
@@ -147,12 +140,7 @@ export default function PettyCashPage() {
     const totalIn = (ins || []).reduce((s: number, i: PettyCashIn) => s + i.amount, 0);
     const totalOut = (outs || []).reduce((s: number, o: PettyCashOut) => s + o.amount, 0);
 
-    // If there's a stored balance, use it; else compute
-    if (balSetting?.value !== undefined && balSetting.value !== null) {
-      setTinBalance(Number(balSetting.value));
-    } else {
-      setTinBalance(totalIn - totalOut);
-    }
+    setTinBalance(totalIn - totalOut);
 
     if (countSetting?.value) setLastCountDate(String(countSetting.value));
     if (varianceSetting?.value !== undefined) setLastVariance(Number(varianceSetting.value));
@@ -175,8 +163,8 @@ export default function PettyCashPage() {
       toast("error", "Select an employee");
       return;
     }
-    if (recipientType === "casual" && !recipientFreetext.trim()) {
-      toast("error", "Enter the casual worker's name");
+    if (recipientType === "supplier" && !recipientFreetext.trim()) {
+      toast("error", "Enter the supplier name");
       return;
     }
 
@@ -186,7 +174,7 @@ export default function PettyCashPage() {
       date: new Date().toISOString().slice(0, 10),
       recipient_type: recipientType,
       recipient_employee_id: recipientType === "employee" ? recipientEmployeeId : null,
-      recipient_name_freetext: recipientType !== "employee" ? recipientFreetext.trim() : null,
+      recipient_name_freetext: recipientType === "supplier" ? recipientFreetext.trim() : null,
       category,
       amount: Number(amount),
       reason: reason.trim() || null,
@@ -353,15 +341,15 @@ export default function PettyCashPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRecipientType("casual")}
+                      onClick={() => setRecipientType("supplier")}
                       className={cn(
                         "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-all min-h-[48px]",
-                        recipientType === "casual"
+                        recipientType === "supplier"
                           ? "border-[#1E40AF] bg-[#1E40AF]/10 text-[#1E40AF]"
                           : "border-gray-300 text-gray-500 hover:border-gray-400"
                       )}
                     >
-                      Casual Worker
+                      Supplier
                     </button>
                   </div>
 
@@ -380,7 +368,7 @@ export default function PettyCashPage() {
                     </select>
                   ) : (
                     <Input
-                      placeholder="Casual worker name"
+                      placeholder="Supplier name"
                       value={recipientFreetext}
                       onChange={(e) => setRecipientFreetext(e.target.value)}
                     />
