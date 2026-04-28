@@ -268,7 +268,7 @@ export default function RegisterPage() {
     });
   }
 
-  // ---------- mark all present ----------
+  // ---------- mark all / unmark all ----------
 
   function markAllPresent() {
     setRows((prev) =>
@@ -277,6 +277,20 @@ export default function RegisterPage() {
         status: 'present' as AttendanceStatus,
         time_in: '08:00',
         time_out: '17:00',
+        late_minutes: 0,
+        late_deduction: 0,
+        reason: '',
+      }))
+    );
+  }
+
+  function unmarkAll() {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        status: 'present' as AttendanceStatus,
+        time_in: '',
+        time_out: '',
         late_minutes: 0,
         late_deduction: 0,
         reason: '',
@@ -454,7 +468,21 @@ export default function RegisterPage() {
               id="register-date"
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              max={toDateString(new Date())}
+              onChange={(e) => {
+                const picked = new Date(e.target.value + 'T00:00:00')
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                if (picked > today) {
+                  alert('Cannot capture register for a future date')
+                  return
+                }
+                const diffDays = Math.floor((today.getTime() - picked.getTime()) / (1000 * 60 * 60 * 24))
+                if (diffDays > 7) {
+                  if (!confirm(`This date is ${diffDays} days ago. Are you sure?`)) return
+                }
+                setSelectedDate(e.target.value)
+              }}
               className={cn(
                 'h-12 min-h-[48px] rounded-lg border border-gray-300 px-3.5 text-sm text-[#333]',
                 'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]'
@@ -469,14 +497,23 @@ export default function RegisterPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {canEdit && !publicHoliday && (
+              <>
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   size="lg"
                   icon={<CheckCircle className="h-4 w-4" />}
                   onClick={markAllPresent}
                 >
-                  Mark All Present (08:00-17:00)
+                  Mark All Present
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  onClick={unmarkAll}
+                >
+                  Clear All
+                </Button>
+              </>
             )}
           </div>
         </div>
