@@ -192,8 +192,8 @@ export default function RegisterPage() {
           weekly_wage: emp.weekly_wage,
           emp_status: emp.status,
           status: existing.status,
-          time_in: existing.time_in ?? '',
-          time_out: existing.time_out ?? '',
+          time_in: (existing.time_in ?? '').slice(0, 5),
+          time_out: (existing.time_out ?? '').slice(0, 5),
           late_minutes: existing.late_minutes,
           late_deduction: computeLateDeduction(existing.late_minutes, emp.weekly_wage),
           reason: existing.reason ?? '',
@@ -321,7 +321,7 @@ export default function RegisterPage() {
   // ---------- auto-advance ----------
 
   const advanceToNextDay = useCallback(async () => {
-    const current = new Date(selectedDate);
+    const current = new Date(selectedDate + 'T00:00:00');
 
     // Try the next 7 days to find one without attendance data
     for (let i = 1; i <= 7; i++) {
@@ -332,9 +332,11 @@ export default function RegisterPage() {
       if (next.getDay() === 0) continue;
 
       // Don't go past today
-      if (next > new Date()) break;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (next > today) break;
 
-      const dateStr = next.toISOString().split('T')[0];
+      const dateStr = toDateString(next);
 
       // Check if this day already has attendance
       const { count } = await supabase
