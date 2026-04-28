@@ -1,235 +1,106 @@
-"use client";
+'use client'
 
-import { useAuth } from "@/lib/auth-context";
-import { formatDate, formatCurrency } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Users,
-  Bell,
-  Wallet,
-  CalendarClock,
-  ClipboardCheck,
-  Banknote,
-  Scale,
-  Megaphone,
-} from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { WorkflowStepper } from '@/components/ui/workflow-stepper'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Users, Calculator, PenTool, AlertTriangle, ClipboardList, Brain } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { format, startOfWeek, endOfWeek } from 'date-fns'
 
-function StatCard({
-  icon,
-  label,
-  value,
-  subtext,
-  accentColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  subtext?: string;
-  accentColor: string;
-}) {
-  return (
-    <Card accent>
-      <div className="flex items-start gap-4">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${accentColor}12`, boxShadow: `0 0 0 1px ${accentColor}15` }}
-        >
-          <span style={{ color: accentColor }}>{icon}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold text-[#1A1A2E] mt-1 leading-none">
-            {value}
-          </p>
-          {subtext && (
-            <p className="text-xs text-gray-400 mt-2">{subtext}</p>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-interface DashboardStats {
-  totalStaff: number;
-  staffPresent: number;
-  pettyCashBalance: number;
-  alertCount: number;
-  announcements: { id: string; title: string; body: string; created_at: string }[];
+interface WeekStats {
+  attendanceToday: number
+  totalStaff: number
+  payrollStatus: string | null
+  unsignedCount: number
+  alertCount: number
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const { user } = useAuth()
+  const [stats, setStats] = useState<WeekStats | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((data) => setStats(data))
-      .catch(() => {});
-  }, []);
+    async function load() {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
 
-  const today = new Date();
-  const formattedDate = formatDate(today);
+      const [attendance, employees, runs, alerts] = await Promise.all([
+        supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('date', today),
+        supabase.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('payroll_runs').select('id, status').gte('week_start', weekStart).lte('week_start', weekEnd).limit(1),
+        supabase.from('alerts').select('*', { count: 'exact', head: true }).eq('resolved', false),
+      ])
 
-  const totalStaff = stats?.totalStaff ?? 0;
-  const staffPresent = stats?.staffPresent ?? 0;
-  const pettyCashBalance = stats?.pettyCashBalance ?? 0;
-  const alertCount = stats?.alertCount ?? 0;
-  const announcements = stats?.announcements ?? [];
+      const run = runs.data?.[0]
+      let unsigned = 0
+      if (run) {
+        const { count } = await supabase
+          .from('payslips')
+          .select('*', { count: 'exact', head: true })
+          .eq('payroll_run_id', run.id)
+          .is('signed_at', null)
+        unsigned = count || 0
+      }
+
+      setStats({
+        attendanceToday: attendance.count || 0,
+        totalStaff: employees.count || 0,
+        payrollStatus: run?.status || null,
+        unsignedCount: unsigned,
+        alertCount: alerts.count || 0,
+      })
+    }
+    load()
+  }, [])
+
+  const metrics = stats ? [
+    { label: 'Captured Today', value: `${stats.attendanceToday}/${stats.totalStaff}`, icon: <Users size={24} />, color: stats.attendanceToday > 0 ? '#10B981' : '#F59E0B' },
+    { label: 'Payroll', value: stats.payrollStatus || 'Not run', icon: <Calculator size={24} />, color: stats.payrollStatus === 'generated' ? '#10B981' : '#3B82F6' },
+    { label: 'Unsigned', value: stats.unsignedCount.toString(), icon: <PenTool size={24} />, color: stats.unsignedCount > 0 ? '#F59E0B' : '#10B981' },
+    { label: 'Alerts', value: stats.alertCount.toString(), icon: <AlertTriangle size={24} />, color: stats.alertCount > 0 ? '#EF4444' : '#10B981' },
+  ] : []
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6 md:mb-8 flex items-center gap-4 animate-fade-in">
-        <Image
-          src="/logo.png"
-          alt="Pullens Tombstones"
-          width={140}
-          height={68}
-          className="shrink-0"
-          priority
-        />
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">
-            Welcome back, {user?.name || "User"}
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
-        </div>
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold text-[#1E293B]">
+          Welcome back, {user?.name?.split(' ')[0] || 'there'}
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Week of {format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'dd MMM')} — {format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'dd MMM yyyy')}
+        </p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6 md:mb-8 animate-fade-in-up stagger-1">
-        <StatCard
-          icon={<Users className="h-6 w-6" />}
-          label="Staff present today"
-          value={`${staffPresent}/${totalStaff}`}
-          subtext={totalStaff > 0 ? `${Math.round((staffPresent / totalStaff) * 100)}% attendance` : "Loading..."}
-          accentColor="#10B981"
-        />
-        <StatCard
-          icon={<Bell className="h-6 w-6" />}
-          label="Outstanding alerts"
-          value={alertCount}
-          subtext="Requires attention"
-          accentColor="#EF4444"
-        />
-        <StatCard
-          icon={<Wallet className="h-6 w-6" />}
-          label="Petty cash tin"
-          value={formatCurrency(pettyCashBalance)}
-          subtext="Current balance"
-          accentColor="#C4A35A"
-        />
-        <StatCard
-          icon={<CalendarClock className="h-6 w-6" />}
-          label="Payroll status"
-          value="On track"
-          subtext="Next run: Friday"
-          accentColor="#6366F1"
-        />
-      </div>
+      <WorkflowStepper />
 
-      {/* Two-column layout: Quick actions + Announcements */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 animate-fade-in-up stagger-3">
-        {/* Quick actions */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick actions</CardTitle>
-            </CardHeader>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((m, i) => (
+          <Card key={i} hoverable>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <Link href="/register">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="w-full justify-start"
-                    icon={<ClipboardCheck className="h-5 w-5" />}
-                  >
-                    Open Register
-                  </Button>
-                </Link>
-                <Link href="/payroll">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="w-full justify-start"
-                    icon={<Banknote className="h-5 w-5" />}
-                  >
-                    Run Payroll
-                  </Button>
-                </Link>
-                <Link href="/petty-cash">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="w-full justify-start"
-                    icon={<Wallet className="h-5 w-5" />}
-                  >
-                    Give Cash
-                  </Button>
-                </Link>
-                <Link href="/hr-advisor">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="w-full justify-start"
-                    icon={<Scale className="h-5 w-5" />}
-                  >
-                    HR Advisor
-                  </Button>
-                </Link>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{m.label}</p>
+                  <p className="text-3xl font-bold mt-1" style={{ color: m.color }}>{m.value}</p>
+                </div>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: m.color + '15', color: m.color }}>
+                  {m.icon}
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        ))}
+      </div>
 
-        {/* Announcements */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent announcements</CardTitle>
-              <Megaphone className="h-5 w-5 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              {announcements.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">
-                  No announcements
-                </p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {announcements.map((a) => (
-                    <div
-                      key={a.id}
-                      className="rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <h4 className="text-sm font-semibold text-[#333333]">
-                          {a.title}
-                        </h4>
-                        <Badge color="blue">
-                          {formatDate(a.created_at)}
-                        </Badge>
-                      </div>
-                      {a.body && (
-                        <p className="mt-1.5 text-sm text-gray-500 leading-relaxed">
-                          {a.body}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <a href="/register"><Button variant="primary" size="lg" className="w-full" icon={<ClipboardList size={18} />}>Capture Register</Button></a>
+        <a href="/payroll"><Button variant="primary" size="lg" className="w-full" icon={<Calculator size={18} />}>Run Payroll</Button></a>
+        <a href="/payroll/payslip-viewer"><Button variant="secondary" size="lg" className="w-full" icon={<PenTool size={18} />}>View Payslips</Button></a>
+        <a href="/hr-advisor"><Button variant="secondary" size="lg" className="w-full" icon={<Brain size={18} />}>HR Advisor</Button></a>
       </div>
     </div>
-  );
+  )
 }
