@@ -250,14 +250,21 @@ export default function RegisterPage() {
       const next = [...prev];
       const row = { ...next[idx], ...patch };
 
-      // auto-calculate late minutes when status=late and time_in changes
-      if (row.status === 'late' && row.time_in) {
+      // Auto-detect late from time_in (time drives status)
+      if (row.time_in && (row.status === 'present' || row.status === 'late')) {
         const calcMinutes = calculateLateMinutes(row.time_in);
-        // If after 09:00, calcMinutes = 495 (supervisor discretion) — keep manual value if already set
-        if (calcMinutes < 495) {
-          row.late_minutes = calcMinutes;
-        } else if (!patch.late_minutes && row.late_minutes === 0) {
-          row.late_minutes = calcMinutes;
+        if (calcMinutes > 0) {
+          // Auto-change status to late
+          row.status = 'late' as AttendanceStatus;
+          if (calcMinutes < 495) {
+            row.late_minutes = calcMinutes;
+          } else if (!patch.late_minutes && row.late_minutes === 0) {
+            row.late_minutes = calcMinutes;
+          }
+        } else {
+          // On time — set to present
+          if (row.status === 'late') row.status = 'present' as AttendanceStatus;
+          row.late_minutes = 0;
         }
       } else if (row.status !== 'late') {
         row.late_minutes = 0;
