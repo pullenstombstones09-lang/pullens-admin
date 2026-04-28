@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Clock,
   ChevronRight,
+  FileText,
+  PenTool,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -72,10 +74,33 @@ export default function PayrollPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [anomalies, setAnomalies] = useState<string[]>([]);
 
+  // Selection + inline loan edit state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingLoan, setEditingLoan] = useState<string | null>(null);
+  const [loanValue, setLoanValue] = useState('');
+
   const weekStart = customStart;
   const weekEnd = customEnd;
   const canRun = user ? hasPermission(user.role, 'run_payroll') : false;
   const canApprove = user ? hasPermission(user.role, 'approve_payroll') : false;
+
+  // Selection helpers
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!results) return;
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map((r: any) => r.employee_id)));
+    }
+  };
 
   // Fetch payroll history
   const fetchHistory = useCallback(async () => {
@@ -100,6 +125,7 @@ export default function PayrollPage() {
     setCalculating(true);
     setResults(null);
     setAnomalies([]);
+    setSelected(new Set());
 
     try {
       // Attendance validation gate
@@ -211,7 +237,7 @@ export default function PayrollPage() {
     <div className="p-4 lg:p-6 space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-black text-[#1A1A2E] tracking-tight">
+        <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
           Payroll
         </h1>
         <p className="mt-0.5 text-sm text-gray-500">
@@ -249,14 +275,14 @@ export default function PayrollPage() {
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                 />
                 <span className="text-gray-400">–</span>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4A35A]/40"
+                  className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
                 />
               </div>
 
@@ -347,12 +373,21 @@ export default function PayrollPage() {
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-[#1A1A2E] text-white">
+                    <tr className="border-b border-gray-200 bg-[#1E293B] text-white">
+                      <th className="px-3 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selected.size === results.length && results.length > 0}
+                          onChange={toggleSelectAll}
+                          className="w-5 h-5 rounded accent-[#1E40AF]"
+                        />
+                      </th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">PT</th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">Name</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Hrs</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">OT</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Gross</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Loan</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Deductions</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Net</th>
                     </tr>
@@ -367,10 +402,19 @@ export default function PayrollPage() {
                           key={r.employee_id}
                           className={cn(
                             'border-b border-gray-100 transition-colors',
-                            hasAnomaly && 'bg-red-50/60',
-                            !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
+                            selected.has(r.employee_id) && 'bg-blue-50/60',
+                            !selected.has(r.employee_id) && hasAnomaly && 'bg-red-50/60',
+                            !selected.has(r.employee_id) && !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
                           )}
                         >
+                          <td className="px-3 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(r.employee_id)}
+                              onChange={() => toggleSelect(r.employee_id)}
+                              className="w-5 h-5 rounded accent-[#1E40AF]"
+                            />
+                          </td>
                           <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
                           <td className="px-3 py-2 font-medium text-[#333] whitespace-nowrap">
                             {r.full_name}
@@ -385,12 +429,45 @@ export default function PayrollPage() {
                           <td className="px-3 py-2 text-right font-mono text-xs font-medium">
                             {formatCurrency(r.gross)}
                           </td>
+                          <td className="px-3 py-3 text-sm">
+                            {editingLoan === r.employee_id ? (
+                              <input
+                                type="number"
+                                value={loanValue}
+                                autoFocus
+                                onChange={(e) => setLoanValue(e.target.value)}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter') {
+                                    const supabase = createClient();
+                                    await supabase
+                                      .from('loans')
+                                      .update({ weekly_deduction: parseFloat(loanValue) })
+                                      .eq('employee_id', r.employee_id)
+                                      .eq('status', 'active');
+                                    r.loan_deduction = parseFloat(loanValue);
+                                    setEditingLoan(null);
+                                  }
+                                  if (e.key === 'Escape') setEditingLoan(null);
+                                }}
+                                onBlur={() => setEditingLoan(null)}
+                                className="w-20 h-9 rounded border border-[#3B82F6] px-2 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
+                              />
+                            ) : (
+                              <span
+                                onClick={() => { setEditingLoan(r.employee_id); setLoanValue(r.loan_deduction?.toString() || '0'); }}
+                                className={r.loan_deduction > 0 ? 'cursor-pointer text-[#1E40AF] underline decoration-dotted' : 'text-gray-400'}
+                                title="Click to edit"
+                              >
+                                {r.loan_deduction > 0 ? `R${r.loan_deduction.toFixed(2)}` : '—'}
+                              </span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-right font-mono text-xs text-gray-500">
                             {totalDeductions > 0 ? formatCurrency(totalDeductions) : '—'}
                           </td>
                           <td className={cn(
                             'px-3 py-2 text-right font-mono text-xs font-bold',
-                            r.net < 0 ? 'text-red-600' : 'text-[#1A1A2E]'
+                            r.net < 0 ? 'text-red-600' : 'text-[#1E293B]'
                           )}>
                             {formatCurrency(r.net)}
                           </td>
@@ -400,18 +477,20 @@ export default function PayrollPage() {
 
                     {/* Totals */}
                     {totals && (
-                      <tr className="border-t-2 border-[#1A1A2E] bg-[#F5F3EF] font-bold">
+                      <tr className="border-t-2 border-[#1E293B] bg-[#F8FAFC] font-bold">
                         <td className="px-3 py-3" />
-                        <td className="px-3 py-3 text-sm text-[#1A1A2E]">
+                        <td className="px-3 py-3" />
+                        <td className="px-3 py-3 text-sm text-[#1E293B]">
                           TOTAL ({results.length})
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-xs">{totals.ordinaryHours.toFixed(1)}</td>
                         <td className="px-3 py-3 text-right font-mono text-xs">{totals.otHours.toFixed(1)}</td>
                         <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.gross)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-xs">{formatCurrency(totals.loans)}</td>
                         <td className="px-3 py-3 text-right font-mono text-xs">
                           {formatCurrency(totals.lateDeduction + totals.uif + totals.paye + totals.loans + totals.garnishee + totals.petty)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-xs text-[#1A1A2E]">
+                        <td className="px-3 py-3 text-right font-mono text-xs text-[#1E293B]">
                           {formatCurrency(totals.net)}
                         </td>
                       </tr>
@@ -424,6 +503,52 @@ export default function PayrollPage() {
         </CardContent>
       </Card>
 
+      {/* Sticky action bar */}
+      {results && results.length > 0 && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-b-xl mt-4">
+          <span className="text-sm text-gray-500">
+            {selected.size} of {results.length} selected
+          </span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
+              icon={<FileText size={16} />}
+            >
+              Print Summary
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              disabled={selected.size === 0}
+              onClick={() => {
+                const ids = Array.from(selected).join(',');
+                window.open(`/api/pdf/payslips-all?run=${runId}&employees=${ids}`, '_blank');
+              }}
+              icon={<Printer size={16} />}
+            >
+              Print Selected ({selected.size})
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (runId) params.set('run', runId);
+                if (selected.size > 0 && selected.size < results.length) {
+                  params.set('employees', Array.from(selected).join(','));
+                }
+                window.location.href = `/payroll/payslip-viewer?${params}`;
+              }}
+              icon={<PenTool size={16} />}
+            >
+              View &amp; Sign
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Payroll History */}
       <Card>
         <CardHeader>
@@ -432,7 +557,7 @@ export default function PayrollPage() {
         <CardContent>
           {loadingHistory ? (
             <div className="flex items-center justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-3 border-[#C4A35A] border-t-transparent" />
+              <div className="h-6 w-6 animate-spin rounded-full border-3 border-[#3B82F6] border-t-transparent" />
             </div>
           ) : history.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
@@ -447,7 +572,7 @@ export default function PayrollPage() {
                     key={run.id}
                     className={cn(
                       'flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3',
-                      'hover:border-[#C4A35A]/40 hover:shadow-sm transition-all min-h-[56px]'
+                      'hover:border-[#3B82F6]/40 hover:shadow-sm transition-all min-h-[56px]'
                     )}
                   >
                     <div className="flex items-center gap-3">
