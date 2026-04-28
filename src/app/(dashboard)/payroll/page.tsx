@@ -78,6 +78,7 @@ export default function PayrollPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLoan, setEditingLoan] = useState<string | null>(null);
   const [loanValue, setLoanValue] = useState('');
+  const [banked, setBanked] = useState<Set<string>>(new Set());
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -546,6 +547,55 @@ export default function PayrollPage() {
               View &amp; Sign
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Banking Section */}
+      {results && results.length > 0 && (
+        <div className="rounded-xl border border-gray-100/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] p-6 mt-6">
+          <h2 className="text-lg font-bold text-[#1E293B] mb-4">Banking — Tick Off Payments</h2>
+          <div className="space-y-2">
+            {results.map((r: any) => (
+              <div key={r.employee_id}
+                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox"
+                    checked={banked.has(r.employee_id)}
+                    onChange={async () => {
+                      const next = new Set(banked)
+                      if (next.has(r.employee_id)) {
+                        next.delete(r.employee_id)
+                      } else {
+                        next.add(r.employee_id)
+                      }
+                      setBanked(next)
+                      await fetch('/api/payroll/bank', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run_id: runId, employee_ids: [r.employee_id] }),
+                      })
+                    }}
+                    className="w-5 h-5 rounded accent-[#10B981]" />
+                  <span className="text-sm font-medium text-[#1E293B]">{r.full_name}</span>
+                </div>
+                <span className="text-sm font-bold text-[#1E293B]">R{r.net?.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+          {banked.size === results.length && results.length > 0 && (
+            <button
+              onClick={async () => {
+                await fetch('/api/payroll/bank', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ run_id: runId, employee_ids: Array.from(banked) }),
+                })
+              }}
+              className="w-full h-11 mt-4 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] animate-pulse-blue transition-colors"
+            >
+              Mark Week Complete
+            </button>
+          )}
         </div>
       )}
 
