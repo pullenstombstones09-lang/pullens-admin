@@ -395,17 +395,21 @@ export default function RegisterPage() {
 
     const previousRows = JSON.parse(JSON.stringify(rows));
 
-    const records = rows.map((row) => ({
-      ...(row.existing_id ? { id: row.existing_id } : {}),
-      employee_id: row.employee_id,
-      date: selectedDate,
-      status: row.status,
-      time_in: row.time_in || null,
-      time_out: row.time_out || null,
-      late_minutes: row.late_minutes,
-      reason: row.reason || null,
-      captured_by: user?.id ?? null,
-    }));
+    const noTimeStatuses: AttendanceStatus[] = ['absent', 'leave', 'sick', 'ph', 'short_time'];
+    const records = rows.map((row) => {
+      const clearTimes = noTimeStatuses.includes(row.status);
+      return {
+        ...(row.existing_id ? { id: row.existing_id } : {}),
+        employee_id: row.employee_id,
+        date: selectedDate,
+        status: row.status,
+        time_in: clearTimes ? null : (row.time_in || null),
+        time_out: clearTimes ? null : (row.time_out || null),
+        late_minutes: clearTimes ? 0 : row.late_minutes,
+        reason: row.reason || null,
+        captured_by: user?.id ?? null,
+      };
+    });
 
     const res = await fetch('/api/register', {
       method: 'POST',
@@ -730,20 +734,28 @@ export default function RegisterPage() {
 
                       {/* Time In */}
                       <td className="px-3 py-2">
-                        <TimePicker
-                          value={row.time_in || ''}
-                          disabled={!canEdit || editLocked}
-                          onChange={(val) => updateRow(idx, { time_in: val })}
-                        />
+                        {['absent', 'leave', 'sick', 'ph', 'short_time'].includes(row.status) ? (
+                          <span className="text-gray-300">&mdash;</span>
+                        ) : (
+                          <TimePicker
+                            value={row.time_in || ''}
+                            disabled={!canEdit || editLocked}
+                            onChange={(val) => updateRow(idx, { time_in: val })}
+                          />
+                        )}
                       </td>
 
                       {/* Time Out */}
                       <td className="px-3 py-2">
-                        <TimePicker
-                          value={row.time_out || ''}
-                          disabled={!canEdit || editLocked}
-                          onChange={(val) => updateRow(idx, { time_out: val })}
-                        />
+                        {['absent', 'leave', 'sick', 'ph', 'short_time'].includes(row.status) ? (
+                          <span className="text-gray-300">&mdash;</span>
+                        ) : (
+                          <TimePicker
+                            value={row.time_out || ''}
+                            disabled={!canEdit || editLocked}
+                            onChange={(val) => updateRow(idx, { time_out: val })}
+                          />
+                        )}
                       </td>
 
                       {/* Late Minutes */}
