@@ -74,7 +74,7 @@ export default function PettyCashPage() {
   const [recipientType, setRecipientType] = useState<PettyRecipientType>("employee");
   const [recipientEmployeeId, setRecipientEmployeeId] = useState("");
   const [recipientFreetext, setRecipientFreetext] = useState("");
-  const [category, setCategory] = useState<PettyCashCategory>("diesel");
+  const [category, setCategory] = useState<PettyCashCategory | "">("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -155,6 +155,10 @@ export default function PettyCashPage() {
   // Give Cash handler
   async function handleGiveCash(e: React.FormEvent) {
     e.preventDefault();
+    if (!category) {
+      toast("error", "Select a category");
+      return;
+    }
     if (!amount || Number(amount) <= 0) {
       toast("error", "Enter a valid amount");
       return;
@@ -175,7 +179,7 @@ export default function PettyCashPage() {
       recipient_type: recipientType,
       recipient_employee_id: recipientType === "employee" ? recipientEmployeeId : null,
       recipient_name_freetext: recipientType === "supplier" ? recipientFreetext.trim() : null,
-      category,
+      category: category as PettyCashCategory,
       amount: Number(amount),
       reason: reason.trim() || null,
       issued_by: user?.id || null,
@@ -324,7 +328,7 @@ export default function PettyCashPage() {
                 {/* Recipient type toggle */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-[#333333]">
-                    Recipient
+                    Recipient <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2 mb-2">
                     <button
@@ -378,13 +382,14 @@ export default function PettyCashPage() {
                 {/* Category */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-[#333333]">
-                    Category
+                    Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as PettyCashCategory)}
                     className="h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-[#333333] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]"
                   >
+                    <option value="" disabled>Select category</option>
                     {CATEGORIES.map((c) => (
                       <option key={c.value} value={c.value}>
                         {c.label}
@@ -400,6 +405,7 @@ export default function PettyCashPage() {
                   min="0"
                   step="0.01"
                   placeholder="0.00"
+                  required
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                 />
