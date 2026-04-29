@@ -1,70 +1,72 @@
-// Pullens Admin — Role-based permission matrix (spec section 4)
-
+// src/lib/permissions.ts
 import { UserRole } from '@/types/database';
 
 export const PERMISSIONS = {
-  // Staff list & profiles
-  view_staff_list: ['head_admin', 'head_of_admin', 'head_of_sales'],
-  edit_employee: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  // Dashboard
+  view_dashboard: ['owner', 'supervisor', 'bookkeeper'],
 
-  // Register (attendance)
-  view_register: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
-  edit_register: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
+  // Staff
+  view_staff_list: ['owner', 'supervisor', 'bookkeeper', 'attendance_clerk'],
+  edit_employee: ['owner'],
+  view_staff_names: ['owner', 'supervisor', 'bookkeeper', 'attendance_clerk'],
+
+  // Register
+  view_register: ['owner', 'supervisor', 'bookkeeper', 'attendance_clerk'],
+  edit_register: ['owner', 'attendance_clerk'],
+  override_register: ['owner'],
 
   // Payroll
-  view_payroll: ['head_admin', 'bookkeeper'],
-  run_payroll: ['head_admin', 'bookkeeper'],
-  approve_payroll: ['head_admin'],
-  mark_paid: ['head_admin', 'bookkeeper'],
+  view_payroll: ['owner', 'bookkeeper'],
+  run_payroll: ['owner', 'bookkeeper'],
+  approve_payroll: ['owner'],
+  mark_paid: ['owner', 'bookkeeper'],
 
   // Payslips
-  view_payslips: ['head_admin', 'bookkeeper'],
-  sign_payslips: ['head_admin', 'head_of_admin', 'head_of_sales', 'bookkeeper'],
-  print_payslips: ['head_admin', 'bookkeeper'],
-  bank_payroll: ['head_admin', 'bookkeeper'],
+  view_payslips: ['owner', 'bookkeeper'],
+  sign_payslips: ['owner', 'signer'],
+  print_payslips: ['owner', 'bookkeeper'],
+  bank_payroll: ['owner', 'bookkeeper'],
 
   // Loans
-  view_loans: ['head_admin', 'head_of_admin', 'head_of_sales'],
-  create_loan: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  view_loans: ['owner', 'supervisor', 'bookkeeper'],
+  create_loan: ['owner', 'supervisor', 'bookkeeper'],
 
   // Warnings & disciplinary
-  view_warnings: ['head_admin', 'head_of_admin', 'head_of_sales'],
-  issue_warning: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  view_warnings: ['owner', 'supervisor'],
+  issue_warning: ['owner', 'supervisor'],
 
   // HR Advisor
-  view_hr_advisor: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  view_hr_advisor: ['owner', 'supervisor'],
 
   // Petty cash
-  view_petty_cash: ['head_admin', 'head_of_admin', 'head_of_sales', 'petty_cash'],
-  cash_out: ['head_admin', 'head_of_admin', 'head_of_sales', 'petty_cash', 'bookkeeper'],
-  cash_in: ['head_admin', 'head_of_admin', 'head_of_sales', 'petty_cash'],
+  view_petty_cash: ['owner', 'supervisor', 'bookkeeper', 'cash_clerk'],
+  cash_out: ['owner', 'supervisor', 'bookkeeper', 'cash_clerk'],
+  cash_in: ['owner', 'supervisor', 'cash_clerk'],
 
   // Leave
-  view_leave: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
-  record_leave: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  view_leave: ['owner', 'supervisor', 'attendance_clerk'],
+  record_leave: ['owner', 'supervisor'],
 
   // Documents
-  view_documents: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
-  upload_document: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
-  view_medical_certs: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin'],
+  view_documents: ['owner', 'supervisor', 'attendance_clerk'],
+  upload_document: ['owner', 'supervisor'],
+  view_medical_certs: ['owner', 'supervisor'],
 
   // Settings & admin
-  view_settings: ['head_admin'],
-  edit_settings: ['head_admin'],
-  view_audit_log: ['head_admin', 'head_of_admin', 'head_of_sales'],
-  manage_users: ['head_admin'],
+  view_settings: ['owner'],
+  edit_settings: ['owner'],
+  view_audit_log: ['owner', 'supervisor'],
+  manage_users: ['owner'],
 
-  // Compliance exports
-  view_exports: ['head_admin', 'head_of_admin', 'head_of_sales'],
+  // Exports
+  view_exports: ['owner', 'supervisor', 'bookkeeper'],
 
-  // Notifications
-  view_alerts: ['head_admin', 'head_of_admin', 'head_of_sales', 'admin', 'bookkeeper', 'petty_cash'],
+  // Alerts
+  view_alerts: ['owner', 'supervisor', 'bookkeeper', 'attendance_clerk', 'cash_clerk', 'signer'],
 
-  // Final approvals (spec: only Annika)
-  final_approve: ['head_admin'],
-
-  // Petty cash override (slip returned after cutoff)
-  petty_cash_override: ['head_admin'],
+  // Overrides
+  final_approve: ['owner'],
+  petty_cash_override: ['owner'],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -73,9 +75,23 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
   return (PERMISSIONS[permission] as readonly string[]).includes(role);
 }
 
+// Role-based home routes
+const HOME_ROUTES: Record<UserRole, string> = {
+  owner: '/dashboard',
+  supervisor: '/dashboard',
+  bookkeeper: '/payroll',
+  attendance_clerk: '/register',
+  cash_clerk: '/petty-cash',
+  signer: '/payroll/sign',
+};
+
+export function getHomeRoute(role: UserRole): string {
+  return HOME_ROUTES[role];
+}
+
 export function getNavItems(role: UserRole) {
   const items: { label: string; href: string; icon: string; permission: Permission }[] = [
-    { label: 'Dashboard', href: '/dashboard', icon: 'home', permission: 'view_staff_list' },
+    { label: 'Dashboard', href: '/dashboard', icon: 'home', permission: 'view_dashboard' },
     { label: 'Staff', href: '/staff', icon: 'users', permission: 'view_staff_list' },
     { label: 'Register', href: '/register', icon: 'clipboard-check', permission: 'view_register' },
     { label: 'Payroll', href: '/payroll', icon: 'banknotes', permission: 'view_payroll' },
@@ -90,7 +106,6 @@ export function getNavItems(role: UserRole) {
   return items.filter((item) => hasPermission(role, item.permission));
 }
 
-// Cash-out permissions (spec section 4): Nisha, Kam, Veshi, Lee-Ann, Annika. NOT Marlyn.
 export function canHandOutCash(role: UserRole): boolean {
-  return hasPermission(role, 'cash_out') && role !== 'admin';
+  return hasPermission(role, 'cash_out') && role !== 'attendance_clerk';
 }
