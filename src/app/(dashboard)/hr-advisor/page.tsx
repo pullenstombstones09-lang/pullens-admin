@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,16 +80,31 @@ export default function HRAdvisorPage() {
 
   // History expand
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
-  const handleDeleteIncident = async (id: string) => {
-    if (!confirm('Delete this incident? This cannot be undone.')) return;
-    const { error } = await supabase.from('incidents').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete incident');
-    } else {
-      toast('success', 'Incident deleted');
-      setIncidents((prev) => prev.filter((i) => i.id !== id));
-    }
+  const handleDeleteIncident = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Incident',
+      description: 'Delete this incident? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('incidents').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete incident');
+        } else {
+          toast('success', 'Incident deleted');
+          setIncidents((prev) => prev.filter((i) => i.id !== id));
+        }
+      },
+    });
   };
 
   const fetchData = useCallback(async () => {
@@ -595,6 +611,15 @@ export default function HRAdvisorPage() {
           </div>
         </Card>
       </div>
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
     </div>
   );
 }

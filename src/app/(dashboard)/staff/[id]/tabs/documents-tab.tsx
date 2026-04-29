@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatDate } from '@/lib/utils';
 import type { EmployeeDocument, DocType } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -42,6 +43,13 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
   const { toast } = useToast();
   const [docs, setDocs] = useState<EmployeeDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   const loadDocs = async () => {
     setLoading(true);
@@ -117,15 +125,23 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
     return new Date(expiryDate).getTime() < Date.now();
   };
 
-  const handleDeleteDocument = async (id: string) => {
-    if (!confirm('Delete this document? This cannot be undone.')) return;
-    const { error } = await supabase.from('employee_documents').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete document');
-    } else {
-      toast('success', 'Document deleted');
-      setDocs((prev) => prev.filter((d) => d.id !== id));
-    }
+  const handleDeleteDocument = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Document',
+      description: 'Delete this document? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('employee_documents').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete document');
+        } else {
+          toast('success', 'Document deleted');
+          setDocs((prev) => prev.filter((d) => d.id !== id));
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -147,6 +163,15 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
 
   return (
     <div>
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Upload buttons */}
       <div className="flex gap-3 mb-5">
         <Button variant="primary" size="md" onClick={() => handleUpload(true)} icon={<Camera className="h-4 w-4" />}>

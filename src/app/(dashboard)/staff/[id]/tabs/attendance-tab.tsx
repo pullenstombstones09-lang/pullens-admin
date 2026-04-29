@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import type { Attendance, AttendanceStatus } from '@/types/database';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
@@ -42,6 +43,13 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [heatmapOffset, setHeatmapOffset] = useState(0); // 0 = current 90 days
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -103,16 +111,24 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
     return records.find((r) => r.date === selectedDate) ?? null;
   }, [records, selectedDate]);
 
-  const handleDeleteAttendance = async (id: string) => {
-    if (!confirm('Delete this attendance record? This cannot be undone.')) return;
-    const { error } = await supabase.from('attendance').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete attendance record');
-    } else {
-      toast('success', 'Attendance record deleted');
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      setSelectedDate(null);
-    }
+  const handleDeleteAttendance = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Attendance Record',
+      description: 'Delete this attendance record? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('attendance').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete attendance record');
+        } else {
+          toast('success', 'Attendance record deleted');
+          setRecords((prev) => prev.filter((r) => r.id !== id));
+          setSelectedDate(null);
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -130,6 +146,15 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
 
   return (
     <div className="space-y-5">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Summary strip */}
       <Card padding="md">
         <CardTitle className="mb-3">Last 30 Days</CardTitle>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatDate } from '@/lib/utils';
 import type { Incident, Hearing, Warning } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -39,6 +40,13 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingCcma, setGeneratingCcma] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -152,16 +160,24 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
     setGeneratingCcma(false);
   };
 
-  const handleDeleteEvent = async (event: TimelineEvent) => {
-    if (!confirm(`Delete this ${event.type}? This cannot be undone.`)) return;
-    const table = event.type === 'incident' ? 'incidents' : event.type === 'warning' ? 'warnings' : 'hearings';
-    const { error } = await supabase.from(table).delete().eq('id', event.id);
-    if (error) {
-      toast('error', `Failed to delete ${event.type}`);
-    } else {
-      toast('success', `${event.type.charAt(0).toUpperCase() + event.type.slice(1)} deleted`);
-      setTimeline((prev) => prev.filter((e) => !(e.id === event.id && e.type === event.type)));
-    }
+  const handleDeleteEvent = (event: TimelineEvent) => {
+    setConfirmModal({
+      title: `Delete ${event.type.charAt(0).toUpperCase() + event.type.slice(1)}`,
+      description: `Delete this ${event.type}? This cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const table = event.type === 'incident' ? 'incidents' : event.type === 'warning' ? 'warnings' : 'hearings';
+        const { error } = await supabase.from(table).delete().eq('id', event.id);
+        if (error) {
+          toast('error', `Failed to delete ${event.type}`);
+        } else {
+          toast('success', `${event.type.charAt(0).toUpperCase() + event.type.slice(1)} deleted`);
+          setTimeline((prev) => prev.filter((e) => !(e.id === event.id && e.type === event.type)));
+        }
+      },
+    });
   };
 
   const TypeIcon = ({ type }: { type: string }) => {
@@ -189,6 +205,15 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
 
   return (
     <div>
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* CCMA button */}
       <div className="mb-5">
         <Button

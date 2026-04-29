@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatDate } from '@/lib/utils';
 import type { Warning } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -26,6 +27,13 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
   const { toast } = useToast();
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   const loadWarnings = useCallback(async () => {
     setLoading(true);
@@ -43,15 +51,23 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
-  const handleDeleteWarning = async (id: string) => {
-    if (!confirm('Delete this warning? This cannot be undone.')) return;
-    const { error } = await supabase.from('warnings').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete warning');
-    } else {
-      toast('success', 'Warning deleted');
-      setWarnings((prev) => prev.filter((w) => w.id !== id));
-    }
+  const handleDeleteWarning = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Warning',
+      description: 'Delete this warning? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('warnings').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete warning');
+        } else {
+          toast('success', 'Warning deleted');
+          setWarnings((prev) => prev.filter((w) => w.id !== id));
+        }
+      },
+    });
   };
 
   const { active, expired } = useMemo(() => {
@@ -178,6 +194,15 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
 
   return (
     <div className="space-y-6">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Active warnings */}
       {active.length > 0 && (
         <div>

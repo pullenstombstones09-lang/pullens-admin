@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
 import { startOfWeek } from 'date-fns';
 import { calculateLateMinutes } from '@/lib/payroll-engine';
@@ -142,6 +143,13 @@ export default function RegisterPage() {
   const [advancing, setAdvancing] = useState(false);
   const [publicHoliday, setPublicHoliday] = useState<string | null>(null);
   const { showUndo } = useUndo();
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   const isOwner = user?.role === 'owner';
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
@@ -346,21 +354,28 @@ export default function RegisterPage() {
 
   // ---------- delete record ----------
 
-  async function deleteRecord(attendanceId: string, employeeName: string) {
-    if (!confirm(`Delete attendance record for ${employeeName} on ${formatDateLabel(selectedDate)}? This cannot be undone.`)) return;
-
-    const res = await fetch('/api/register', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attendanceId }),
+  function deleteRecord(attendanceId: string, employeeName: string) {
+    setConfirmModal({
+      title: 'Delete Attendance Record',
+      description: `Delete attendance record for ${employeeName} on ${formatDateLabel(selectedDate)}? This cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const res = await fetch('/api/register', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attendanceId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast('error', `Delete failed: ${data.error}`);
+        } else {
+          toast('success', `Record deleted for ${employeeName}`);
+          fetchData();
+        }
+      },
     });
-    const data = await res.json();
-    if (!res.ok) {
-      toast('error', `Delete failed: ${data.error}`);
-    } else {
-      toast('success', `Record deleted for ${employeeName}`);
-      fetchData();
-    }
   }
 
   // ---------- auto-advance ----------
@@ -443,6 +458,15 @@ export default function RegisterPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Header bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -501,21 +525,32 @@ export default function RegisterPage() {
                 const today = new Date()
                 today.setHours(0, 0, 0, 0)
                 if (picked > today) {
-                  alert('Cannot capture register for a future date')
+                  toast('error', 'Cannot capture register for a future date')
                   return
                 }
                 // Non-admin: only current week
                 if (user?.role !== 'owner') {
                   const mon = startOfWeek(today, { weekStartsOn: 1 })
                   if (picked < mon) {
-                    alert('You can only capture register for the current week')
+                    toast('error', 'You can only capture register for the current week')
                     return
                   }
                 }
                 // Admin going far back: confirm
                 const diffDays = Math.floor((today.getTime() - picked.getTime()) / (1000 * 60 * 60 * 24))
                 if (diffDays > 7 && user?.role === 'owner') {
-                  if (!confirm(`This date is ${diffDays} days ago. Are you sure?`)) return
+                  const dateValue = e.target.value
+                  setConfirmModal({
+                    title: 'Old Date',
+                    description: `This date is ${diffDays} days ago. Are you sure?`,
+                    variant: 'default',
+                    confirmLabel: 'Continue',
+                    onConfirm: () => {
+                      setConfirmModal(null)
+                      setSelectedDate(dateValue)
+                    },
+                  })
+                  return
                 }
                 setSelectedDate(e.target.value)
               }}

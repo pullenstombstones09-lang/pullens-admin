@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { useToast } from '@/components/ui/toast';
 import { cn, formatDate } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
@@ -117,8 +119,16 @@ interface PayWeekSettings {
 export default function SettingsPage() {
   const { user } = useAuth();
   const [supabase] = useState(() => createClient());
+  const { toast } = useToast();
   const [saving, setSaving] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   // ─── Company Details ───
   const [company, setCompany] = useState<CompanyDetails>({
@@ -297,27 +307,31 @@ export default function SettingsPage() {
   }
 
   // ─── Reset PIN ───
-  async function resetPin(userId: string) {
-    const confirmed = window.confirm(
-      'Reset this user\'s PIN to a temporary value? They will be forced to change it on next login.'
-    );
-    if (!confirmed) return;
+  function resetPin(userId: string) {
+    setConfirmModal({
+      title: 'Reset PIN',
+      description: 'Reset this user\'s PIN to a temporary value? They will be forced to change it on next login.',
+      variant: 'danger',
+      confirmLabel: 'Reset PIN',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const res = await fetch('/api/auth/change-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            new_pin: '0000',
+            admin_reset: true,
+          }),
+        });
 
-    const res = await fetch('/api/auth/change-pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userId,
-        new_pin: '0000',
-        admin_reset: true,
-      }),
+        if (res.ok) {
+          toast('success', 'PIN reset to 0000. User will be required to change it on next login.');
+        } else {
+          toast('error', 'Failed to reset PIN.');
+        }
+      },
     });
-
-    if (res.ok) {
-      alert('PIN reset to 0000. User will be required to change it on next login.');
-    } else {
-      alert('Failed to reset PIN.');
-    }
   }
 
   // Access check
@@ -350,6 +364,15 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Header */}
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>

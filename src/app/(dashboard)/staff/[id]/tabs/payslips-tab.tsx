@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatCurrency, formatDate, getWeekNumber } from '@/lib/utils';
 import type { Payslip, PayrollRun } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -28,6 +29,13 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
   const [filterMonth, setFilterMonth] = useState<number | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -88,15 +96,23 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
     });
   };
 
-  const handleDeletePayslip = async (id: string) => {
-    if (!confirm('Delete this payslip? This cannot be undone.')) return;
-    const { error } = await supabase.from('payslips').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete payslip');
-    } else {
-      toast('success', 'Payslip deleted');
-      setPayslips((prev) => prev.filter((p) => p.id !== id));
-    }
+  const handleDeletePayslip = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Payslip',
+      description: 'Delete this payslip? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('payslips').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete payslip');
+        } else {
+          toast('success', 'Payslip deleted');
+          setPayslips((prev) => prev.filter((p) => p.id !== id));
+        }
+      },
+    });
   };
 
   const MONTHS = [
@@ -123,6 +139,15 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
 
   return (
     <div>
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <Filter className="h-4 w-4 text-stone-400" />

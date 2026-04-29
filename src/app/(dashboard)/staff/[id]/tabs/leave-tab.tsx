@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatDate } from '@/lib/utils';
 import type { Leave, LeaveBalance, LeaveType } from '@/types/database';
 import { Card } from '@/components/ui/card';
@@ -45,6 +46,14 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
+
   // Record leave panel
   const [showRecordLeave, setShowRecordLeave] = useState(false);
   const [leaveForm, setLeaveForm] = useState(EMPTY_FORM);
@@ -73,15 +82,23 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
     fetchLeave().finally(() => setLoading(false));
   }, [fetchLeave]);
 
-  const handleDeleteLeave = async (id: string) => {
-    if (!confirm('Delete this leave record? This cannot be undone.')) return;
-    const { error } = await supabase.from('leave').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete leave record');
-    } else {
-      toast('success', 'Leave record deleted');
-      setLeaves((prev) => prev.filter((l) => l.id !== id));
-    }
+  const handleDeleteLeave = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Leave Record',
+      description: 'Delete this leave record? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const { error } = await supabase.from('leave').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete leave record');
+        } else {
+          toast('success', 'Leave record deleted');
+          setLeaves((prev) => prev.filter((l) => l.id !== id));
+        }
+      },
+    });
   };
 
   /** Count non-Sunday days between two date strings (inclusive) */
@@ -178,6 +195,15 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
 
   return (
     <div className="space-y-5">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* Balance cards */}
       <div className="grid grid-cols-3 gap-3">
         <Card padding="md">

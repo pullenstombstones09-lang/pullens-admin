@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Loan, LoanDeduction } from '@/types/database';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
@@ -39,6 +40,14 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
   const [editingDeduction, setEditingDeduction] = useState<string | null>(null);
   const [deductionValue, setDeductionValue] = useState('');
+
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   // New loan form state
   const [showNewLoan, setShowNewLoan] = useState(false);
@@ -106,16 +115,24 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
     return Math.ceil(loan.outstanding / loan.weekly_deduction);
   };
 
-  const handleDeleteLoan = async (id: string) => {
-    if (!confirm('Delete this loan? This cannot be undone.')) return;
-    await supabase.from('loan_deductions').delete().eq('loan_id', id);
-    const { error } = await supabase.from('loans').delete().eq('id', id);
-    if (error) {
-      toast('error', 'Failed to delete loan');
-    } else {
-      toast('success', 'Loan deleted');
-      setLoans((prev) => prev.filter((l) => l.id !== id));
-    }
+  const handleDeleteLoan = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Loan',
+      description: 'Delete this loan? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await supabase.from('loan_deductions').delete().eq('loan_id', id);
+        const { error } = await supabase.from('loans').delete().eq('id', id);
+        if (error) {
+          toast('error', 'Failed to delete loan');
+        } else {
+          toast('success', 'Loan deleted');
+          setLoans((prev) => prev.filter((l) => l.id !== id));
+        }
+      },
+    });
   };
 
   const handleEditDeduction = (loan: Loan) => {
@@ -160,6 +177,15 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
 
   return (
     <div>
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
       {/* New loan button */}
       <div className="mb-5">
         <Button variant="primary" size="md" onClick={() => setShowNewLoan(true)} icon={<Plus className="h-4 w-4" />}>

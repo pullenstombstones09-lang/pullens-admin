@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { hasPermission } from '@/lib/permissions';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,13 @@ export default function PayrollPage() {
 
   // Quick-view slide panel
   const [quickView, setQuickView] = useState<PayrollResult | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    description: string
+    variant: 'danger' | 'default'
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null);
 
   const weekStart = customStart;
   const weekEnd = customEnd;
@@ -158,47 +166,80 @@ export default function PayrollPage() {
 
   // ---------- delete payroll run ----------
 
-  async function handleDeleteRun(runId: string) {
-    if (!confirm('Delete this payroll run and all its payslips? This cannot be undone.')) return;
+  function handleDeleteRun(runId: string) {
+    setConfirmModal({
+      title: 'Delete Payroll Run',
+      description: 'Delete this payroll run and all its payslips? This cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const supabase = createClient();
 
-    const supabase = createClient();
+        // Must delete loan_deductions first (FK RESTRICT, won't cascade)
+        const { error: loanErr } = await supabase
+          .from('loan_deductions')
+          .delete()
+          .eq('payroll_run_id', runId);
 
-    // Must delete loan_deductions first (FK RESTRICT, won't cascade)
-    const { error: loanErr } = await supabase
-      .from('loan_deductions')
-      .delete()
-      .eq('payroll_run_id', runId);
+        if (loanErr) {
+          toast('error', 'Failed to clear loan deductions: ' + loanErr.message);
+          return;
+        }
 
-    if (loanErr) {
-      toast('error', 'Failed to clear loan deductions: ' + loanErr.message);
-      return;
-    }
+        const { error: runErr } = await supabase
+          .from('payroll_runs')
+          .delete()
+          .eq('id', runId);
 
-    const { error: runErr } = await supabase
-      .from('payroll_runs')
-      .delete()
-      .eq('id', runId);
+        if (runErr) {
+          toast('error', 'Failed to delete payroll run: ' + runErr.message);
+          return;
+        }
 
-    if (runErr) {
-      toast('error', 'Failed to delete payroll run: ' + runErr.message);
-      return;
-    }
-
-    toast('success', 'Payroll run deleted');
-    fetchHistory();
+        toast('success', 'Payroll run deleted');
+        fetchHistory();
+      },
+    });
   }
 
   // ---------- discard current draft ----------
 
-  async function handleDiscardDraft() {
+  function handleDiscardDraft() {
     if (!runId) return;
-    if (!confirm('Discard this payroll calculation? This will delete the draft run.')) return;
-    await handleDeleteRun(runId);
-    setResults(null);
-    setRunId(null);
-    setAnomalies([]);
-    setSelected(new Set());
-    setSignedCount(0);
+    setConfirmModal({
+      title: 'Discard Draft',
+      description: 'Discard this payroll calculation? This will delete the draft run.',
+      variant: 'danger',
+      confirmLabel: 'Discard',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const supabase = createClient();
+        const { error: loanErr } = await supabase
+          .from('loan_deductions')
+          .delete()
+          .eq('payroll_run_id', runId);
+        if (loanErr) {
+          toast('error', 'Failed to clear loan deductions: ' + loanErr.message);
+          return;
+        }
+        const { error: runErr } = await supabase
+          .from('payroll_runs')
+          .delete()
+          .eq('id', runId);
+        if (runErr) {
+          toast('error', 'Failed to delete payroll run: ' + runErr.message);
+          return;
+        }
+        toast('success', 'Payroll run deleted');
+        fetchHistory();
+        setResults(null);
+        setRunId(null);
+        setAnomalies([]);
+        setSelected(new Set());
+        setSignedCount(0);
+      },
+    });
   }
 
   // ---------- calculate payroll ----------
@@ -230,16 +271,31 @@ export default function PayrollPage() {
 
         if (missing.length > 0) {
           const names = missing.map((e: { full_name: string }) => e.full_name).join(', ');
-          const proceed = window.confirm(
-            `${missing.length} employee${missing.length === 1 ? '' : 's'} ha${missing.length === 1 ? 's' : 've'} no attendance recorded:\n\n${names}\n\nContinue anyway?`
-          );
-          if (!proceed) {
-            setCalculating(false);
-            return;
-          }
+          setConfirmModal({
+            title: 'Missing Attendance',
+            description: `${missing.length} employee${missing.length === 1 ? '' : 's'} ha${missing.length === 1 ? 's' : 've'} no attendance recorded: ${names}. Continue anyway?`,
+            variant: 'default',
+            confirmLabel: 'Continue',
+            onConfirm: () => {
+              setConfirmModal(null);
+              executePayrollCalculation();
+            },
+          });
+          return; // Wait for user decision
         }
       }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast('error', message);
+      setCalculating(false);
+      return;
+    }
 
+    executePayrollCalculation();
+  }
+
+  async function executePayrollCalculation() {
+    try {
       const res = await fetch('/api/payroll/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -319,6 +375,15 @@ export default function PayrollPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
+      <ConfirmationModal
+        open={confirmModal !== null}
+        onClose={() => { setConfirmModal(null); setCalculating(false); }}
+        onConfirm={() => { confirmModal?.onConfirm(); }}
+        title={confirmModal?.title ?? ''}
+        description={confirmModal?.description ?? ''}
+        variant={confirmModal?.variant ?? 'default'}
+        confirmLabel={confirmModal?.confirmLabel ?? 'Confirm'}
+      />
 
       {/* ── POST-CALCULATION COMMAND VIEW ── */}
       {results && totals ? (
