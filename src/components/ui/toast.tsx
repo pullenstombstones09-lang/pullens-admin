@@ -85,8 +85,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (type: ToastType, message: string) => {
       const id = crypto.randomUUID();
       setToasts((prev) => [...prev, { id, type, message }]);
-      // Auto-dismiss after 4 seconds
-      setTimeout(() => dismiss(id), 4000);
+      // Error toasts persist until manually dismissed
+      if (type !== 'error') {
+        setTimeout(() => dismiss(id), 4000);
+      }
     },
     [dismiss]
   );
