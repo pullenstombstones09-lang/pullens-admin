@@ -103,13 +103,8 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 
 **New shared components:** workflow-stepper, undo-toast, time-picker, slide-panel, progress-ring, employee-info-card
 
-### NEEDS SQL MIGRATION (run in Supabase SQL Editor)
-```sql
-INSERT INTO storage.buckets (id, name, public) VALUES ('registers', 'registers', true) ON CONFLICT (id) DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('documents', 'documents', true) ON CONFLICT (id) DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures', true) ON CONFLICT (id) DO NOTHING;
-ALTER TABLE payslips ADD COLUMN IF NOT EXISTS banked_at timestamptz;
-```
+### SQL MIGRATION — DONE (29 April 2026)
+Storage buckets (registers, documents, signatures) created. `banked_at` column added to payslips.
 
 ### KNOWN BUGS (parked)
 - Client component hydration fails on Vercel (login page was server component workaround)
