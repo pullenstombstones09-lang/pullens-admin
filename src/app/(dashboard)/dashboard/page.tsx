@@ -64,7 +64,7 @@ export default function DashboardPage() {
   ] : []
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-[#1E293B]">
           Welcome back, {user?.name?.split(' ')[0] || 'there'}

@@ -482,9 +482,9 @@ export default function StaffListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-6">
       {/* Page header */}
-      <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm pb-4 pt-6 px-4 md:px-8">
+      <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1E293B]">
