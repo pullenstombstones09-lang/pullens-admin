@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   const empQuery = supabase
     .from('employees')
-    .select('id, pt_code, full_name, photo_url, weekly_wage, status')
+    .select('id, pt_code, full_name, photo_url, weekly_wage, weekly_hours, status')
     .order('pt_code');
 
   if (!showInactive) {

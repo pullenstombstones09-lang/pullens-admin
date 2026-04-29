@@ -16,7 +16,6 @@ import { useUndo } from '@/components/ui/undo-toast';
 import type { Employee, AttendanceStatus } from '@/types/database';
 import {
   CalendarDays,
-  CheckCircle,
   Save,
   Clock,
   Users,
@@ -32,6 +31,7 @@ interface RegisterRow {
   full_name: string;
   photo_url: string | null;
   weekly_wage: number;
+  weekly_hours: number;
   emp_status: string; // employee status (active/terminated)
   status: AttendanceStatus;
   time_in: string;
@@ -95,6 +95,35 @@ function computeLateDeduction(lateMinutes: number, weeklyWage: number): number {
   return Math.round((lateMinutes / 60) * hourlyRate * 100) / 100;
 }
 
+function getDefaultTimes(dateStr: string, weeklyHours: number): {
+  status: AttendanceStatus;
+  time_in: string;
+  time_out: string;
+} {
+  const day = new Date(dateStr + 'T00:00:00').getDay();
+
+  // Saturday: only 45hr staff work
+  if (day === 6) {
+    if (weeklyHours >= 45) {
+      return { status: 'present', time_in: '08:00', time_out: '13:00' };
+    }
+    return { status: 'absent', time_in: '', time_out: '' };
+  }
+
+  // Sunday: nobody works
+  if (day === 0) {
+    return { status: 'absent', time_in: '', time_out: '' };
+  }
+
+  // Friday: everyone knocks off at 16:00
+  if (day === 5) {
+    return { status: 'present', time_in: '08:00', time_out: '16:00' };
+  }
+
+  // Mon-Thu: standard 08:00-17:00
+  return { status: 'present', time_in: '08:00', time_out: '17:00' };
+}
+
 // ---------- component ----------
 
 export default function RegisterPage() {
@@ -114,10 +143,15 @@ export default function RegisterPage() {
   const [publicHoliday, setPublicHoliday] = useState<string | null>(null);
   const { showUndo } = useUndo();
 
-  const isAdmin = user?.role === 'owner';
+  const isOwner = user?.role === 'owner';
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
-  // Staff can't edit after save, only owner can override
-  const editLocked = savedForDate && !isAdmin;
+  // Edit window: today + yesterday for staff, owner can always edit
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selected = new Date(selectedDate + 'T00:00:00');
+  const diffDays = Math.floor((today.getTime() - selected.getTime()) / (1000 * 60 * 60 * 24));
+  const withinEditWindow = diffDays <= 1;
+  const editLocked = canEdit ? (!withinEditWindow && !isOwner) : true;
 
   // Fetch employees + existing attendance for the selected date
   const fetchData = useCallback(async () => {
@@ -191,6 +225,7 @@ export default function RegisterPage() {
           full_name: emp.full_name,
           photo_url: emp.photo_url,
           weekly_wage: emp.weekly_wage,
+          weekly_hours: emp.weekly_hours ?? 40,
           emp_status: emp.status,
           status: existing.status,
           time_in: (existing.time_in ?? '').slice(0, 5),
@@ -213,10 +248,9 @@ export default function RegisterPage() {
         full_name: emp.full_name,
         photo_url: emp.photo_url,
         weekly_wage: emp.weekly_wage,
+        weekly_hours: emp.weekly_hours ?? 40,
         emp_status: emp.status,
-        status: 'present',
-        time_in: '',
-        time_out: '',
+        ...getDefaultTimes(selectedDate, emp.weekly_hours ?? 40),
         late_minutes: 0,
         late_deduction: 0,
         ot_minutes: 0,
@@ -258,6 +292,21 @@ export default function RegisterPage() {
       const next = [...prev];
       const row = { ...next[idx], ...patch };
 
+      // When status changes to non-working, clear times
+      if (patch.status && ['absent', 'sick', 'leave', 'short_time'].includes(patch.status)) {
+        row.time_in = '';
+        row.time_out = '';
+        row.late_minutes = 0;
+        row.ot_minutes = 0;
+      }
+
+      // When status changes back to present, restore day-aware defaults
+      if (patch.status === 'present') {
+        const defaults = getDefaultTimes(selectedDate, row.weekly_hours);
+        row.time_in = defaults.time_in;
+        row.time_out = defaults.time_out;
+      }
+
       // Auto-detect late from time_in (time drives status)
       if (row.time_in && (row.status === 'present' || row.status === 'late')) {
         const calcMinutes = calculateLateMinutes(row.time_in);
@@ -295,38 +344,6 @@ export default function RegisterPage() {
     });
   }
 
-  // ---------- mark all / unmark all ----------
-
-  function markAllPresent() {
-    setRows((prev) =>
-      prev.map((row) => ({
-        ...row,
-        status: 'present' as AttendanceStatus,
-        time_in: '08:00',
-        time_out: '17:00',
-        late_minutes: 0,
-        late_deduction: 0,
-        ot_minutes: 0,
-        reason: '',
-      }))
-    );
-  }
-
-  function unmarkAll() {
-    setRows((prev) =>
-      prev.map((row) => ({
-        ...row,
-        status: 'present' as AttendanceStatus,
-        time_in: '',
-        time_out: '',
-        late_minutes: 0,
-        late_deduction: 0,
-        ot_minutes: 0,
-        reason: '',
-      }))
-    );
-  }
-
   // ---------- delete record ----------
 
   async function deleteRecord(attendanceId: string, employeeName: string) {
@@ -349,36 +366,11 @@ export default function RegisterPage() {
   // ---------- auto-advance ----------
 
   const advanceToNextDay = useCallback(async () => {
-    const current = new Date(selectedDate + 'T00:00:00');
-
-    // Try the next 7 days to find one without attendance data
-    for (let i = 1; i <= 7; i++) {
-      const next = new Date(current);
-      next.setDate(next.getDate() + i);
-
-      // Skip Sundays (day 0)
-      if (next.getDay() === 0) continue;
-
-      // Don't go past today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (next > today) break;
-
-      const dateStr = toDateString(next);
-
-      // Check if this day already has attendance
-      const { count } = await supabase
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
-        .eq('date', dateStr);
-
-      if ((count || 0) === 0) {
-        setSelectedDate(dateStr);
-        return;
-      }
+    const todayStr = toDateString(new Date());
+    if (selectedDate !== todayStr) {
+      setSelectedDate(todayStr);
     }
-    // All days captured — stay on current day
-  }, [selectedDate, supabase]);
+  }, [selectedDate]);
 
   // ---------- save ----------
 
@@ -540,25 +532,6 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {canEdit && !publicHoliday && (
-              <>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon={<CheckCircle className="h-4 w-4" />}
-                  onClick={markAllPresent}
-                >
-                  Mark All Present
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  onClick={unmarkAll}
-                >
-                  Clear All
-                </Button>
-              </>
-            )}
           </div>
         </div>
       </Card>
