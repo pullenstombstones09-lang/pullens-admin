@@ -3,16 +3,18 @@
 :root {
   --background: #F8FAFC;
   --foreground: #1E293B;
-  --primary: #1E40AF;
-  --primary-light: #3B82F6;
-  --primary-glow: #60A5FA;
-  --accent-gold: #C4A35A;
+  --primary: #1E293B;
+  --primary-hover: #334155;
+  --accent: #C4A35A;
+  --accent-hover: #B8943E;
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
+  --info: #3B82F6;
   --card: #FFFFFF;
-  --sidebar-from: #1E3A8A;
-  --sidebar-to: #1E40AF;
+  --muted: #64748B;
+  --border: #E2E8F0;
+  --sidebar-bg: #1E293B;
 }
 
 @theme inline {
@@ -151,8 +153,19 @@ body {
 .animate-slide-in-right { animation: slideInRight 200ms ease-out; }
 .card-hover { transition: transform 200ms ease, box-shadow 200ms ease; }
 .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1); }
-.gradient-sidebar { background: linear-gradient(180deg, var(--sidebar-from), var(--sidebar-to)); }
+.gradient-sidebar { background: var(--sidebar-bg); }
 .gradient-header { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
+
+.animate-shake {
+  animation: shake 200ms ease-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
 
 @keyframes blocker-pulse {
   0%, 100% { opacity: 1; }

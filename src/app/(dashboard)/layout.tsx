@@ -52,7 +52,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <h1 className="text-xl font-black tracking-wide text-white leading-none">
           PULLENS ADMIN
         </h1>
-        <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase">
+        <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-[#C4A35A] uppercase">
           Cast in Stone
         </p>
       </div>
@@ -77,7 +77,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     "transition-all duration-200 ease-out",
                     "min-h-[48px]",
                     isActive
-                      ? "bg-white/15 text-white font-semibold pl-3 shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]"
+                      ? "bg-white/10 text-white font-semibold border-l-2 border-l-[#C4A35A] pl-2.5"
                       : "text-blue-200 hover:text-white hover:bg-white/10 hover:pl-3.5"
                   )}
                 >
@@ -142,7 +142,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-[#F8FAFC] gap-4">
         <div className="relative">
-          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#3B82F6]/20 border-t-[#3B82F6]" />
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#C4A35A]/20 border-t-[#C4A35A]" />
         </div>
         <p className="text-xs font-semibold tracking-[0.2em] text-[#1E3A8A]/30 uppercase">Loading</p>
       </div>
@@ -186,7 +186,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="flex h-14 items-center gap-3 border-b-2 border-[#3B82F6]/20 bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <header className="flex h-14 items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-lg p-2 text-[#333333] hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -194,7 +194,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-bold text-[#1E3A8A]">
+          <span className="text-sm font-bold text-[#1E293B]">
             PULLENS ADMIN
           </span>
         </header>
