@@ -26,12 +26,12 @@ export async function POST(request: Request) {
   try {
     // 1. Seed users (6 system users)
     const users = [
-      { name: 'Annika', role: 'head_admin', pin: '4682', force_pin_change: false },
-      { name: 'Nisha', role: 'head_of_admin', pin: '0000', force_pin_change: true },
-      { name: 'Veshi', role: 'head_of_sales', pin: '0000', force_pin_change: true },
-      { name: 'Marlyn', role: 'admin', pin: '0000', force_pin_change: true },
+      { name: 'Annika', role: 'owner', pin: '4682', force_pin_change: false },
+      { name: 'Nisha', role: 'supervisor', pin: '0000', force_pin_change: true },
+      { name: 'Veshi', role: 'supervisor', pin: '0000', force_pin_change: true },
+      { name: 'Marlyn', role: 'attendance_clerk', pin: '0000', force_pin_change: true },
       { name: 'Lee-Ann', role: 'bookkeeper', pin: '0000', force_pin_change: true },
-      { name: 'Kam', role: 'petty_cash', pin: '0000', force_pin_change: true },
+      { name: 'Kam', role: 'cash_clerk', pin: '0000', force_pin_change: true },
     ];
 
     for (const user of users) {

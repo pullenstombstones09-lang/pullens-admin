@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextValue>({
 const DEFAULT_USER: AuthUser = {
   id: '8382580b-0dd4-4aad-b77c-9d2be6ca1c5d',
   name: 'Annika',
-  role: 'head_admin' as UserRole,
+  role: 'owner' as UserRole,
 };
 
 function getCookie(name: string): string | null {

@@ -430,7 +430,7 @@ export default function StaffListPage() {
   }, [employees, search, occupationFilter, sortKey]);
 
   const isManagement = user ? hasPermission(user.role, 'edit_employee') : false;
-  const isHeadAdmin = user?.role === 'head_admin';
+  const isHeadAdmin = user?.role === 'owner';
 
   const handleExportCSV = () => {
     const headers = ['PT Code', 'Name', 'Occupation', 'ID Number', 'Cell', 'Start Date'];

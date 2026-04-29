@@ -334,7 +334,7 @@ export default function PayrollPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {user?.role === 'head_admin' && (
+              {user?.role === 'owner' && (
                 <button
                   onClick={handleDiscardDraft}
                   className="text-sm text-red-500 hover:text-red-700"
@@ -649,7 +649,7 @@ export default function PayrollPage() {
                   {/* Week selector */}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      {user?.role === 'head_admin' ? (
+                      {user?.role === 'owner' ? (
                         <>
                           <button
                             onClick={() => {
@@ -781,7 +781,7 @@ export default function PayrollPage() {
                       >
                         <FileStack className="h-4 w-4" />
                       </button>
-                      {user?.role === 'head_admin' && (
+                      {user?.role === 'owner' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteRun(run.id); }}
                           className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"

@@ -526,7 +526,7 @@ export default function HRAdvisorPage() {
                       {inc.resolved && (
                         <CheckCircle className="h-4 w-4 text-emerald-500" />
                       )}
-                      {user?.role === 'head_admin' && (
+                      {user?.role === 'owner' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteIncident(inc.id); }}
                           title="Delete"

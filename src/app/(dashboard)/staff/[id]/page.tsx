@@ -670,7 +670,7 @@ export default function EmployeeProfilePage({
                 <h1 className="text-2xl font-bold text-[#1E293B] truncate leading-tight">
                   {employee.full_name}
                 </h1>
-                {user?.role === 'head_admin' && (
+                {user?.role === 'owner' && (
                   <button
                     onClick={() => setEditOpen(true)}
                     className="shrink-0 rounded-lg p-2 text-stone-400 hover:text-[#1E40AF] hover:bg-stone-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"

@@ -133,7 +133,7 @@ export default function WarningsTab({ employeeId }: WarningsTabProps) {
                 <ExternalLink className="h-4 w-4" />
               </button>
             )}
-            {user?.role === 'head_admin' && (
+            {user?.role === 'owner' && (
               <button
                 onClick={() => handleDeleteWarning(warning.id)}
                 title="Delete"

@@ -3,11 +3,11 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
+import { getHomeRoute } from '@/lib/permissions';
+import type { UserRole } from '@/types/database';
+
 function getLandingPage(role: string): string {
-  if (role === 'admin') return '/register';
-  if (role === 'petty_cash') return '/petty-cash';
-  if (role === 'bookkeeper') return '/payroll';
-  return '/dashboard';
+  return getHomeRoute(role as UserRole);
 }
 
 function createSupabase(cookieStore: Awaited<ReturnType<typeof cookies>>) {

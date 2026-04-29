@@ -208,7 +208,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                           {loan.auto_generated_from_petty && (
                             <Badge color="purple">From petty cash</Badge>
                           )}
-                          {user?.role === 'head_admin' && (
+                          {user?.role === 'owner' && (
                             <button
                               onClick={() => handleDeleteLoan(loan.id)}
                               title="Delete"
@@ -319,7 +319,7 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <TrendingDown className="h-4 w-4 text-emerald-400" />
-                        {user?.role === 'head_admin' && (
+                        {user?.role === 'owner' && (
                           <button
                             onClick={() => handleDeleteLoan(loan.id)}
                             title="Delete"

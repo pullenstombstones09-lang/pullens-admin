@@ -60,10 +60,8 @@ export async function POST(request: NextRequest) {
       return redirect303(new URL(`/login/change-pin?name=${name}&error=Failed+to+save+PIN`, request.url));
     }
 
-    const landingPage = user.role === 'admin' ? '/register'
-      : user.role === 'petty_cash' ? '/petty-cash'
-      : user.role === 'bookkeeper' ? '/payroll'
-      : '/dashboard';
+    const { getHomeRoute } = await import('@/lib/permissions');
+    const landingPage = getHomeRoute(user.role as import('@/types/database').UserRole);
 
     const response = redirect303(new URL(landingPage, request.url));
 

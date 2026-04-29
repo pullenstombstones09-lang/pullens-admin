@@ -114,9 +114,9 @@ export default function RegisterPage() {
   const [publicHoliday, setPublicHoliday] = useState<string | null>(null);
   const { showUndo } = useUndo();
 
-  const isAdmin = user?.role === 'head_admin';
+  const isAdmin = user?.role === 'owner';
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
-  // Staff can't edit after save, only head_admin can override
+  // Staff can't edit after save, only owner can override
   const editLocked = savedForDate && !isAdmin;
 
   // Fetch employees + existing attendance for the selected date
@@ -500,7 +500,7 @@ export default function RegisterPage() {
               type="date"
               value={selectedDate}
               max={toDateString(new Date())}
-              min={user?.role !== 'head_admin' ? (() => {
+              min={user?.role !== 'owner' ? (() => {
                 const mon = startOfWeek(new Date(), { weekStartsOn: 1 })
                 return toDateString(mon)
               })() : undefined}
@@ -513,7 +513,7 @@ export default function RegisterPage() {
                   return
                 }
                 // Non-admin: only current week
-                if (user?.role !== 'head_admin') {
+                if (user?.role !== 'owner') {
                   const mon = startOfWeek(today, { weekStartsOn: 1 })
                   if (picked < mon) {
                     alert('You can only capture register for the current week')
@@ -522,7 +522,7 @@ export default function RegisterPage() {
                 }
                 // Admin going far back: confirm
                 const diffDays = Math.floor((today.getTime() - picked.getTime()) / (1000 * 60 * 60 * 24))
-                if (diffDays > 7 && user?.role === 'head_admin') {
+                if (diffDays > 7 && user?.role === 'owner') {
                   if (!confirm(`This date is ${diffDays} days ago. Are you sure?`)) return
                 }
                 setSelectedDate(e.target.value)
@@ -649,7 +649,7 @@ export default function RegisterPage() {
                   <th className="px-3 py-3 text-left font-semibold text-[#333] whitespace-nowrap">
                     Reason / Note
                   </th>
-                  {user?.role === 'head_admin' && (
+                  {user?.role === 'owner' && (
                     <th className="px-2 py-3 text-center font-semibold text-[#333] whitespace-nowrap w-[50px]">
                     </th>
                   )}
@@ -817,8 +817,8 @@ export default function RegisterPage() {
                         />
                       </td>
 
-                      {/* Delete — head_admin only */}
-                      {user?.role === 'head_admin' && (
+                      {/* Delete — owner only */}
+                      {user?.role === 'owner' && (
                         <td className="px-2 py-2 text-center">
                           {row.existing_id && (
                             <button
@@ -868,8 +868,8 @@ export default function RegisterPage() {
           )}
         </Card>
 
-      {/* Add/Remove employees — head_admin only */}
-      {user?.role === 'head_admin' && (
+      {/* Add/Remove employees — owner only */}
+      {user?.role === 'owner' && (
         <Card padding="sm">
           <details>
             <summary className="cursor-pointer text-sm font-semibold text-[#1E293B] select-none py-2">

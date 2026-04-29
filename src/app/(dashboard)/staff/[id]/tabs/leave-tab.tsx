@@ -278,7 +278,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
                       View cert
                     </button>
                   )}
-                  {user?.role === 'head_admin' && (
+                  {user?.role === 'owner' && (
                     <button
                       onClick={() => handleDeleteLeave(leave.id)}
                       title="Delete"

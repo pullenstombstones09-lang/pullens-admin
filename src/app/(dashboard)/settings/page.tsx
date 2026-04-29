@@ -182,7 +182,7 @@ export default function SettingsPage() {
     Pick<User, 'id' | 'name' | 'role' | 'active'>[]
   >([]);
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editRole, setEditRole] = useState<UserRole>('admin');
+  const [editRole, setEditRole] = useState<UserRole>('attendance_clerk');
 
   // ─── Load all settings ───
   const loadSettings = useCallback(async () => {
@@ -321,7 +321,7 @@ export default function SettingsPage() {
   }
 
   // Access check
-  if (user?.role !== 'head_admin') {
+  if (user?.role !== 'owner') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Card className="max-w-md text-center">
@@ -338,12 +338,12 @@ export default function SettingsPage() {
   }
 
   const ROLES: { value: UserRole; label: string }[] = [
-    { value: 'head_admin', label: 'Head Admin' },
-    { value: 'head_of_admin', label: 'Head of Admin' },
-    { value: 'head_of_sales', label: 'Head of Sales' },
-    { value: 'admin', label: 'Admin' },
+    { value: 'owner', label: 'Owner' },
+    { value: 'supervisor', label: 'Supervisor' },
     { value: 'bookkeeper', label: 'Bookkeeper' },
-    { value: 'petty_cash', label: 'Petty Cash' },
+    { value: 'attendance_clerk', label: 'Attendance Clerk' },
+    { value: 'cash_clerk', label: 'Cash Clerk' },
+    { value: 'signer', label: 'Signer' },
   ];
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -889,9 +889,9 @@ export default function SettingsPage() {
                           ) : (
                             <Badge
                               color={
-                                u.role === 'head_admin'
+                                u.role === 'owner'
                                   ? 'purple'
-                                  : u.role.startsWith('head_of')
+                                  : u.role === 'supervisor'
                                     ? 'blue'
                                     : 'grey'
                               }

@@ -128,7 +128,7 @@ export default function AuditLogViewer() {
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Access check
-  if (user && user.role !== 'head_admin' && user.role !== 'head_of_admin' && user.role !== 'head_of_sales') {
+  if (user && user.role !== 'owner' && user.role !== 'supervisor') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Card className="max-w-md text-center">

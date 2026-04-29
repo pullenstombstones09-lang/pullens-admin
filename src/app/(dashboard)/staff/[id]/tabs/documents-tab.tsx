@@ -213,7 +213,7 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
                     >
                       <ExternalLink className="h-4 w-4" />
                     </button>
-                    {user?.role === 'head_admin' && (
+                    {user?.role === 'owner' && (
                       <button
                         onClick={() => handleDeleteDocument(doc.id)}
                         title="Delete"

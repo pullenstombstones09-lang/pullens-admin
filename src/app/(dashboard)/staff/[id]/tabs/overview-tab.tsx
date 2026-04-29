@@ -143,7 +143,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
     <div className="space-y-6">
       <EmployeeInfoCard
         employee={employee}
-        canEdit={userRole === 'head_admin'}
+        canEdit={userRole === 'owner'}
         onUpdate={async (updates) => {
           await supabase.from('employees').update(updates).eq('id', employee.id);
           setEmployee((prev: any) => ({ ...prev, ...updates }));

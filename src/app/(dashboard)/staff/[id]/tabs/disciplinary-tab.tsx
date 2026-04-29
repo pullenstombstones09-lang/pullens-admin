@@ -240,7 +240,7 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
                           <FileDown className="h-4 w-4" />
                         </button>
                       )}
-                      {user?.role === 'head_admin' && (
+                      {user?.role === 'owner' && (
                         <button
                           onClick={() => handleDeleteEvent(event)}
                           title="Delete"

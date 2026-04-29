@@ -240,7 +240,7 @@ export default function AttendanceTab({ employeeId }: AttendanceTabProps) {
                 {selectedRecord.reason && (
                   <p className="text-xs text-stone-500">Reason: {selectedRecord.reason}</p>
                 )}
-                {user?.role === 'head_admin' && (
+                {user?.role === 'owner' && (
                   <button
                     onClick={() => handleDeleteAttendance(selectedRecord.id)}
                     title="Delete"

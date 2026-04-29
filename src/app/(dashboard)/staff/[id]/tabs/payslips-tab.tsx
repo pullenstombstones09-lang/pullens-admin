@@ -193,7 +193,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase text-right">Net</th>
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase text-center">Signed</th>
                   <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase"></th>
-                  {user?.role === 'head_admin' && (
+                  {user?.role === 'owner' && (
                     <th className="py-3 px-3 text-xs font-medium text-stone-500 uppercase"></th>
                   )}
                 </tr>
@@ -223,7 +223,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                         PDF
                       </Button>
                     </td>
-                    {user?.role === 'head_admin' && (
+                    {user?.role === 'owner' && (
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handleDeletePayslip(p.id)}
@@ -272,7 +272,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
                     >
                       PDF
                     </Button>
-                    {user?.role === 'head_admin' && (
+                    {user?.role === 'owner' && (
                       <button
                         onClick={() => handleDeletePayslip(p.id)}
                         title="Delete"
