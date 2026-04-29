@@ -1,12 +1,12 @@
 // Pullens Admin — Database types (mirrors Supabase schema)
 
 export type UserRole =
-  | 'head_admin'
-  | 'head_of_admin'
-  | 'head_of_sales'
-  | 'admin'
+  | 'owner'
+  | 'supervisor'
   | 'bookkeeper'
-  | 'petty_cash';
+  | 'attendance_clerk'
+  | 'cash_clerk'
+  | 'signer';
 
 export type EmployeeStatus = 'active' | 'inactive' | 'terminated' | 'suspended';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'sick' | 'ph' | 'short_time';
