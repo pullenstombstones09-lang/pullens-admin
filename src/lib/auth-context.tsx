@@ -55,10 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: parsed.role as UserRole,
         });
       } catch {
-        setUser(DEFAULT_USER);
+        // Bad cookie — redirect to login
+        window.location.href = '/login';
+        return;
       }
     } else {
-      setUser(DEFAULT_USER);
+      // No cookie — redirect to login
+      window.location.href = '/login';
+      return;
     }
     setLoading(false);
   }, []);
