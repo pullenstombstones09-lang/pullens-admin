@@ -227,7 +227,7 @@ export default function PettyCashPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-black text-[#1E293B] mb-6">Petty Cash</h1>
 
       {/* --- TIN BALANCE STRIP --- */}

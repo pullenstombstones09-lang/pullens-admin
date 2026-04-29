@@ -363,7 +363,7 @@ export default function SettingsPage() {
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <ConfirmationModal
         open={confirmModal !== null}
         onClose={() => setConfirmModal(null)}

@@ -374,7 +374,7 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-5">
+    <div className="space-y-5">
       <ConfirmationModal
         open={confirmModal !== null}
         onClose={() => { setConfirmModal(null); setCalculating(false); }}

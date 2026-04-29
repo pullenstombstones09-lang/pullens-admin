@@ -628,7 +628,7 @@ export default function EmployeeProfilePage({
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-6">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Profile header — always visible */}
       <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-stone-200">
         <div className="px-4 md:px-8 pt-4 pb-3">

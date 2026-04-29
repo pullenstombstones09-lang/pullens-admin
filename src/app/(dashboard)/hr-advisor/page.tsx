@@ -193,7 +193,7 @@ export default function HRAdvisorPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
+    <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E293B]">
           <Scale className="h-6 w-6 text-[#3B82F6]" />

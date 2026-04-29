@@ -92,7 +92,7 @@ export default function PrintPayslipsPage() {
   const signedCount = payslips.filter((p) => p.signed_at).length
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Print Payslips</h1>

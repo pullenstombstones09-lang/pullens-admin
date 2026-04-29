@@ -189,7 +189,7 @@ export default function BankingPage() {
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-6 space-y-5 max-w-2xl">
+      <div className="space-y-5 max-w-2xl">
         <SkeletonCard />
         <SkeletonTable rows={8} cols={3} />
       </div>
@@ -229,7 +229,7 @@ export default function BankingPage() {
   const isComplete = run.status === 'banked' || run.status === 'paid'
 
   return (
-    <div className="p-4 lg:p-6 space-y-5 max-w-2xl">
+    <div className="space-y-5 max-w-2xl">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

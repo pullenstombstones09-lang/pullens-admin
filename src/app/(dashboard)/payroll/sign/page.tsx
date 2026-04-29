@@ -286,7 +286,7 @@ export default function SignPayslipsPage() {
 
   if (allDone) {
     return (
-      <div className="mx-auto max-w-lg px-4">
+      <div className="mx-auto max-w-lg">
         <AllDone />
       </div>
     )
@@ -296,7 +296,7 @@ export default function SignPayslipsPage() {
   const remaining = unsigned.length
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 space-y-8">
+    <div className="mx-auto max-w-lg space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-[#1E293B] tracking-tight">Sign Payslips</h1>

@@ -161,7 +161,7 @@ export default function WeeklyViewPage() {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-5">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

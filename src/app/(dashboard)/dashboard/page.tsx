@@ -88,7 +88,7 @@ export default function DashboardPage() {
   ].filter(Boolean) as { href: string; label: string; icon: React.ReactNode; variant: 'primary' | 'secondary' }[]
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-[#1E293B]">
           Welcome back, {user?.name?.split(' ')[0] || 'there'}
