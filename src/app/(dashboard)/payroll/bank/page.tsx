@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Landmark, CheckCircle, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
+import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +43,7 @@ function weekLabel(start: string, end: string): string {
 
 export default function BankingPage() {
   const supabase = createClient()
+  const { toast } = useToast()
 
   const [run, setRun] = useState<RunRow | null>(null)
   const [payslips, setPayslips] = useState<PayslipRow[]>([])
@@ -89,11 +92,9 @@ export default function BankingPage() {
       const rows = (slips ?? []) as unknown as PayslipRow[]
       setPayslips(rows)
 
-      // Pre-populate ticked from banked_at
-      const alreadyBanked = new Set(
-        rows.filter((r) => r.banked_at !== null).map((r) => r.employee_id)
-      )
-      setTicked(alreadyBanked)
+      // Default all employees to ticked
+      const allEmployeeIds = new Set(rows.map((r) => r.employee_id))
+      setTicked(allEmployeeIds)
       setLoading(false)
     }
 
@@ -139,6 +140,7 @@ export default function BankingPage() {
         wasTickedBefore ? next.add(employeeId) : next.delete(employeeId)
         return next
       })
+      toast('error', 'Failed to update banking status — check connection and retry')
     } finally {
       setSaving((prev) => {
         const next = new Set(prev)
@@ -187,8 +189,9 @@ export default function BankingPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#3B82F6] border-t-transparent" />
+      <div className="p-4 lg:p-6 space-y-5 max-w-2xl">
+        <SkeletonCard />
+        <SkeletonTable rows={8} cols={3} />
       </div>
     )
   }
@@ -196,7 +199,15 @@ export default function BankingPage() {
   if (error) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-sm text-red-500">{error}</p>
+        <div className="text-center space-y-3">
+          <p className="text-sm text-red-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-sm font-semibold text-[#3B82F6] hover:underline"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -204,9 +215,12 @@ export default function BankingPage() {
   if (!run || payslips.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-3">
           <Landmark size={36} className="mx-auto text-gray-300" />
-          <p className="text-sm text-gray-500">No payslips found for the latest payroll run.</p>
+          <p className="text-sm font-medium text-gray-500">Payroll hasn&apos;t run yet</p>
+          <a href="/payroll" className="text-sm font-semibold text-[#3B82F6] hover:underline">
+            Run payroll &rarr;
+          </a>
         </div>
       </div>
     )
@@ -316,19 +330,26 @@ export default function BankingPage() {
         })}
       </div>
 
-      {/* Mark Week Complete — only when all ticked */}
-      {allTicked && !isComplete && (
-        <Button
-          variant="primary"
-          size="lg"
-          pulse
-          loading={completing}
-          icon={<CheckCircle size={18} />}
-          onClick={handleMarkComplete}
-          className="w-full"
-        >
-          Mark Week Complete
-        </Button>
+      {/* Mark Week Complete */}
+      {!isComplete && (
+        <div className="space-y-1">
+          <Button
+            variant="primary"
+            size="lg"
+            loading={completing}
+            disabled={!allTicked}
+            icon={<CheckCircle size={18} />}
+            onClick={handleMarkComplete}
+            className="w-full"
+          >
+            Mark Week Complete
+          </Button>
+          {!allTicked && (
+            <p className="text-xs text-center text-gray-400">
+              {payslips.length - ticked.size} employee{payslips.length - ticked.size !== 1 ? 's' : ''} unticked — resolve or confirm unpaid
+            </p>
+          )}
+        </div>
       )}
 
       {isComplete && (
