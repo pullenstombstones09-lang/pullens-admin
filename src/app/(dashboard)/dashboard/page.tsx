@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { hasPermission, getHomeRoute } from '@/lib/permissions'
 import { WorkflowStepper } from '@/components/ui/workflow-stepper'
 import { Button } from '@/components/ui/button'
-import { Users, Calculator, PenTool, AlertTriangle, ClipboardList, Brain } from 'lucide-react'
+import { Users, Calculator, PenTool, AlertTriangle, ClipboardList, Brain, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { format, startOfWeek, endOfWeek } from 'date-fns'
 
@@ -18,10 +20,20 @@ interface WeekStats {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [stats, setStats] = useState<WeekStats | null>(null)
   const supabase = createClient()
 
+  // Redirect unauthorized users to their home route
   useEffect(() => {
+    if (user && !hasPermission(user.role, 'view_dashboard')) {
+      router.replace(getHomeRoute(user.role))
+    }
+  }, [user, router])
+
+  useEffect(() => {
+    if (!user || !hasPermission(user.role, 'view_dashboard')) return
+
     async function load() {
       const today = format(new Date(), 'yyyy-MM-dd')
       const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -54,7 +66,10 @@ export default function DashboardPage() {
       })
     }
     load()
-  }, [])
+  }, [user])
+
+  // Don't render for unauthorized users
+  if (!user || !hasPermission(user.role, 'view_dashboard')) return null
 
   const metrics = stats ? [
     { label: 'Captured Today', value: `${stats.attendanceToday}/${stats.totalStaff}`, icon: <Users size={24} />, color: '#1E40AF', colorEnd: '#3B82F6' },
@@ -62,6 +77,15 @@ export default function DashboardPage() {
     { label: 'Unsigned', value: stats.unsignedCount.toString(), icon: <PenTool size={24} />, color: stats.unsignedCount > 0 ? '#D97706' : '#059669', colorEnd: stats.unsignedCount > 0 ? '#F59E0B' : '#10B981' },
     { label: 'Alerts', value: stats.alertCount.toString(), icon: <AlertTriangle size={24} />, color: stats.alertCount > 0 ? '#DC2626' : '#059669', colorEnd: stats.alertCount > 0 ? '#EF4444' : '#10B981' },
   ] : []
+
+  // Permission-gated quick actions
+  const actions = [
+    hasPermission(user.role, 'view_register') && { href: '/register', label: 'Capture Register', icon: <ClipboardList size={18} />, variant: 'primary' as const },
+    hasPermission(user.role, 'view_payroll') && { href: '/payroll', label: 'Run Payroll', icon: <Calculator size={18} />, variant: 'primary' as const },
+    hasPermission(user.role, 'view_payslips') && { href: '/payroll/payslip-viewer', label: 'View Payslips', icon: <PenTool size={18} />, variant: 'secondary' as const },
+    hasPermission(user.role, 'view_petty_cash') && { href: '/petty-cash', label: 'Petty Cash', icon: <Wallet size={18} />, variant: 'secondary' as const },
+    hasPermission(user.role, 'view_hr_advisor') && { href: '/hr-advisor', label: 'HR Advisor', icon: <Brain size={18} />, variant: 'secondary' as const },
+  ].filter(Boolean) as { href: string; label: string; icon: React.ReactNode; variant: 'primary' | 'secondary' }[]
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -94,10 +118,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <a href="/register"><Button variant="primary" size="lg" className="w-full" icon={<ClipboardList size={18} />}>Capture Register</Button></a>
-        <a href="/payroll"><Button variant="primary" size="lg" className="w-full" icon={<Calculator size={18} />}>Run Payroll</Button></a>
-        <a href="/payroll/payslip-viewer"><Button variant="secondary" size="lg" className="w-full" icon={<PenTool size={18} />}>View Payslips</Button></a>
-        <a href="/hr-advisor"><Button variant="secondary" size="lg" className="w-full" icon={<Brain size={18} />}>HR Advisor</Button></a>
+        {actions.map((a) => (
+          <a key={a.href} href={a.href}>
+            <Button variant={a.variant} size="lg" className="w-full" icon={a.icon}>
+              {a.label}
+            </Button>
+          </a>
+        ))}
       </div>
     </div>
   )
