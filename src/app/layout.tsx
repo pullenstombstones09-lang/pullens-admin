@@ -15,6 +15,12 @@ export const metadata: Metadata = {
     icon: "/icon-32.png",
     apple: "/apple-icon.png",
   },
+  manifest: "/manifest.json",
+  themeColor: "#1E293B",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
