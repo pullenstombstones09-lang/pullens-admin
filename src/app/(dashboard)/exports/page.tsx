@@ -328,28 +328,27 @@ export default function ExportsPage() {
                   )}
 
                   {/* Generate button */}
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    onClick={() => handleGenerate(card.id)}
-                    loading={isGenerating}
-                    icon={
-                      isGenerating ? undefined : card.id === 'ccma' ? (
-                        <FileText className="h-4 w-4" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )
-                    }
-                    disabled={card.periodType === 'employee' && !selectedEmployee}
-                  >
-                    {card.id === 'ccma' ? 'Generate Case File' : `Generate for ${
-                      card.periodType === 'month'
-                        ? monthOptions.find(
-                            (o) => o.value === (selectedMonth[card.id] || monthOptions[0]?.value)
-                          )?.label || 'month'
-                        : selectedYear[card.id] || yearOptions[0]?.value
-                    }`}
-                  </Button>
+                  {card.id === 'ccma' ? (
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={() => handleGenerate(card.id)}
+                      loading={isGenerating}
+                      icon={isGenerating ? undefined : <FileText className="h-4 w-4" />}
+                      disabled={!selectedEmployee}
+                    >
+                      Generate Case File
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      disabled
+                      icon={<Download className="h-4 w-4" />}
+                    >
+                      Coming soon
+                    </Button>
+                  )}
                 </div>
 
                 {/* Result feedback */}
@@ -372,14 +371,8 @@ export default function ExportsPage() {
                               Case file includes {((result.data as Record<string, unknown[]>).warnings?.length) ?? 0} warning(s),{' '}
                               {((result.data as Record<string, unknown[]>).hearings?.length) ?? 0} hearing(s),{' '}
                               {((result.data as Record<string, unknown[]>).documents?.length) ?? 0} document(s).
-                              PDF/ZIP download available in Phase 2.
                             </p>
                           ) : null}
-                          {card.id !== 'ccma' && (
-                            <p className="mt-1 text-xs text-emerald-600">
-                              PDF/Excel export available in Phase 2.
-                            </p>
-                          )}
                         </div>
                       </div>
                     ) : (

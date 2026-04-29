@@ -69,16 +69,21 @@ export default function PrintPayslipsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        Loading…
+      <div className="flex items-center justify-center h-64">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" />
       </div>
     )
   }
 
   if (!run) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        No payroll run found.
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-3">
+          <p className="text-sm font-medium text-gray-500">Payroll hasn&apos;t run yet</p>
+          <a href="/payroll" className="text-sm font-semibold text-[#3B82F6] hover:underline">
+            Run payroll &rarr;
+          </a>
+        </div>
       </div>
     )
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/toast'
 import { CheckCircle, RotateCcw } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import type { Payslip, Employee, PayrollRun } from '@/types/database'
@@ -153,6 +154,7 @@ function AllDone() {
 
 export default function SignPayslipsPage() {
   const supabase = createClient()
+  const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -237,6 +239,8 @@ export default function SignPayslipsPage() {
     if (uploadRes.ok) {
       const uploadData = await uploadRes.json()
       signatureUrl = uploadData.url
+    } else {
+      toast('error', 'Signature upload failed — please sign again')
     }
 
     // Update the payslip record
@@ -246,8 +250,8 @@ export default function SignPayslipsPage() {
       .eq('id', slip.id)
 
     if (updateErr) {
-      // Non-blocking — show inline error and continue
       console.error('Signature save error:', updateErr.message)
+      toast('error', 'Signature upload failed — please sign again')
     }
 
     // Advance
