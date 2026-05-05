@@ -308,20 +308,55 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
               const isSaving = saving === key
               const otMin = att ? getOtMinutes(att.time_out, dayIdx) : 0
 
-              // Empty — tap to mark present
+              // Empty — split button: left=tick(present), right=cross(absent)
               if (!att) {
                 return (
-                  <button
-                    key={d}
-                    disabled={isSaving}
-                    onClick={() => quickToggle(emp.id, d, dayIdx)}
-                    className="h-14 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center hover:border-green-400 hover:bg-green-50 transition-all active:scale-95"
-                  >
+                  <div key={d} className="h-14 rounded-lg overflow-hidden flex border border-gray-200">
                     {isSaving
-                      ? <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                      : <span className="text-gray-300 text-lg">+</span>
+                      ? <div className="flex-1 flex items-center justify-center bg-gray-50">
+                          <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      : <>
+                          <button
+                            disabled={isSaving}
+                            onClick={() => quickToggle(emp.id, d, dayIdx)}
+                            className="flex-1 flex items-center justify-center bg-green-50 hover:bg-green-100 transition-all active:scale-95 border-r border-gray-200"
+                          >
+                            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            disabled={isSaving}
+                            onClick={async () => {
+                              const k = `${emp.id}-${d}`
+                              setSaving(k)
+                              await fetch('/api/register', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  date: d,
+                                  records: [{ employee_id: emp.id, date: d, status: 'absent', time_in: null, time_out: null, late_minutes: 0, reason: null }],
+                                }),
+                              })
+                              const { data: freshAtt } = await supabase.from('attendance').select('*').gte('date', weekStart).lte('date', days[4])
+                              const map = new Map<string, Map<string, any>>()
+                              for (const a of freshAtt || []) {
+                                if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
+                                map.get(a.employee_id)!.set(a.date, a)
+                              }
+                              setData(map)
+                              setSaving(null)
+                            }}
+                            className="flex-1 flex items-center justify-center bg-red-50 hover:bg-red-100 transition-all active:scale-95"
+                          >
+                            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </>
                     }
-                  </button>
+                  </div>
                 )
               }
 
