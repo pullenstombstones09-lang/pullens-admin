@@ -7,22 +7,21 @@ import { hasPermission } from '@/lib/permissions';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
-import { startOfWeek } from 'date-fns';
+import { startOfWeek, format } from 'date-fns';
 import { calculateLateMinutes } from '@/lib/payroll-engine';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TimePicker } from '@/components/ui/time-picker';
 import { useUndo } from '@/components/ui/undo-toast';
+import { PayslipViewer } from '@/components/ui/payslip-viewer';
 import type { Employee, AttendanceStatus } from '@/types/database';
 import {
-  CalendarDays,
   Save,
   Clock,
   Users,
   Download,
 } from 'lucide-react';
-import Link from 'next/link';
 
 // ---------- types ----------
 
@@ -125,6 +124,99 @@ function getDefaultTimes(dateStr: string, weeklyHours: number): {
   return { status: 'present', time_in: '08:00', time_out: '17:00' };
 }
 
+// ---------- WeekGrid component ----------
+
+function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: (date: string) => void }) {
+  const supabase = createClient()
+  const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
+  const [employees, setEmployees] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const days = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + i)
+    return format(d, 'yyyy-MM-dd')
+  })
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const weekEnd = days[4]
+      const [{ data: emps }, { data: att }] = await Promise.all([
+        supabase.from('employees').select('id, full_name, pt_code').eq('status', 'active').order('full_name'),
+        supabase.from('attendance').select('*').gte('date', weekStart).lte('date', weekEnd),
+      ])
+      setEmployees(emps || [])
+      const map = new Map<string, Map<string, any>>()
+      for (const a of att || []) {
+        if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
+        map.get(a.employee_id)!.set(a.date, a)
+      }
+      setData(map)
+      setLoading(false)
+    }
+    load()
+  }, [weekStart])
+
+  if (loading) return <div className="text-center py-8 text-[var(--muted)]">Loading week...</div>
+
+  const statusIcon: Record<string, string> = {
+    present: '✓', late: 'L', absent: 'A', leave: 'LV', sick: 'S', ph: 'PH', short_time: 'ST',
+  }
+  const statusColor: Record<string, string> = {
+    present: 'bg-green-100 text-green-700',
+    late: 'bg-amber-100 text-amber-700',
+    absent: 'bg-red-100 text-red-700',
+    leave: 'bg-blue-100 text-blue-700',
+    sick: 'bg-blue-100 text-blue-700',
+    ph: 'bg-gray-100 text-gray-500',
+    short_time: 'bg-gray-100 text-gray-500',
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[var(--border)]">
+            <th className="text-left p-2 font-semibold sticky left-0 bg-white z-10">Employee</th>
+            {days.map((d, i) => (
+              <th key={d} className="text-center p-2 font-semibold cursor-pointer hover:text-[var(--primary)]"
+                  onClick={() => onSelectDay(d)}>
+                {dayLabels[i]}<br />
+                <span className="text-xs font-normal text-[var(--muted)]">{format(new Date(d), 'dd')}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {employees.map(emp => (
+            <tr key={emp.id} className="border-b border-[var(--border)] hover:bg-gray-50">
+              <td className="p-2 font-medium sticky left-0 bg-white z-10 truncate max-w-[150px]">
+                <span className="text-xs text-[var(--muted)] mr-1">{emp.pt_code}</span>
+                {emp.full_name}
+              </td>
+              {days.map(d => {
+                const att = data.get(emp.id)?.get(d)
+                return (
+                  <td key={d} className="text-center p-2">
+                    <button onClick={() => onSelectDay(d)}
+                      className={`w-10 h-10 rounded-lg text-xs font-bold flex items-center justify-center mx-auto ${
+                        att ? (statusColor[att.status] || 'bg-gray-100') : 'bg-gray-50 border border-dashed border-gray-300 text-gray-300'
+                      }`}>
+                      {att ? (statusIcon[att.status] || '?') : '—'}
+                    </button>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ---------- component ----------
 
 export default function RegisterPage() {
@@ -132,6 +224,7 @@ export default function RegisterPage() {
   const supabase = createClient();
   const { toast } = useToast();
 
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('weekly');
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [rows, setRows] = useState<RegisterRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +235,7 @@ export default function RegisterPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [publicHoliday, setPublicHoliday] = useState<string | null>(null);
+  const [viewingEmployee, setViewingEmployee] = useState<{ id: string; name: string } | null>(null);
   const { showUndo } = useUndo();
   const [confirmModal, setConfirmModal] = useState<{
     title: string
@@ -495,16 +589,24 @@ export default function RegisterPage() {
             <Download className="h-4 w-4" />
             DOL Register
           </a>
-          <Link
-            href="/register/weekly-view"
-            className={cn(
-              'inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
-              'bg-[#1E293B] text-white hover:bg-[#2a2a4e] transition-colors min-h-[48px]'
-            )}
-          >
-            <CalendarDays className="h-4 w-4" />
-            Weekly View
-          </Link>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('weekly')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
+                viewMode === 'weekly' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              Week View
+            </button>
+            <button
+              onClick={() => setViewMode('daily')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
+                viewMode === 'daily' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              Day View
+            </button>
+          </div>
         </div>
       </div>
 
@@ -574,6 +676,22 @@ export default function RegisterPage() {
           </div>
         </div>
       </Card>
+
+      {/* Week grid view */}
+      {viewMode === 'weekly' && (
+        <Card padding="none">
+          <WeekGrid
+            weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
+            onSelectDay={(date) => {
+              setSelectedDate(date)
+              setViewMode('daily')
+            }}
+          />
+        </Card>
+      )}
+
+      {/* Daily view — summary + table */}
+      {viewMode === 'daily' && <>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -696,9 +814,12 @@ export default function RegisterPage() {
                               {getInitials(row.full_name)}
                             </div>
                           )}
-                          <span className={cn("font-medium truncate", row.emp_status === 'active' ? 'text-[#333]' : 'text-gray-400 line-through')}>
+                          <button
+                            onClick={() => setViewingEmployee({ id: row.employee_id, name: row.full_name })}
+                            className={cn("font-medium truncate text-left hover:underline", row.emp_status === 'active' ? 'text-[var(--primary)]' : 'text-gray-400 line-through')}
+                          >
                             {row.full_name}
-                          </span>
+                          </button>
                         </div>
                       </td>
 
@@ -927,6 +1048,8 @@ export default function RegisterPage() {
       </>
       )}
 
+      </>}
+
       {/* Saved overlay */}
       {showSavedOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -947,6 +1070,12 @@ export default function RegisterPage() {
           </div>
         </div>
       )}
+
+      <PayslipViewer
+        employeeId={viewingEmployee?.id || null}
+        employeeName={viewingEmployee?.name || ''}
+        onClose={() => setViewingEmployee(null)}
+      />
     </div>
   );
 }
