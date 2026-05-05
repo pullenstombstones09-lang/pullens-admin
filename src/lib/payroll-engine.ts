@@ -32,6 +32,7 @@ export interface PayrollResult {
   petty_shortfall: number;
   net: number;
   breakdown: PayrollBreakdown;
+  friday_ot_rollover: { date: string; minutes: number; employee_id: string }[];
 }
 
 export interface PayrollBreakdown {
@@ -88,6 +89,7 @@ const DEFAULT_DAILY_HOURS_45 = 9;    // 45hr staff: 9hrs/day over 5 days
 export function calculatePayroll(input: PayrollInput): PayrollResult {
   const { employee, attendance, overtimeRequests, activeLoans, pettyShortfall } = input;
   const dailyHours = (employee.weekly_hours || 40) >= 45 ? DEFAULT_DAILY_HOURS_45 : DEFAULT_DAILY_HOURS_40;
+  const fridayOtRollover: { date: string; minutes: number; employee_id: string }[] = [];
 
   // Step 1: hourly rate (admin/sales staff work 45hrs, factory 40hrs)
   const weeklyHours = employee.weekly_hours || 40;
@@ -106,7 +108,19 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
 
       if (day.status === 'present' || day.status === 'late') {
         if (day.time_in && day.time_out) {
-          hoursWorked = calculateHoursWorked(day.time_in, day.time_out);
+          const { ordinaryMinutes, fridayOtMinutes } = splitFridayHours(
+            day.time_in,
+            day.time_out,
+            day.date
+          );
+          hoursWorked = round2(ordinaryMinutes / 60);
+          if (fridayOtMinutes > 0) {
+            fridayOtRollover.push({
+              date: day.date,
+              minutes: fridayOtMinutes,
+              employee_id: employee.id,
+            });
+          }
         } else {
           hoursWorked = dailyHours;
         }
@@ -218,7 +232,41 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
       ot_entries: otEntries,
       loan_entries: loanEntries,
     },
+    friday_ot_rollover: fridayOtRollover,
   };
+}
+
+// Friday 16:00 cutoff — hours after 16:00 on Friday are OT for next week
+export function splitFridayHours(
+  timeIn: string,
+  timeOut: string,
+  date: string
+): { ordinaryMinutes: number; fridayOtMinutes: number } {
+  const dayOfWeek = new Date(date).getDay(); // 0=Sun, 5=Fri
+  if (dayOfWeek !== 5) {
+    // Not Friday — all hours are ordinary (minus breaks)
+    const [inH, inM] = timeIn.split(':').map(Number);
+    const [outH, outM] = timeOut.split(':').map(Number);
+    const totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+    return { ordinaryMinutes: Math.max(0, totalMinutes - 45), fridayOtMinutes: 0 };
+  }
+
+  const [inH, inM] = timeIn.split(':').map(Number);
+  const [outH, outM] = timeOut.split(':').map(Number);
+  const fourPm = 16 * 60; // 960
+  const inMinutes = inH * 60 + inM;
+  const outMinutes = outH * 60 + outM;
+
+  if (outMinutes <= fourPm) {
+    // Finished before or at 16:00 — all ordinary
+    const totalMinutes = outMinutes - inMinutes;
+    return { ordinaryMinutes: Math.max(0, totalMinutes - 45), fridayOtMinutes: 0 };
+  }
+
+  // Split at 16:00
+  const ordinaryMinutes = Math.max(0, (fourPm - inMinutes) - 45); // minus breaks
+  const fridayOtMinutes = outMinutes - fourPm; // no break deduction for OT portion
+  return { ordinaryMinutes, fridayOtMinutes };
 }
 
 function calculateHoursWorked(timeIn: string, timeOut: string): number {
@@ -248,6 +296,78 @@ function calculateWeeklyPAYE(weeklyGross: number): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+export interface SaturdayPayrollInput {
+  employee: Employee;
+  timeIn: string;
+  timeOut: string;
+}
+
+export function calculateSaturdayPayroll(input: SaturdayPayrollInput): PayrollResult {
+  const { employee, timeIn, timeOut } = input;
+  const weeklyHours = employee.weekly_hours || 40;
+  const hourlyRate = round2(employee.weekly_wage / weeklyHours);
+
+  const [inH, inM] = timeIn.split(':').map(Number);
+  const [outH, outM] = timeOut.split(':').map(Number);
+  const totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+
+  const twoPm = 14 * 60;
+  const inMinutes = inH * 60 + inM;
+  const outMinutes = outH * 60 + outM;
+
+  let ordinaryMinutes = Math.min(totalMinutes, twoPm - inMinutes);
+  ordinaryMinutes = Math.max(0, ordinaryMinutes);
+  const ordinaryHours = round2(ordinaryMinutes / 60);
+
+  let otMinutes = 0;
+  if (outMinutes > twoPm) {
+    otMinutes = outMinutes - twoPm;
+  }
+  const otHours = round2(otMinutes / 60);
+  const otAmount = round2(otHours * hourlyRate * 1.5);
+
+  const grossBasic = round2(hourlyRate * ordinaryHours);
+  const gross = round2(grossBasic + otAmount);
+  const net = gross; // Saturday cash — no deductions (handled on weekly payroll)
+
+  return {
+    employee_id: employee.id,
+    pt_code: employee.pt_code,
+    full_name: employee.full_name,
+    weekly_wage: employee.weekly_wage,
+    hourly_rate: hourlyRate,
+    ordinary_hours: ordinaryHours,
+    ot_hours: otHours,
+    ot_amount: otAmount,
+    late_minutes: 0,
+    late_deduction: 0,
+    gross,
+    uif_employee: 0,
+    uif_employer: 0,
+    paye: 0,
+    loan_deduction: 0,
+    garnishee: 0,
+    petty_shortfall: 0,
+    net,
+    friday_ot_rollover: [],
+    breakdown: {
+      daily_attendance: [{
+        date: new Date().toISOString().split('T')[0],
+        status: 'present',
+        hours_worked: ordinaryHours + otHours,
+        late_minutes: 0,
+      }],
+      ot_entries: otHours > 0 ? [{
+        date: new Date().toISOString().split('T')[0],
+        hours: otHours,
+        multiplier: 1.5,
+        amount: otAmount,
+      }] : [],
+      loan_entries: [],
+    },
+  };
 }
 
 // Validate payroll result against V12 (spec section 8: V12 parity testing)

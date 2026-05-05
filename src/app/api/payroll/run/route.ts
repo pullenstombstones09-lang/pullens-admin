@@ -228,6 +228,32 @@ export async function POST(request: Request) {
       totalNet += result.net;
     }
 
+    // 6b. Handle Friday OT rollover — store as approved OT requests for next week
+    const fridayOtEntries: { employee_id: string; date: string; hours: number }[] = [];
+    for (const result of results) {
+      for (const ot of result.friday_ot_rollover) {
+        fridayOtEntries.push({
+          employee_id: ot.employee_id,
+          date: ot.date,
+          hours: Math.round((ot.minutes / 60) * 100) / 100,
+        });
+      }
+    }
+
+    if (fridayOtEntries.length > 0) {
+      for (const entry of fridayOtEntries) {
+        await supabase
+          .from('overtime_requests')
+          .upsert({
+            employee_id: entry.employee_id,
+            date: entry.date,
+            hours: entry.hours,
+            rate_multiplier: 1.5,
+            status: 'approved',
+          }, { onConflict: 'employee_id,date' });
+      }
+    }
+
     // 7. Create payroll_run row
     const { data: runData, error: runError } = await supabase
       .from('payroll_runs')
