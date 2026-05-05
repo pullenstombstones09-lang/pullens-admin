@@ -151,10 +151,19 @@ body {
 .animate-pulse-blue { animation: pulse-blue 2s ease-in-out infinite; }
 .animate-pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
 .animate-slide-in-right { animation: slideInRight 200ms ease-out; }
-.card-hover { transition: transform 200ms ease, box-shadow 200ms ease; }
-.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1); }
+.card-hover { transition: border-color 150ms ease; }
+.card-hover:hover { border-color: var(--border); }
 .gradient-sidebar { background: var(--sidebar-bg); }
-.gradient-header { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
+
+.btn-gold {
+  background-color: var(--accent);
+  color: white;
+  font-weight: 700;
+  transition: background-color 150ms;
+}
+.btn-gold:hover {
+  background-color: var(--accent-hover);
+}
 
 .animate-shake {
   animation: shake 200ms ease-out;
