@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Printer, FileText, CheckCircle, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ interface PayrollRun {
   week_start: string
   week_end: string
   status: string
+  payroll_type?: string
 }
 
 interface PayslipRow {
@@ -33,6 +35,8 @@ function weekLabel(run: PayrollRun): string {
 
 export default function PrintPayslipsPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const runParam = searchParams.get('run')
 
   const [run, setRun] = useState<PayrollRun | null>(null)
   const [payslips, setPayslips] = useState<PayslipRow[]>([])
@@ -40,16 +44,27 @@ export default function PrintPayslipsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: runs } = await supabase
-        .from('payroll_runs')
-        .select('id, week_start, week_end, status')
-        .order('created_at', { ascending: false })
-        .limit(1)
+      let targetRun: PayrollRun | null = null
 
-      const latestRun = runs?.[0] ?? null
-      setRun(latestRun)
+      if (runParam) {
+        const { data } = await supabase
+          .from('payroll_runs')
+          .select('id, week_start, week_end, status, payroll_type')
+          .eq('id', runParam)
+          .single()
+        targetRun = data ?? null
+      } else {
+        const { data: runs } = await supabase
+          .from('payroll_runs')
+          .select('id, week_start, week_end, status, payroll_type')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        targetRun = runs?.[0] ?? null
+      }
 
-      if (!latestRun) {
+      setRun(targetRun)
+
+      if (!targetRun) {
         setLoading(false)
         return
       }
@@ -57,7 +72,7 @@ export default function PrintPayslipsPage() {
       const { data: slips } = await supabase
         .from('payslips')
         .select('id, employee_id, net, signed_at, employees(full_name, pt_code)')
-        .eq('payroll_run_id', latestRun.id)
+        .eq('payroll_run_id', targetRun.id)
         .order('employees(full_name)')
 
       setPayslips((slips as unknown as PayslipRow[]) ?? [])
@@ -65,7 +80,7 @@ export default function PrintPayslipsPage() {
     }
 
     load()
-  }, [])
+  }, [runParam])
 
   if (loading) {
     return (
@@ -95,6 +110,11 @@ export default function PrintPayslipsPage() {
     <div className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
       <div>
+        {run?.payroll_type === 'saturday_cash' && (
+          <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 mb-2">
+            Saturday Cash
+          </span>
+        )}
         <h1 className="text-2xl font-bold text-gray-900">Print Payslips</h1>
         <p className="text-gray-500 mt-1">{weekLabel(run)}</p>
         <p className="text-sm text-gray-400 mt-1">
