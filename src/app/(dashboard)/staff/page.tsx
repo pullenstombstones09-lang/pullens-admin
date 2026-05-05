@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ProgressRing } from '@/components/ui/progress-ring';
+import { PayslipViewer } from '@/components/ui/payslip-viewer';
 import {
   Search,
   ArrowUpDown,
@@ -22,6 +23,7 @@ import {
   Plus,
   X,
   ChevronDown,
+  FileText,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -295,6 +297,7 @@ export default function StaffListPage() {
   const [occupationFilter, setOccupationFilter] = useState<string>('All');
   const [sortKey, setSortKey] = useState<SortKey>('pt_code');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewingEmployee, setViewingEmployee] = useState<{ id: string; name: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -683,6 +686,16 @@ export default function StaffListPage() {
                     </div>
 
                     <ProgressRing percent={employeeCompleteness(emp)} size={28} strokeWidth={3} />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingEmployee({ id: emp.id, name: emp.full_name });
+                      }}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E40AF] hover:bg-blue-50 transition-colors"
+                      title="View payslip"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
                     <ChevronRight className="h-4 w-4 text-stone-300 shrink-0" />
                   </div>
                 </Card>
@@ -691,6 +704,12 @@ export default function StaffListPage() {
           </div>
         )}
       </div>
+
+      <PayslipViewer
+        employeeId={viewingEmployee?.id || null}
+        employeeName={viewingEmployee?.name || ''}
+        onClose={() => setViewingEmployee(null)}
+      />
     </div>
   );
 }

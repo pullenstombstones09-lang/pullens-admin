@@ -23,6 +23,7 @@ import {
   LogOut,
   Menu,
   X,
+  Sun,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -36,6 +37,7 @@ const iconMap: Record<string, ReactNode> = {
   bell: <Bell className="h-5 w-5" />,
   download: <Download className="h-5 w-5" />,
   cog: <Settings className="h-5 w-5" />,
+  sun: <Sun className="h-5 w-5" />,
 };
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {

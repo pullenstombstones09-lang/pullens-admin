@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 import { CheckCircle, RotateCcw } from 'lucide-react'
@@ -155,6 +156,8 @@ function AllDone() {
 export default function SignPayslipsPage() {
   const supabase = createClient()
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const runParam = searchParams.get('run')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -170,21 +173,36 @@ export default function SignPayslipsPage() {
     setLoading(true)
     setError(null)
 
-    // 1. Get the most recent payroll run
-    const { data: runData, error: runErr } = await supabase
-      .from('payroll_runs')
-      .select('*')
-      .order('run_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (runErr || !runData) {
-      setError('No payroll run found.')
-      setLoading(false)
-      return
+    // 1. Get the payroll run — specific if ?run= provided, otherwise most recent
+    let runData: PayrollRun | null = null
+    if (runParam) {
+      const { data, error: runErr } = await supabase
+        .from('payroll_runs')
+        .select('*')
+        .eq('id', runParam)
+        .single()
+      if (runErr || !data) {
+        setError('Payroll run not found.')
+        setLoading(false)
+        return
+      }
+      runData = data as PayrollRun
+    } else {
+      const { data, error: runErr } = await supabase
+        .from('payroll_runs')
+        .select('*')
+        .order('run_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (runErr || !data) {
+        setError('No payroll run found.')
+        setLoading(false)
+        return
+      }
+      runData = data as PayrollRun
     }
 
-    setRun(runData as PayrollRun)
+    setRun(runData)
 
     // 2. Get all payslips for this run
     const { data: allSlips } = await supabase
@@ -209,7 +227,7 @@ export default function SignPayslipsPage() {
     }
 
     setLoading(false)
-  }, [supabase])
+  }, [supabase, runParam])
 
   useEffect(() => {
     load()
@@ -299,7 +317,14 @@ export default function SignPayslipsPage() {
     <div className="mx-auto max-w-lg space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-[#1E293B] tracking-tight">Sign Payslips</h1>
+        <div>
+          {run?.payroll_type === 'saturday_cash' && (
+            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 mb-2">
+              Saturday Cash
+            </span>
+          )}
+          <h1 className="text-2xl font-black text-[#1E293B] tracking-tight">Sign Payslips</h1>
+        </div>
         <span className="rounded-full bg-[#EFF6FF] px-4 py-1.5 text-sm font-bold text-[#1E40AF]">
           {remaining} remaining
         </span>

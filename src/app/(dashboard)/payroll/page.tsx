@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SlidePanel } from '@/components/ui/slide-panel';
+import { PayslipViewer } from '@/components/ui/payslip-viewer';
 import type { PayrollRun, PayrollStatus } from '@/types/database';
 import type { PayrollResult } from '@/lib/payroll-engine';
 import {
@@ -89,6 +90,7 @@ export default function PayrollPage() {
 
   // Quick-view slide panel
   const [quickView, setQuickView] = useState<PayrollResult | null>(null);
+  const [viewingEmployee, setViewingEmployee] = useState<{ id: string; name: string } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
     title: string
     description: string
@@ -525,14 +527,25 @@ export default function PayrollPage() {
                         />
                       </td>
                       <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
-                      <td
-                        className="px-3 py-2 font-medium text-[#1E40AF] cursor-pointer hover:underline whitespace-nowrap"
-                        onClick={() => setQuickView(r)}
-                      >
-                        {r.full_name}
-                        {hasAnomaly && (
-                          <AlertTriangle className="inline-block ml-1.5 h-3.5 w-3.5 text-red-500" />
-                        )}
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="font-medium text-[#1E40AF] cursor-pointer hover:underline"
+                            onClick={() => setQuickView(r)}
+                          >
+                            {r.full_name}
+                          </span>
+                          {hasAnomaly && (
+                            <AlertTriangle className="inline-block h-3.5 w-3.5 text-red-500 shrink-0" />
+                          )}
+                          <button
+                            onClick={() => setViewingEmployee({ id: r.employee_id, name: r.full_name })}
+                            className="ml-1 text-gray-400 hover:text-[#1E40AF] transition-colors"
+                            title="View payslip"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">{r.ordinary_hours.toFixed(1)}</td>
                       <td className="px-3 py-2 text-right font-mono text-xs">
@@ -863,6 +876,12 @@ export default function PayrollPage() {
           )}
         </CardContent>
       </Card>
+
+      <PayslipViewer
+        employeeId={viewingEmployee?.id || null}
+        employeeName={viewingEmployee?.name || ''}
+        onClose={() => setViewingEmployee(null)}
+      />
     </div>
   );
 }
