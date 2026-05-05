@@ -6,9 +6,20 @@ import type { Employee, Attendance, OvertimeRequest, Loan } from '@/types/databa
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { week_start, week_end } = body as {
+    const {
+      week_start,
+      week_end,
+      draftOnly,
+      finalize,
+      run_id: existingRunId,
+      approvedEmployeeIds,
+    } = body as {
       week_start: string;
       week_end: string;
+      draftOnly?: boolean;
+      finalize?: boolean;
+      run_id?: string;
+      approvedEmployeeIds?: string[];
     };
 
     if (!week_start || !week_end) {
@@ -19,6 +30,50 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createServerSupabase();
+
+    // ── FINALIZE: delete pulled employees' payslips, mark run generated ──────
+    if (finalize && existingRunId && approvedEmployeeIds) {
+      // Delete payslips for employees NOT in approvedEmployeeIds
+      const { data: allPayslips } = await supabase
+        .from('payslips')
+        .select('id, employee_id')
+        .eq('payroll_run_id', existingRunId);
+
+      const toDelete = (allPayslips ?? [])
+        .filter((ps) => !approvedEmployeeIds.includes(ps.employee_id))
+        .map((ps) => ps.id);
+
+      if (toDelete.length > 0) {
+        await supabase.from('payslips').delete().in('id', toDelete);
+      }
+
+      // Recalculate totals from remaining payslips
+      const { data: remaining } = await supabase
+        .from('payslips')
+        .select('gross, net')
+        .eq('payroll_run_id', existingRunId);
+
+      const totalGross = (remaining ?? []).reduce((s, r) => s + (r.gross ?? 0), 0);
+      const totalNet = (remaining ?? []).reduce((s, r) => s + (r.net ?? 0), 0);
+
+      await supabase
+        .from('payroll_runs')
+        .update({
+          status: 'generated',
+          total_gross: Math.round(totalGross * 100) / 100,
+          total_net: Math.round(totalNet * 100) / 100,
+        })
+        .eq('id', existingRunId);
+
+      return NextResponse.json({
+        run_id: existingRunId,
+        week_start,
+        week_end,
+        employee_count: approvedEmployeeIds.length,
+        total_gross: Math.round(totalGross * 100) / 100,
+        total_net: Math.round(totalNet * 100) / 100,
+      });
+    }
 
     // 1. Fetch all active employees
     const { data: employees, error: empError } = await supabase
@@ -300,7 +355,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: slipError.message }, { status: 500 });
     }
 
-    // 9. Return results
+    // 9. If draftOnly, stop here — review page will handle finalization
+    if (draftOnly) {
+      return NextResponse.json({
+        run_id: runId,
+        week_start,
+        week_end,
+        employee_count: results.length,
+        total_gross: Math.round(totalGross * 100) / 100,
+        total_net: Math.round(totalNet * 100) / 100,
+      });
+    }
+
+    // 10. Return results
     return NextResponse.json({
       run_id: runId,
       week_start,
