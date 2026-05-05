@@ -259,7 +259,7 @@ export default function PayrollReviewPage() {
 
   const confirmPull = async () => {
     if (!pullTarget) return;
-    await toggleStatus(pullTarget, 'pulled', pullReason || null);
+    await toggleStatus(pullTarget, 'pulled', pullReason || undefined);
     setPullTarget(null);
     setPullReason('');
   };
