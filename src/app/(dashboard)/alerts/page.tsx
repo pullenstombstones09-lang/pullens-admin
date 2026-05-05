@@ -82,7 +82,7 @@ const SEVERITY_ICON_COLORS: Record<Severity, string> = {
 };
 
 const FILTER_OPTIONS: { value: Severity | 'all'; label: string; color: string }[] = [
-  { value: 'all', label: 'All', color: 'bg-[var(--foreground)] text-white' },
+  { value: 'all', label: 'All', color: 'bg-[var(--primary)] text-white' },
   { value: 'red', label: 'Critical', color: 'bg-red-500 text-white' },
   { value: 'amber', label: 'Warning', color: 'bg-amber-500 text-white' },
   { value: 'yellow', label: 'Notice', color: 'bg-yellow-400 text-[#333]' },

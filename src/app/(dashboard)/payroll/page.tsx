@@ -484,7 +484,7 @@ export default function PayrollPage() {
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-[var(--foreground)] text-white">
+                <tr className="border-b border-gray-200 bg-[var(--primary)] text-white">
                   <th className="px-3 py-3 text-left">
                     <input
                       type="checkbox"

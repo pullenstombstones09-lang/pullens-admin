@@ -553,7 +553,7 @@ export default function StaffListPage() {
             className={cn(
               'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
               occupationFilter === 'All'
-                ? 'bg-[var(--foreground)] text-white'
+                ? 'bg-[var(--primary)] text-white'
                 : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
             )}
           >
@@ -566,7 +566,7 @@ export default function StaffListPage() {
               className={cn(
                 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
                 occupationFilter === occ
-                  ? 'bg-[var(--foreground)] text-white'
+                  ? 'bg-[var(--primary)] text-white'
                   : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
               )}
             >

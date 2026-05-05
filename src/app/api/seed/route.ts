@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       { name: 'Nisha', role: 'supervisor', pin: '0000', force_pin_change: true },
       { name: 'Veshi', role: 'supervisor', pin: '0000', force_pin_change: true },
       { name: 'Marlyn', role: 'attendance_clerk', pin: '0000', force_pin_change: true },
+      { name: 'Cheryl', role: 'attendance_clerk', pin: '0000', force_pin_change: true },
       { name: 'Lee-Ann', role: 'bookkeeper', pin: '0000', force_pin_change: true },
       { name: 'Kam', role: 'cash_clerk', pin: '0000', force_pin_change: true },
     ];

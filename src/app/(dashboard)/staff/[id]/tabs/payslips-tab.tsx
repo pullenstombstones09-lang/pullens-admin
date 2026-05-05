@@ -169,7 +169,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
             onClick={() => setFilterMonth(null)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
               filterMonth === null
-                ? 'bg-[var(--foreground)] text-white'
+                ? 'bg-[var(--primary)] text-white'
                 : 'bg-white text-stone-600 border border-stone-200'
             }`}
           >
@@ -181,7 +181,7 @@ export default function PayslipsTab({ employeeId }: PayslipsTabProps) {
               onClick={() => setFilterMonth(i)}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
                 filterMonth === i
-                  ? 'bg-[var(--foreground)] text-white'
+                  ? 'bg-[var(--primary)] text-white'
                   : 'bg-white text-stone-600 border border-stone-200'
               }`}
             >

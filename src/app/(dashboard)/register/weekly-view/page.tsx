@@ -281,7 +281,7 @@ export default function WeeklyViewPage() {
                             className="h-7 w-7 rounded-full object-cover shrink-0"
                           />
                         ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--foreground)] text-white text-[10px] font-bold shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)] text-white text-[10px] font-bold shrink-0">
                             {getInitials(emp.full_name)}
                           </div>
                         )}

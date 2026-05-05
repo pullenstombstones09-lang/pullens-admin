@@ -934,7 +934,7 @@ export default function RegisterPage() {
                               className="h-9 w-9 rounded-full object-cover shrink-0"
                             />
                           ) : (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--foreground)] text-white text-xs font-bold shrink-0">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] text-white text-xs font-bold shrink-0">
                               {getInitials(row.full_name)}
                             </div>
                           )}

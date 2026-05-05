@@ -690,7 +690,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'fixed'
-                    ? 'bg-[var(--foreground)] text-white'
+                    ? 'bg-[var(--primary)] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >
@@ -701,7 +701,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'custom'
-                    ? 'bg-[var(--foreground)] text-white'
+                    ? 'bg-[var(--primary)] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >
