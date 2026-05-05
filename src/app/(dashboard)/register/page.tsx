@@ -260,8 +260,41 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
     return { captured, total: employees.length }
   })
 
+  // Clear a single day's attendance for all employees
+  async function clearDay(date: string) {
+    setSaving('clearing')
+    await supabase.from('attendance').delete().eq('date', date)
+    await loadData()
+  }
+
+  // Clear all attendance for the entire week
+  async function clearAll() {
+    setSaving('clearing')
+    for (const d of days) {
+      await supabase.from('attendance').delete().eq('date', d)
+    }
+    await loadData()
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => onSelectDay(today)}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity"
+        >
+          Day View
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => { if (confirm('Clear all attendance for this week?')) clearAll() }}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
+        >
+          Clear All
+        </button>
+      </div>
+
       {/* Day header row */}
       <div className="grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 px-1">
         <div />
@@ -270,19 +303,28 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
           const { captured, total } = dayCounts[i]
           const allDone = captured === total && total > 0
           return (
-            <button
-              key={d}
-              onClick={() => onSelectDay(d)}
-              className={`text-center py-2 rounded-lg transition-all ${
-                isToday ? 'bg-[var(--primary)] text-white font-bold' : 'hover:bg-gray-100'
-              }`}
-            >
-              <p className={`text-sm font-semibold ${isToday ? '' : 'text-[var(--foreground)]'}`}>{dayLabels[i]}</p>
-              <p className={`text-xs ${isToday ? 'text-white/70' : 'text-[var(--muted)]'}`}>{format(new Date(d), 'dd MMM')}</p>
-              <p className={`text-xs font-semibold mt-0.5 ${
-                allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
-              }`}>{captured}/{total}</p>
-            </button>
+            <div key={d} className="text-center">
+              <button
+                onClick={() => onSelectDay(d)}
+                className={`w-full py-2 rounded-lg transition-all ${
+                  isToday ? 'bg-[var(--primary)] text-white font-bold' : 'hover:bg-gray-100'
+                }`}
+              >
+                <p className={`text-sm font-semibold ${isToday ? '' : 'text-[var(--foreground)]'}`}>{dayLabels[i]}</p>
+                <p className={`text-xs ${isToday ? 'text-white/70' : 'text-[var(--muted)]'}`}>{format(new Date(d), 'dd MMM')}</p>
+                <p className={`text-xs font-semibold mt-0.5 ${
+                  allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
+                }`}>{captured}/{total}</p>
+              </button>
+              {captured > 0 && (
+                <button
+                  onClick={() => { if (confirm(`Clear ${dayLabels[i]}?`)) clearDay(d) }}
+                  className="text-[9px] text-red-400 hover:text-red-600 mt-0.5"
+                >
+                  clear
+                </button>
+              )}
+            </div>
           )
         })}
       </div>

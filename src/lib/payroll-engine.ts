@@ -149,25 +149,53 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
   const totalLateMinutes = attendance.reduce((sum, d) => sum + d.late_minutes, 0);
   const lateDeduction = round2((totalLateMinutes / 60) * hourlyRate);
 
-  // Step 4: overtime
+  // Step 4: overtime — OT only kicks in after 40 (or 45) hours in the week
+  // Any approved OT hours are added to total. If total exceeds weekly limit,
+  // the excess is paid at OT rate. Hours under the limit are ordinary rate.
   let otHours = 0;
   let otAmount = 0;
   const otEntries: PayrollBreakdown['ot_entries'] = [];
 
+  // Collect all approved OT hours
+  let totalOtRequestHours = 0;
   for (const ot of overtimeRequests) {
     if (ot.status !== 'approved') continue;
-    const amount = round2(ot.hours * hourlyRate * ot.rate_multiplier);
-    otHours += ot.hours;
-    otAmount += amount;
-    otEntries.push({
-      date: ot.date,
-      hours: ot.hours,
-      multiplier: ot.rate_multiplier,
-      amount,
-    });
+    totalOtRequestHours += ot.hours;
   }
 
-  // Step 5: gross (hourly rate based on weekly_hours: 40 or 45)
+  // Total hours = ordinary + OT request hours
+  const totalHoursWorked = ordinaryHours + totalOtRequestHours;
+
+  if (totalHoursWorked > weeklyHours) {
+    // Only hours above the weekly limit are OT
+    const actualOtHours = round2(totalHoursWorked - weeklyHours);
+    // The rest fills up ordinary hours to the cap
+    ordinaryHours = weeklyHours;
+
+    // Distribute OT across requests proportionally
+    for (const ot of overtimeRequests) {
+      if (ot.status !== 'approved') continue;
+      const proportion = totalOtRequestHours > 0 ? ot.hours / totalOtRequestHours : 0;
+      const thisOtHours = round2(actualOtHours * proportion);
+      const thisOrdinaryHours = round2(ot.hours - thisOtHours); // absorbed into ordinary
+      const amount = round2(thisOtHours * hourlyRate * ot.rate_multiplier);
+      if (thisOtHours > 0) {
+        otHours += thisOtHours;
+        otAmount += amount;
+        otEntries.push({
+          date: ot.date,
+          hours: thisOtHours,
+          multiplier: ot.rate_multiplier,
+          amount,
+        });
+      }
+    }
+  } else {
+    // Total under weekly limit — all hours are ordinary, no OT
+    ordinaryHours = round2(totalHoursWorked);
+  }
+
+  // Step 5: gross
   const grossBasic = round2(hourlyRate * ordinaryHours);
   const gross = round2(grossBasic + otAmount - lateDeduction);
 
