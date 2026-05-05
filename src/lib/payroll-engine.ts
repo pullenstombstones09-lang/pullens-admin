@@ -55,23 +55,25 @@ export interface PayrollBreakdown {
   }[];
 }
 
-// Late-coming rules (spec section 7 + section 11)
-// 08:00-08:05: on time (grace)
-// 08:06-08:30: dock 30 min
-// 08:31-09:00: dock 1 hour (60 min)
-// 09:00+: supervisor decides (default: full day unpaid = 8.25hrs × 60 = 495 min)
-export function calculateLateMinutes(timeIn: string | null, supervisorOverride?: number): number {
+// Late-coming rules (updated May 2026)
+// 08:00-08:05: on time (5-minute grace)
+// 08:06-08:15: dock 30 min
+// 08:16-09:00: dock 60 min
+// 09:01+: dock actual minutes missed (auto, no supervisor override)
+// Owner can still manually override any individual dock from the register
+export function calculateLateMinutes(timeIn: string | null, manualOverride?: number): number {
+  if (manualOverride !== undefined) return manualOverride;
   if (!timeIn) return 0;
 
   const [hours, minutes] = timeIn.split(':').map(Number);
   const totalMinutes = hours * 60 + minutes;
   const eightOClock = 8 * 60; // 480
 
-  if (totalMinutes <= eightOClock + 5) return 0;        // grace period
-  if (totalMinutes <= eightOClock + 30) return 30;       // tier 1: dock 30 min
-  if (totalMinutes <= eightOClock + 60) return 60;       // tier 2: dock 1 hour
-  // After 09:00: supervisor decides
-  return supervisorOverride ?? 495; // default full day
+  if (totalMinutes <= eightOClock + 5) return 0;         // grace period
+  if (totalMinutes <= eightOClock + 15) return 30;        // tier 1: dock 30 min
+  if (totalMinutes <= eightOClock + 60) return 60;        // tier 2: dock 60 min
+  // After 09:00: dock actual minutes missed from 08:00
+  return totalMinutes - eightOClock;
 }
 
 // Working hours per day (excluding breaks)
