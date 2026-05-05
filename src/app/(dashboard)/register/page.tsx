@@ -137,6 +137,7 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
   const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null) // "empId-date" key
 
   const days = Array.from({ length: 5 }, (_, i) => {
     const d = new Date(weekStart)
@@ -146,25 +147,100 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      const weekEnd = days[4]
-      const [{ data: emps }, { data: att }] = await Promise.all([
-        supabase.from('employees').select('id, full_name, pt_code').eq('status', 'active').order('full_name'),
-        supabase.from('attendance').select('*').gte('date', weekStart).lte('date', weekEnd),
-      ])
-      setEmployees(emps || [])
-      const map = new Map<string, Map<string, any>>()
-      for (const a of att || []) {
-        if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
-        map.get(a.employee_id)!.set(a.date, a)
-      }
-      setData(map)
-      setLoading(false)
+  async function loadData() {
+    setLoading(true)
+    const weekEnd = days[4]
+    const [{ data: emps }, { data: att }] = await Promise.all([
+      supabase.from('employees').select('id, full_name, pt_code').eq('status', 'active').order('full_name'),
+      supabase.from('attendance').select('*').gte('date', weekStart).lte('date', weekEnd),
+    ])
+    setEmployees(emps || [])
+    const map = new Map<string, Map<string, any>>()
+    for (const a of att || []) {
+      if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
+      map.get(a.employee_id)!.set(a.date, a)
     }
-    load()
-  }, [weekStart])
+    setData(map)
+    setLoading(false)
+  }
+
+  useEffect(() => { loadData() }, [weekStart])
+
+  // Quick toggle: empty → present (standard times) → absent → empty
+  async function quickToggle(empId: string, date: string, dayIdx: number) {
+    const att = data.get(empId)?.get(date)
+    const key = `${empId}-${date}`
+    setSaving(key)
+
+    const isFri = dayIdx === 4
+    const stdIn = '08:00'
+    const stdOut = isFri ? '16:00' : '17:00'
+
+    if (!att) {
+      // Empty → Present with standard times
+      await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          records: [{
+            employee_id: empId,
+            date,
+            status: 'present',
+            time_in: stdIn,
+            time_out: stdOut,
+            late_minutes: 0,
+            reason: null,
+          }],
+        }),
+      })
+    } else if (att.status === 'present' || att.status === 'late') {
+      // Present/Late → Absent
+      await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          records: [{
+            employee_id: empId,
+            date,
+            status: 'absent',
+            time_in: null,
+            time_out: null,
+            late_minutes: 0,
+            reason: null,
+          }],
+        }),
+      })
+    } else if (att.status === 'absent') {
+      // Absent → clear (delete)
+      await supabase.from('attendance').delete().eq('employee_id', empId).eq('date', date)
+    }
+
+    // Refresh data
+    const { data: freshAtt } = await supabase
+      .from('attendance')
+      .select('*')
+      .gte('date', weekStart)
+      .lte('date', days[4])
+
+    const map = new Map<string, Map<string, any>>()
+    for (const a of freshAtt || []) {
+      if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
+      map.get(a.employee_id)!.set(a.date, a)
+    }
+    setData(map)
+    setSaving(null)
+  }
+
+  // Calculate OT minutes from time_out
+  function getOtMinutes(timeOut: string | null, dayIdx: number): number {
+    if (!timeOut) return 0
+    const [h, m] = timeOut.split(':').map(Number)
+    const outMin = h * 60 + m
+    const cutoff = dayIdx === 4 ? 16 * 60 : 17 * 60
+    return Math.max(0, outMin - cutoff)
+  }
 
   if (loading) {
     return (
@@ -176,13 +252,12 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
     )
   }
 
-  // Count stats per day
   const dayCounts = days.map(d => {
-    let captured = 0, total = employees.length
+    let captured = 0
     for (const emp of employees) {
       if (data.get(emp.id)?.get(d)) captured++
     }
-    return { captured, total }
+    return { captured, total: employees.length }
   })
 
   return (
@@ -199,18 +274,14 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
               key={d}
               onClick={() => onSelectDay(d)}
               className={`text-center py-2 rounded-lg transition-all ${
-                isToday
-                  ? 'bg-[var(--primary)] text-white font-bold'
-                  : 'hover:bg-gray-100'
+                isToday ? 'bg-[var(--primary)] text-white font-bold' : 'hover:bg-gray-100'
               }`}
             >
               <p className={`text-sm font-semibold ${isToday ? '' : 'text-[var(--foreground)]'}`}>{dayLabels[i]}</p>
               <p className={`text-xs ${isToday ? 'text-white/70' : 'text-[var(--muted)]'}`}>{format(new Date(d), 'dd MMM')}</p>
               <p className={`text-xs font-semibold mt-0.5 ${
                 allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
-              }`}>
-                {captured}/{total}
-              </p>
+              }`}>{captured}/{total}</p>
             </button>
           )
         })}
@@ -223,114 +294,134 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
           <div
             key={emp.id}
             className={`grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 items-center rounded-xl border px-3 py-2 transition-all ${
-              weekComplete
-                ? 'border-green-200 bg-green-50/50'
-                : 'border-[var(--border)] bg-white'
+              weekComplete ? 'border-green-200 bg-green-50/50' : 'border-[var(--border)] bg-white'
             }`}
           >
-            {/* Name */}
             <div className="min-w-0 pr-2">
               <p className="font-semibold text-sm truncate">{emp.full_name}</p>
               <p className="text-xs text-[var(--muted)]">{emp.pt_code}</p>
             </div>
 
-            {/* Day cells */}
             {days.map((d, dayIdx) => {
               const att = data.get(emp.id)?.get(d)
-              const isPast = d < today
-              const isToday = d === today
+              const key = `${emp.id}-${d}`
+              const isSaving = saving === key
+              const otMin = att ? getOtMinutes(att.time_out, dayIdx) : 0
 
+              // Empty — tap to mark present
               if (!att) {
                 return (
                   <button
                     key={d}
-                    onClick={() => onSelectDay(d)}
-                    className={`h-12 rounded-lg flex flex-col items-center justify-center transition-all ${
-                      isToday
-                        ? 'border-2 border-dashed border-[var(--primary)] bg-blue-50 hover:bg-blue-100'
-                        : isPast
-                        ? 'border-2 border-dashed border-red-300 bg-red-50 hover:bg-red-100'
-                        : 'border border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100'
-                    }`}
+                    disabled={isSaving}
+                    onClick={() => quickToggle(emp.id, d, dayIdx)}
+                    className="h-14 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center hover:border-green-400 hover:bg-green-50 transition-all active:scale-95"
                   >
-                    <span className={`text-xs font-medium ${
-                      isToday ? 'text-[var(--primary)]' : isPast ? 'text-red-400' : 'text-gray-300'
-                    }`}>
-                      {isPast ? 'Missing' : isToday ? 'Capture' : '—'}
-                    </span>
+                    {isSaving
+                      ? <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                      : <span className="text-gray-300 text-lg">+</span>
+                    }
                   </button>
                 )
               }
 
-              // Status-based rendering
               const s = att.status
-              if (s === 'present' && isStandardTime(att.time_in, att.time_out, dayIdx)) {
-                // Standard day — just a clean green tick
+
+              // Present (standard time) — big green tick
+              if ((s === 'present') && isStandardTime(att.time_in, att.time_out, dayIdx)) {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-green-500 flex items-center justify-center hover:bg-green-600 transition-colors">
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <button key={d} disabled={isSaving}
+                    onClick={() => quickToggle(emp.id, d, dayIdx)}
+                    onDoubleClick={() => onSelectDay(d)}
+                    className="h-14 rounded-lg bg-green-500 flex items-center justify-center hover:bg-green-600 transition-all active:scale-95">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </button>
                 )
               }
 
-              if (s === 'present') {
-                // Non-standard times — show them
+              // Present with OT — green tick + OT badge
+              if (s === 'present' && otMin > 0) {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center hover:bg-green-200 transition-colors">
-                    <span className="text-[10px] font-semibold text-green-700">{att.time_in || '?'}</span>
-                    <span className="text-[10px] font-semibold text-green-700">{att.time_out || '?'}</span>
+                  <button key={d} disabled={isSaving}
+                    onClick={() => onSelectDay(d)}
+                    className="h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center hover:bg-green-600 transition-all active:scale-95 relative">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[9px] font-bold text-white px-1 rounded-full">
+                      +{Math.round(otMin / 60)}h
+                    </span>
                   </button>
                 )
               }
 
+              // Present with non-standard times (no OT) — green with times shown
+              if (s === 'present') {
+                return (
+                  <button key={d} disabled={isSaving}
+                    onClick={() => onSelectDay(d)}
+                    className="h-14 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center hover:bg-green-200 transition-all active:scale-95">
+                    <span className="text-[10px] font-semibold text-green-700">{att.time_in}</span>
+                    <span className="text-[10px] font-semibold text-green-700">{att.time_out}</span>
+                  </button>
+                )
+              }
+
+              // Late — amber with late minutes, tap to edit in daily
               if (s === 'late') {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-amber-100 border border-amber-300 flex flex-col items-center justify-center hover:bg-amber-200 transition-colors">
-                    <span className="text-[10px] font-bold text-amber-700">LATE</span>
-                    <span className="text-[10px] text-amber-600">{att.time_in || '?'}</span>
+                  <button key={d} disabled={isSaving}
+                    onClick={() => onSelectDay(d)}
+                    className="h-14 rounded-lg bg-amber-400 flex flex-col items-center justify-center hover:bg-amber-500 transition-all active:scale-95">
+                    <span className="text-[10px] font-bold text-white">{att.time_in}</span>
+                    <span className="text-[9px] font-bold text-white/80">-{att.late_minutes}m</span>
                   </button>
                 )
               }
 
+              // Absent — red cross, tap to toggle back to empty
               if (s === 'absent') {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors">
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                  <button key={d} disabled={isSaving}
+                    onClick={() => quickToggle(emp.id, d, dayIdx)}
+                    className="h-14 rounded-lg bg-red-500 flex items-center justify-center hover:bg-red-600 transition-all active:scale-95">
+                    {isSaving
+                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    }
                   </button>
                 )
               }
 
+              // Leave/Sick — blue, tap to edit
               if (s === 'leave' || s === 'sick') {
                 return (
                   <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-blue-100 border border-blue-300 flex items-center justify-center hover:bg-blue-200 transition-colors">
-                    <span className="text-[10px] font-bold text-blue-700">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
+                    className="h-14 rounded-lg bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-all active:scale-95">
+                    <span className="text-[10px] font-bold text-white">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
                   </button>
                 )
               }
 
+              // PH
               if (s === 'ph') {
                 return (
                   <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center hover:bg-purple-200 transition-colors">
-                    <span className="text-[10px] font-bold text-purple-600">PH</span>
+                    className="h-14 rounded-lg bg-purple-500 flex items-center justify-center hover:bg-purple-600 transition-all active:scale-95">
+                    <span className="text-[10px] font-bold text-white">PH</span>
                   </button>
                 )
               }
 
-              // short_time or other
+              // Short time / other
               return (
                 <button key={d} onClick={() => onSelectDay(d)}
-                  className="h-12 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center hover:bg-gray-200 transition-colors">
-                  <span className="text-[10px] font-bold text-gray-500">ST</span>
+                  className="h-14 rounded-lg bg-gray-400 flex items-center justify-center hover:bg-gray-500 transition-all active:scale-95">
+                  <span className="text-[10px] font-bold text-white">ST</span>
                 </button>
               )
             })}
