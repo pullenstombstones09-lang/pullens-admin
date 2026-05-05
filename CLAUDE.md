@@ -22,17 +22,22 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 
 - Legal: Amazon Creek Trading (Pty) Ltd t/a Pullens Tombstones
 - Reg: 2011/105461/23, COID: 990001280518, UIF: 2573997/9
-- 38 employees, 6 admin users
+- 38 employees, 7 admin users (Cheryl added 5 May 2026)
 
 ## Locked Decisions
 
 1. Separate from YeboPro — own Supabase org, own repo, own Vercel project
 2. PIN auth — 4-digit, bcrypt hashed, force-change on first login
 3. Payroll formula — matches V12 spreadsheet exactly
-4. Late rules — grace 5min, 6-30=dock 30, 31-60=dock 60, 60+=supervisor
+4. Late rules — grace 5min, 08:06-08:15=dock 30, 08:16-09:00=dock 60, 09:01+=actual minutes missed (owner can override)
 5. Petty cash cutoff — Thursday 16:00 SAST
 6. NMW — R30.23/hr (March 2026)
 7. Profile-first UI, Tablet-first (48px touch targets)
+8. Pay week = Monday 00:00 → Friday 16:00. Friday after 16:00 = OT, rolls into next week
+9. OT only kicks in after 40 hours total for the week
+10. Saturday payroll is a separate cash run (type: saturday_cash)
+11. Per-employee approval gate before payroll generates (default all approved)
+12. Royal blue (#1E40AF) primary + gold (#C4A35A) accent — no charcoal
 
 ## Key Infrastructure
 
@@ -47,73 +52,86 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 28 April 2026 (evening session)
+## Status — 6 May 2026 (session complete)
 
 ### CURRENT BUILD — main branch, deployed to Vercel
 
-**Session work (28 April):** Full UX overhaul + payroll workflow restructure + register improvements + petty cash fixes.
+**Session work (5-6 May):** Major payroll workflow redesign — approval gate, Saturday cash payroll, day-aware dashboard, register overhaul.
 
-**Visual refresh:**
-- Royal blue palette (#1E40AF primary, #3B82F6 light, #F8FAFC background)
-- Login pages: royal blue bg, logo on frosted glass card
-- Gradient sidebar, pulsing animations, hover lift on cards
-- All pages colour-swept (40+ files)
+**Payroll workflow redesign (20 commits):**
+- Per-employee approval gate — all default approved, anomalies auto-flagged, "Run Final Payroll" button
+- Saturday cash payroll — separate run type, select workers, generate, sign, print
+- Individual payslip recalculation — fix one without scrapping the run
+- Friday 16:00 cutoff — OT after 4pm rolls into next week
+- OT only after 40 hours total for the week
+- Payslip viewer — tap any employee name on any page → slide panel with full breakdown + anomaly flags
+- Anomaly detection: late dock, missing time, zero hours, high OT, high deductions, week-on-week pay swing
 
-**Dashboard:** "This Week" view — workflow stepper, 4 vibrant gradient metric cards, quick action buttons
+**Late-coming rules (updated):**
+- 08:00-08:05: grace
+- 08:06-08:15: dock 30 min
+- 08:16-09:00: dock 60 min
+- 09:01+: actual minutes missed (no supervisor override, owner can manually edit)
+
+**Dashboard (rewritten):**
+- Day-aware — knows what day it is, shows what needs doing
+- Pulsing "what's next" indicator on the priority action
+- Live counters via Supabase Realtime (attendance + payslips)
+- Compact weekly stepper (Reg → Review → Payroll → Sign → Print → Bank)
+- Role-gated — each user sees only their actions
 
 **Register (major rework):**
-- TimePicker (tap-friendly grid, replaces native time input)
-- Time drives status: time_in after 08:05 → auto-late, time_out after 17:00 → shows OT minutes
-- "Mark All Present" + "Clear All" buttons (hidden on public holidays)
-- Auto-advance to next uncaptured day after save
-- Public holidays auto-detected + auto-marked PH for all employees
-- Date picker: non-admin locked to current week, admin gets warning for old dates
-- Undo on save, save button at top + bottom
+- Weekly grid view (default) — tick/cross per employee per day
+- Split tick/cross buttons on empty cells for quick capture
+- Tap tick = present (auto-enters standard times), tap cross = absent
+- Late/OT/leave/sick/PH show as coloured blocks at a glance
+- Clear Day + Clear All buttons
+- Day View button switches to daily capture for fine-tuning
+- Daily view unchanged — TimePicker, auto-late detection, OT calc
 
-**Payroll (restructured into 4 pages):**
-- `/payroll` — Command view (Annika + Leeann): calculate, results table with clickable names → quick-view slide panel, 4 workflow step cards
-- `/payroll/sign` — Simple signing (Nisha + Veshi): one employee at a time, big name, sign canvas, auto-advance
-- `/payroll/print` — Print (Annika + Leeann): print all, print summary, individual print with signed status
-- `/payroll/bank` — Banking (Leeann): tick-off payments, mark week complete
-- Payroll auto-creates PH attendance for holidays in pay week
-- Petty cash shortfalls auto-convert to loans when payroll runs
-- Delete payroll run (head_admin, handles loan_deductions FK)
+**New payroll pages:**
+- `/payroll/review` — per-employee approval with anomaly badges
+- `/payroll/saturday` — Saturday cash payroll capture + generate
 
-**Permissions updated:**
-- Nisha/Veshi: signing only (removed from full payroll view)
-- Leeann: payroll + print + bank
-- Marlyn: register only
-- Kam: petty cash only
-- Sidebar shows "Sign Payslips" nav for Nisha/Veshi
+**Visual refresh:**
+- Royal blue (#1E40AF) primary everywhere — killed all charcoal (#1E293B) backgrounds
+- Gold (#C4A35A) accent for CTAs and badges
+- Favicon: gold P on royal blue (32px + 192px)
+- Manifest + themeColor set to #1E40AF
+- Removed gradient cards and decorative animations
+- Added .btn-gold utility class
+- Haptic feedback (Navigator.vibrate) on key actions
 
-**Staff profiles:** Employee info card visible to all roles, inline edit for head_admin, completeness ring on staff list
+**Users:**
+- Cheryl added as attendance_clerk (same as Marlyn)
+- 7 admin users total: Annika, Nisha, Veshi, Marlyn, Cheryl, Lee-Ann, Kam
 
-**Working features (were stubs):** New Loan, Record Leave, CCMA Case File — all functional with slide panels + undo
+**New files:**
+- `src/lib/haptics.ts` — vibration feedback utility
+- `src/lib/anomalies.ts` — anomaly detection engine
+- `src/lib/use-realtime.ts` — Supabase Realtime hook
+- `src/components/ui/payslip-viewer.tsx` — global payslip slide panel
+- `src/components/ui/anomaly-badge.tsx` — red/amber flag badges
+- `src/components/ui/pulse-card.tsx` — animated priority card
+- `src/app/api/payroll/batch/route.ts` — approval batch management
+- `src/app/api/payroll/recalculate/route.ts` — single payslip recalc
+- `src/app/api/payroll/saturday/route.ts` — Saturday cash payroll
+- `src/app/(dashboard)/payroll/review/page.tsx` — approval gate page
+- `src/app/(dashboard)/payroll/saturday/page.tsx` — Saturday capture page
+- `supabase/migrations/00005_payroll_batch_and_saturday.sql` — payroll_batch table + payroll_type enum
 
-**HR Advisor:** User attribution, specific error messages, DB save failure warning
-
-**Alerts:** Dismiss with localStorage, restore dismissed
-
-**Petty cash fixes:**
-- Balance now computed (total in - total out), not stored value
-- "Casual Worker" → "Supplier"
-- Categories: Sundries, Diesel, Tolls, Materials, Airtime, Transport, Other
-- Sources: Bank Withdrawal, Nisha, Other
-- Shortfalls auto-convert to loans at payroll run
-
-**New shared components:** workflow-stepper, undo-toast, time-picker, slide-panel, progress-ring, employee-info-card
-
-### SQL MIGRATION — DONE (29 April 2026)
-Storage buckets (registers, documents, signatures) created. `banked_at` column added to payslips.
+### SQL MIGRATIONS — DONE
+- 00001-00004: original schema (done 29 April)
+- 00005: payroll_batch + payroll_type (run 5 May via Supabase SQL Editor)
 
 ### KNOWN BUGS (parked)
 - Client component hydration fails on Vercel (login page was server component workaround)
 - Seed route creates duplicate user rows on re-run (upsert ID is null when auth user exists)
+- Loans/ folder with WhatsApp images is in git — reference photos for loan accounts, leave as-is
 
 ### NOT YET DONE
 - [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month reporting
 - [ ] **Monthly reporting** — payroll/attendance/petty cash summaries per month
-- [ ] Run SQL migration (storage buckets + banked_at) — see above
 - [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)
 - [ ] Garnishee: add 25% net pay cap per Magistrates' Courts Act s65J
 - [ ] Document template engine (filling HR pack Word templates)
@@ -121,6 +139,7 @@ Storage buckets (registers, documents, signatures) created. `banked_at` column a
 - [ ] V12 parity testing (parallel run with old spreadsheet)
 - [ ] Custom domain (admin.pullens.co.za) — non-blocking
 - [ ] Clean up test pages (/test, /test2, /test3) and screenshot PNGs from repo
+- [ ] Worktree cleanup — `payroll-workflow-redesign` branch can be deleted after merge confirmed
 
 ## File Structure
 
@@ -129,11 +148,12 @@ pullens-admin/
 ├── .env.local                    # Real keys (gitignored)
 ├── .env.local.example            # Template
 ├── CLAUDE.md                     # This file
-├── supabase/migrations/          # 4 SQL migration files
+├── supabase/migrations/          # 5 SQL migration files
 │   ├── 00001_create_enums_and_extensions.sql
 │   ├── 00002_create_core_tables.sql
 │   ├── 00003_rls_policies.sql
-│   └── 00004_seed_holidays_and_settings.sql
+│   ├── 00004_seed_holidays_and_settings.sql
+│   └── 00005_payroll_batch_and_saturday.sql
 ├── src/
 │   ├── proxy.ts                  # Next.js 16 proxy (replaces middleware.ts)
 │   ├── app/
