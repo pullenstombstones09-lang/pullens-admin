@@ -16,6 +16,7 @@ export type WarningLevel = 'verbal' | 'written' | 'final';
 export type WarningStatus = 'active' | 'expired' | 'overturned';
 export type LeaveType = 'annual' | 'sick' | 'family' | 'parental' | 'unpaid';
 export type PayrollStatus = 'draft' | 'generated' | 'approved' | 'paid';
+export type PayrollType = 'weekly' | 'saturday_cash';
 export type PettyCashCategory = 'sundries' | 'diesel' | 'tolls' | 'materials' | 'airtime' | 'transport' | 'other';
 export type PettyCashOutStatus = 'open' | 'squared' | 'partial' | 'converted_to_loan';
 export type PettyRecipientType = 'employee' | 'supplier';
@@ -229,10 +230,22 @@ export interface PayrollRun {
   run_by: string | null;
   run_at: string;
   status: PayrollStatus;
+  payroll_type: PayrollType;
   summary_pdf_url: string | null;
   total_gross: number | null;
   total_net: number | null;
   created_at: string;
+}
+
+export type BatchStatus = 'approved' | 'pulled' | 'pending';
+
+export interface PayrollBatch {
+  id: string;
+  payroll_run_id: string;
+  employee_id: string;
+  status: BatchStatus;
+  pulled_reason: string | null;
+  updated_at: string;
 }
 
 export interface Payslip {
