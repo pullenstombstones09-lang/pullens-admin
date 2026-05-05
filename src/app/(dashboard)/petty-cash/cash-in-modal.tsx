@@ -76,7 +76,7 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
               <Plus className="h-5 w-5 text-emerald-600" />
             </div>
-            <h2 className="text-lg font-bold text-[#1E293B]">Cash In</h2>
+            <h2 className="text-lg font-bold text-[var(--foreground)]">Cash In</h2>
           </div>
           <button
             onClick={onClose}

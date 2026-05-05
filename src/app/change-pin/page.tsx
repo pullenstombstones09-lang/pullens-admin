@@ -208,7 +208,7 @@ export default function ChangePinPage() {
             disabled={
               loading || newPin.length < 4 || confirmPin.length < 4
             }
-            className="w-full min-h-[52px] rounded-xl bg-[#1E40AF] hover:bg-[#1E3A8A] active:bg-[#1e3480] text-white text-lg font-bold transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 focus:ring-offset-2 focus:ring-offset-[#1E293B]"
+            className="w-full min-h-[52px] rounded-xl bg-[#1E40AF] hover:bg-[#1E3A8A] active:bg-[#1e3480] text-white text-lg font-bold transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50 focus:ring-offset-2 focus:ring-offset-[var(--foreground)]"
           >
             {loading ? (
               <span className="inline-flex items-center gap-2">

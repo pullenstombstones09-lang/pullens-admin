@@ -57,7 +57,7 @@ export function TimePicker({ value, onChange, disabled, className }: TimePickerP
         `}
       >
         <Clock size={16} className="text-gray-400" />
-        <span className={value ? 'text-[#1E293B] font-medium' : 'text-gray-400'}>
+        <span className={value ? 'text-[var(--foreground)] font-medium' : 'text-gray-400'}>
           {value || '--:--'}
         </span>
       </button>
@@ -78,7 +78,7 @@ export function TimePicker({ value, onChange, disabled, className }: TimePickerP
                   className={`h-11 rounded-lg text-sm font-medium transition-colors
                     ${h === currentH
                       ? 'bg-[#1E40AF] text-white'
-                      : 'bg-gray-50 text-[#1E293B] hover:bg-[#3B82F6] hover:text-white'}
+                      : 'bg-gray-50 text-[var(--foreground)] hover:bg-[#3B82F6] hover:text-white'}
                   `}
                 >
                   {pad(h)}
@@ -95,7 +95,7 @@ export function TimePicker({ value, onChange, disabled, className }: TimePickerP
                   className={`h-11 rounded-lg text-sm font-medium transition-colors
                     ${m === currentM && selectedHour === currentH
                       ? 'bg-[#1E40AF] text-white'
-                      : 'bg-gray-50 text-[#1E293B] hover:bg-[#3B82F6] hover:text-white'}
+                      : 'bg-gray-50 text-[var(--foreground)] hover:bg-[#3B82F6] hover:text-white'}
                   `}
                 >
                   :{pad(m)}

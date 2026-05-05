@@ -393,7 +393,7 @@ export default function PayrollPage() {
           {/* 1. Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-[#1E293B]">
+              <h2 className="text-xl font-bold text-[var(--foreground)]">
                 Payroll — {weekLabel(weekStart, weekEnd)}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
@@ -460,7 +460,7 @@ export default function PayrollPage() {
             </a>
 
             {/* Print — pending */}
-            <a href="/payroll/print" className="block rounded-xl p-4 bg-white border border-gray-200 text-[#1E293B] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+            <a href="/payroll/print" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
               <div className="flex items-center gap-2 mb-2">
                 <Printer size={18} className="text-gray-400" />
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
@@ -470,7 +470,7 @@ export default function PayrollPage() {
             </a>
 
             {/* Bank — pending */}
-            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[#1E293B] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
               <div className="flex items-center gap-2 mb-2">
                 <Landmark size={18} className="text-gray-400" />
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 4</span>
@@ -484,7 +484,7 @@ export default function PayrollPage() {
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-[#1E293B] text-white">
+                <tr className="border-b border-gray-200 bg-[var(--foreground)] text-white">
                   <th className="px-3 py-3 text-left">
                     <input
                       type="checkbox"
@@ -592,7 +592,7 @@ export default function PayrollPage() {
                       </td>
                       <td className={cn(
                         'px-3 py-2 text-right font-mono text-xs font-bold',
-                        r.net < 0 ? 'text-red-600' : 'text-[#1E293B]'
+                        r.net < 0 ? 'text-red-600' : 'text-[var(--foreground)]'
                       )}>
                         {formatCurrency(r.net)}
                       </td>
@@ -601,10 +601,10 @@ export default function PayrollPage() {
                 })}
 
                 {/* Totals row */}
-                <tr className="border-t-2 border-[#1E293B] bg-[#F8FAFC] font-bold">
+                <tr className="border-t-2 border-[var(--foreground)] bg-[#F8FAFC] font-bold">
                   <td className="px-3 py-3" />
                   <td className="px-3 py-3" />
-                  <td className="px-3 py-3 text-sm text-[#1E293B]">
+                  <td className="px-3 py-3 text-sm text-[var(--foreground)]">
                     TOTAL ({results.length})
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-xs">{totals.ordinaryHours.toFixed(1)}</td>
@@ -614,7 +614,7 @@ export default function PayrollPage() {
                   <td className="px-3 py-3 text-right font-mono text-xs">
                     {formatCurrency(totals.lateDeduction + totals.uif + totals.paye + totals.loans + totals.garnishee + totals.petty)}
                   </td>
-                  <td className="px-3 py-3 text-right font-mono text-xs text-[#1E293B]">
+                  <td className="px-3 py-3 text-right font-mono text-xs text-[var(--foreground)]">
                     {formatCurrency(totals.net)}
                   </td>
                 </tr>
@@ -702,7 +702,7 @@ export default function PayrollPage() {
         <>
           {/* ── PRE-CALCULATION VIEW ── */}
           <div>
-            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">Payroll</h1>
+            <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">Payroll</h1>
             <p className="mt-0.5 text-sm text-gray-500">Weekly payroll processing</p>
           </div>
 
@@ -714,7 +714,7 @@ export default function PayrollPage() {
               {hasAttendance === false ? (
                 <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-8 text-center">
                   <ClipboardList size={40} className="mx-auto text-amber-400 mb-3" />
-                  <h3 className="text-lg font-bold text-[#1E293B]">No register data for this week</h3>
+                  <h3 className="text-lg font-bold text-[var(--foreground)]">No register data for this week</h3>
                   <p className="text-sm text-gray-500 mt-1">Capture the daily register first before running payroll.</p>
                   <a href="/register" className="inline-block mt-4">
                     <button className="h-11 px-6 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] transition-colors">
@@ -780,7 +780,7 @@ export default function PayrollPage() {
                       ) : (
                         <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
                           <CalendarDays size={18} className="text-[#1E40AF]" />
-                          <span className="text-sm font-semibold text-[#1E293B]">{weekLabel(weekStart, weekEnd)}</span>
+                          <span className="text-sm font-semibold text-[var(--foreground)]">{weekLabel(weekStart, weekEnd)}</span>
                         </div>
                       )}
                     </div>

@@ -228,10 +228,10 @@ export default function PettyCashPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-black text-[#1E293B] mb-6">Petty Cash</h1>
+      <h1 className="text-2xl font-black text-[var(--foreground)] mb-6">Petty Cash</h1>
 
       {/* --- TIN BALANCE STRIP --- */}
-      <Card className="mb-6 bg-[#1E293B] text-white" padding="lg">
+      <Card className="mb-6 bg-[var(--foreground)] text-white" padding="lg">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1E40AF]/20">
@@ -300,7 +300,7 @@ export default function PettyCashPage() {
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all duration-150 min-h-[48px]",
               tab === t.key
-                ? "bg-[#1E293B] text-white shadow-[0_2px_6px_rgba(26,26,46,0.3)]"
+                ? "bg-[var(--foreground)] text-white shadow-[0_2px_6px_rgba(26,26,46,0.3)]"
                 : "text-[#333333]/60 hover:text-[#333333]"
             )}
           >

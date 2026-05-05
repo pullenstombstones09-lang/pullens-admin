@@ -214,7 +214,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#1E293B]">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">
           Welcome back, {firstName}
         </h1>
         <p className="text-sm text-gray-500 mt-1">{weekLabel}</p>
@@ -233,7 +233,7 @@ export default function DashboardPage() {
                 <ClipboardCheck size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Register</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Register</p>
                 {workflow ? (
                   <p className="text-xs text-gray-500 mt-0.5">
                     {workflow.register.done
@@ -262,7 +262,7 @@ export default function DashboardPage() {
                 <Users size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Payroll Review</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Payroll Review</p>
                 {workflow ? (
                   <p className="text-xs text-gray-500 mt-0.5">
                     {workflow.review.done
@@ -293,7 +293,7 @@ export default function DashboardPage() {
                 <Calculator size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Generate Payroll</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Generate Payroll</p>
                 <p className="text-xs text-gray-500 mt-0.5">Review complete — ready to generate</p>
               </div>
             </div>
@@ -311,7 +311,7 @@ export default function DashboardPage() {
                 <PenTool size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Sign Payslips</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Sign Payslips</p>
                 {workflow ? (
                   <p className="text-xs text-gray-500 mt-0.5">
                     {workflow.sign.done
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                 <Sun size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Saturday Pay</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Saturday Pay</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {workflow?.saturday.done ? 'Captured' : 'Not yet captured'}
                 </p>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                 <AlertTriangle size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1E293B]">Alerts</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">Alerts</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {workflow!.alerts} unresolved
                 </p>

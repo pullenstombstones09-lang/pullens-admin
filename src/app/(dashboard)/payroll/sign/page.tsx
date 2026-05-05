@@ -64,7 +64,7 @@ function SignatureCanvas({
     const ctx = canvasRef.current!.getContext('2d')!
     const { x, y } = getPos(e)
     ctx.lineTo(x, y)
-    ctx.strokeStyle = '#1E293B'
+    ctx.strokeStyle = 'var(--foreground)'
     ctx.lineWidth = 3
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -91,7 +91,7 @@ function SignatureCanvas({
 
   return (
     <div className="space-y-4">
-      <p className="text-base font-semibold text-[#1E293B]">Sign below</p>
+      <p className="text-base font-semibold text-[var(--foreground)]">Sign below</p>
       <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white">
         <canvas
           ref={canvasRef}
@@ -138,7 +138,7 @@ function AllDone() {
     <div className="flex flex-col items-center justify-center gap-6 py-20 text-center">
       <CheckCircle className="h-20 w-20 text-[#10B981]" strokeWidth={1.5} />
       <div>
-        <p className="text-3xl font-black text-[#1E293B]">All done!</p>
+        <p className="text-3xl font-black text-[var(--foreground)]">All done!</p>
         <p className="mt-2 text-lg text-gray-500">All payslips have been signed.</p>
       </div>
       <a
@@ -323,7 +323,7 @@ export default function SignPayslipsPage() {
               Saturday Cash
             </span>
           )}
-          <h1 className="text-2xl font-black text-[#1E293B] tracking-tight">Sign Payslips</h1>
+          <h1 className="text-2xl font-black text-[var(--foreground)] tracking-tight">Sign Payslips</h1>
         </div>
         <span className="rounded-full bg-[#EFF6FF] px-4 py-1.5 text-sm font-bold text-[#1E40AF]">
           {remaining} remaining
@@ -354,7 +354,7 @@ export default function SignPayslipsPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
               Employee
             </p>
-            <p className="text-3xl font-black text-[#1E293B] leading-tight">
+            <p className="text-3xl font-black text-[var(--foreground)] leading-tight">
               {slip.employee?.full_name ?? '—'}
             </p>
             <p className="mt-1 text-sm text-gray-500 font-medium">
@@ -363,7 +363,7 @@ export default function SignPayslipsPage() {
           </div>
 
           {/* Net pay — the one number that matters */}
-          <div className="rounded-xl bg-[#1E293B] px-5 py-4 flex items-center justify-between">
+          <div className="rounded-xl bg-[var(--foreground)] px-5 py-4 flex items-center justify-between">
             <span className="text-sm font-bold text-white uppercase tracking-wider">
               Net Pay
             </span>

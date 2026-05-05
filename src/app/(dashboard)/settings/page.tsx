@@ -52,8 +52,8 @@ function Section({
         className="flex w-full items-center justify-between px-5 py-4 text-left min-h-[48px]"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1E293B]/5">
-            <span className="text-[#1E293B]">{icon}</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--foreground)]/5">
+            <span className="text-[var(--foreground)]">{icon}</span>
           </div>
           <h2 className="text-base font-semibold text-[#333333]">{title}</h2>
         </div>
@@ -690,7 +690,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'fixed'
-                    ? 'bg-[#1E293B] text-white'
+                    ? 'bg-[var(--foreground)] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >
@@ -701,7 +701,7 @@ export default function SettingsPage() {
                 className={cn(
                   'rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[48px]',
                   payWeek.mode === 'custom'
-                    ? 'bg-[#1E293B] text-white'
+                    ? 'bg-[var(--foreground)] text-white'
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 )}
               >

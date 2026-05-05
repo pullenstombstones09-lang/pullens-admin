@@ -202,7 +202,7 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
                       <FileText className="h-5 w-5 text-stone-500" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#1E293B] truncate">
+                      <p className="text-sm font-medium text-[var(--foreground)] truncate">
                         {DOC_TYPE_LABELS[doc.doc_type as DocType] ?? doc.doc_type}
                       </p>
                       <p className="text-xs text-stone-500 mt-0.5">

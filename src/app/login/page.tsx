@@ -29,7 +29,7 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--foreground)] font-[Inter,system-ui,sans-serif]">
       <div className="w-full max-w-[420px] relative z-10">
         {/* Branding */}
         <div className="text-center mb-8 animate-[fadeInUp_400ms_ease-out]">

@@ -237,7 +237,7 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
           <CardTitle>Last Payslip</CardTitle>
         </div>
         <CardContent>
-          <p className="text-2xl font-bold text-[#1E293B]">
+          <p className="text-2xl font-bold text-[var(--foreground)]">
             {data.lastPayslipNet !== null ? formatCurrency(data.lastPayslipNet) : '---'}
           </p>
           <p className="text-xs text-stone-500 mt-1">Net pay</p>

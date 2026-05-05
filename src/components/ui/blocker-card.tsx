@@ -31,7 +31,7 @@ export function BlockerCard({
         severity === 'error' ? 'text-red-500' : 'text-amber-500'
       )} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#1E293B]">{message}</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">{message}</p>
         {actionLabel && actionHref && (
           <Link
             href={actionHref}

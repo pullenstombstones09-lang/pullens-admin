@@ -172,7 +172,7 @@ export default function WeeklyViewPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
+            <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
               Weekly View
             </h1>
             <p className="mt-0.5 text-sm text-gray-500">
@@ -281,7 +281,7 @@ export default function WeeklyViewPage() {
                             className="h-7 w-7 rounded-full object-cover shrink-0"
                           />
                         ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E293B] text-white text-[10px] font-bold shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--foreground)] text-white text-[10px] font-bold shrink-0">
                             {getInitials(emp.full_name)}
                           </div>
                         )}

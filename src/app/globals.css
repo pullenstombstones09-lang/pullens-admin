@@ -3,8 +3,8 @@
 :root {
   --background: #F8FAFC;
   --foreground: #1E293B;
-  --primary: #1E293B;
-  --primary-hover: #334155;
+  --primary: #1E40AF;
+  --primary-hover: #1D4ED8;
   --accent: #C4A35A;
   --accent-hover: #B8943E;
   --success: #10B981;
@@ -14,7 +14,7 @@
   --card: #FFFFFF;
   --muted: #64748B;
   --border: #E2E8F0;
-  --sidebar-bg: #1E293B;
+  --sidebar-bg: #1E3A8A;
 }
 
 @theme inline {

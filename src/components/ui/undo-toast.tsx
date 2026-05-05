@@ -40,7 +40,7 @@ export function UndoToast({ message, duration = 10000, onUndo, onExpire, onDismi
   const progress = ((duration - elapsed) / duration) * 100
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-[#1E293B] px-4 py-3 text-white shadow-lg animate-fade-in-up"
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-[var(--foreground)] px-4 py-3 text-white shadow-lg animate-fade-in-up"
          style={{ minWidth: 320 }}>
       <Undo2 size={18} className="shrink-0 text-[#60A5FA]" />
       <span className="flex-1 text-sm font-medium">{message}</span>

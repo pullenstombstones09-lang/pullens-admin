@@ -208,7 +208,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       <div className="grid grid-cols-3 gap-3">
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1E293B]">
+            <p className="text-2xl font-bold text-[var(--foreground)]">
               {balance?.annual_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/21</span>
             </p>
@@ -224,7 +224,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
 
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1E293B]">
+            <p className="text-2xl font-bold text-[var(--foreground)]">
               {balance?.sick_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/30</span>
             </p>
@@ -240,7 +240,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
 
         <Card padding="md">
           <div className="text-center">
-            <p className="text-2xl font-bold text-[#1E293B]">
+            <p className="text-2xl font-bold text-[var(--foreground)]">
               {balance?.family_remaining ?? 0}
               <span className="text-sm font-normal text-stone-400">/3</span>
             </p>

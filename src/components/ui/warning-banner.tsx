@@ -50,7 +50,7 @@ export function WarningBanner({
       styles[severity]
     )}>
       {icons[severity]}
-      <p className="flex-1 text-sm font-medium text-[#1E293B]">{message}</p>
+      <p className="flex-1 text-sm font-medium text-[var(--foreground)]">{message}</p>
       {dismissable && (
         <button
           onClick={handleDismiss}
