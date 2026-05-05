@@ -81,7 +81,7 @@ export function ConfirmationModal({
           </div>
         )}
         <div>
-          <h3 className="text-lg font-bold text-[#1E293B]">{title}</h3>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">{title}</h3>
           <p className="mt-1.5 text-sm text-gray-500 leading-relaxed">{description}</p>
         </div>
         <div className="flex gap-3 pt-2">

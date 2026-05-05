@@ -149,7 +149,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
   };
 
   const inputCls =
-    'w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-[#1E293B] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/40 focus:border-[#1E40AF] transition-colors';
+    'w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-[var(--foreground)] min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/40 focus:border-[#1E40AF] transition-colors';
   const labelCls = 'block text-xs font-medium text-stone-500 mb-1';
 
   return (
@@ -162,7 +162,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: EditModalProps) {
       <div className="bg-white rounded-2xl w-full max-w-lg my-8 shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-          <h2 className="text-lg font-bold text-[#1E293B]">Edit Employee</h2>
+          <h2 className="text-lg font-bold text-[var(--foreground)]">Edit Employee</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
@@ -655,7 +655,7 @@ export default function EmployeeProfilePage({
                   className="h-20 w-20 rounded-full object-cover ring-2 ring-white shadow-md"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1E293B] text-lg font-bold text-[#1E40AF] ring-2 ring-white shadow-md">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--foreground)] text-lg font-bold text-[#1E40AF] ring-2 ring-white shadow-md">
                   {getInitials(employee.full_name)}
                 </div>
               )}
@@ -667,7 +667,7 @@ export default function EmployeeProfilePage({
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-[#1E293B] truncate leading-tight">
+                <h1 className="text-2xl font-bold text-[var(--foreground)] truncate leading-tight">
                   {employee.full_name}
                 </h1>
                 {user?.role === 'owner' && (

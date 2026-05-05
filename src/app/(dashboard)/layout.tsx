@@ -196,7 +196,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-bold text-[#1E293B]">
+          <span className="text-sm font-bold text-[var(--foreground)]">
             PULLENS ADMIN
           </span>
         </header>

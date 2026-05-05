@@ -215,8 +215,8 @@ export default function ExportsPage() {
             <Card key={card.id}>
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1E293B]/5">
-                    <span className="text-[#1E293B]">{card.icon}</span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--foreground)]/5">
+                    <span className="text-[var(--foreground)]">{card.icon}</span>
                   </div>
                   <div>
                     <CardTitle>{card.title}</CardTitle>

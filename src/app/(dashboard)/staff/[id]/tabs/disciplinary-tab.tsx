@@ -253,7 +253,7 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
                         <Badge color={event.badge.color}>{event.badge.label}</Badge>
                         <span className="text-xs text-stone-400">{formatDate(event.date)}</span>
                       </div>
-                      <p className="text-sm font-medium text-[#1E293B]">{event.title}</p>
+                      <p className="text-sm font-medium text-[var(--foreground)]">{event.title}</p>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">

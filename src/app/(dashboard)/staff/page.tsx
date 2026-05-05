@@ -163,7 +163,7 @@ function AddEmployeeModal({
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-[#1E293B]">Add Employee</h2>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Add Employee</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
@@ -490,11 +490,11 @@ export default function StaffListPage() {
       <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-sm pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1E293B]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--foreground)]">
               <Users className="h-5 w-5 text-[#3B82F6]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-[#1E293B]">Staff</h1>
+              <h1 className="text-xl font-bold text-[var(--foreground)]">Staff</h1>
               <p className="text-sm text-stone-500">
                 {loading ? '...' : `${filtered.length} employee${filtered.length !== 1 ? 's' : ''}`}
               </p>
@@ -553,7 +553,7 @@ export default function StaffListPage() {
             className={cn(
               'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
               occupationFilter === 'All'
-                ? 'bg-[#1E293B] text-white'
+                ? 'bg-[var(--foreground)] text-white'
                 : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
             )}
           >
@@ -566,7 +566,7 @@ export default function StaffListPage() {
               className={cn(
                 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors min-h-[36px]',
                 occupationFilter === occ
-                  ? 'bg-[#1E293B] text-white'
+                  ? 'bg-[var(--foreground)] text-white'
                   : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
               )}
             >
@@ -645,7 +645,7 @@ export default function StaffListPage() {
                           className="h-12 w-12 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1E293B] text-sm font-bold text-[#3B82F6]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--foreground)] text-sm font-bold text-[#3B82F6]">
                           {getInitials(emp.full_name)}
                         </div>
                       )}
@@ -674,7 +674,7 @@ export default function StaffListPage() {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#1E293B] truncate">
+                      <p className="text-sm font-semibold text-[var(--foreground)] truncate">
                         {emp.full_name}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">

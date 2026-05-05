@@ -100,7 +100,7 @@ export function EmployeeInfoCard({ employee, canEdit, onUpdate }: EmployeeInfoCa
       {sections.map(section => (
         <div key={section.title} className="rounded-xl border border-gray-100/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-[#1E293B] uppercase tracking-wide">{section.title}</h3>
+            <h3 className="text-sm font-bold text-[var(--foreground)] uppercase tracking-wide">{section.title}</h3>
             {canEdit && editingSection !== section.title && (
               <button onClick={() => startEdit(section.title)}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E40AF] hover:bg-blue-50 transition-colors">
@@ -132,7 +132,7 @@ export function EmployeeInfoCard({ employee, canEdit, onUpdate }: EmployeeInfoCa
                     className="w-full h-9 rounded-lg border border-gray-300 px-2 text-sm mt-0.5 focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
                   />
                 ) : (
-                  <p className="text-sm font-medium text-[#1E293B]">
+                  <p className="text-sm font-medium text-[var(--foreground)]">
                     {field.masked && field.value
                       ? '••••' + field.value.slice(-4)
                       : field.value || <span className="text-gray-300">—</span>}

@@ -195,11 +195,11 @@ export default function HRAdvisorPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E293B]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--foreground)]">
           <Scale className="h-6 w-6 text-[#3B82F6]" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-[#1E293B]">HR Advisor</h1>
+          <h1 className="text-2xl font-black text-[var(--foreground)]">HR Advisor</h1>
           <p className="text-sm text-gray-500">
             SA Labour Law compliance engine
           </p>
@@ -300,7 +300,7 @@ export default function HRAdvisorPage() {
               {/* Classification */}
               <Card padding="lg">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E293B] shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--foreground)] shrink-0">
                     <ShieldAlert className="h-6 w-6 text-[#3B82F6]" />
                   </div>
                   <div className="flex-1">
@@ -324,7 +324,7 @@ export default function HRAdvisorPage() {
                         </Badge>
                       )}
                     </div>
-                    <h3 className="text-base font-bold text-[#1E293B]">
+                    <h3 className="text-base font-bold text-[var(--foreground)]">
                       {response.classification.misconduct_type}
                     </h3>
                     <p className="mt-1 text-sm text-gray-600">
@@ -370,7 +370,7 @@ export default function HRAdvisorPage() {
                   <ol className="flex flex-col gap-3">
                     {response.steps.map((step, i) => (
                       <li key={i} className="flex items-start gap-3 text-sm">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E293B] text-xs font-bold text-white shrink-0">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--foreground)] text-xs font-bold text-white shrink-0">
                           {i + 1}
                         </span>
                         <span className="text-[#333333] pt-0.5">{step}</span>
@@ -502,7 +502,7 @@ export default function HRAdvisorPage() {
 
       {/* --- HISTORY --- */}
       <div className="mt-8">
-        <h2 className="text-lg font-bold text-[#1E293B] mb-4">
+        <h2 className="text-lg font-bold text-[var(--foreground)] mb-4">
           Past Incidents
         </h2>
         <Card padding="none">

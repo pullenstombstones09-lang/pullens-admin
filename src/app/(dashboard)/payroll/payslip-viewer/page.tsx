@@ -77,7 +77,7 @@ function SignatureCanvas({
     const ctx = canvasRef.current!.getContext('2d')!;
     const { x, y } = getPos(e);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = '#1E293B';
+    ctx.strokeStyle = 'var(--foreground)';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -156,7 +156,7 @@ function PayslipDisplay({
     >
       {/* Header */}
       <div className="mb-5 border-b border-gray-200 pb-4">
-        <h2 className="text-lg font-black text-[#1E293B] tracking-tight">
+        <h2 className="text-lg font-black text-[var(--foreground)] tracking-tight">
           PULLENS TOMBSTONES
         </h2>
         <p className="text-xs text-gray-500">
@@ -190,7 +190,7 @@ function PayslipDisplay({
 
       {/* Earnings */}
       <div className="mb-4">
-        <h3 className="mb-2 text-xs font-bold text-[#1E293B] uppercase tracking-wider">
+        <h3 className="mb-2 text-xs font-bold text-[var(--foreground)] uppercase tracking-wider">
           Earnings
         </h3>
         <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -242,7 +242,7 @@ function PayslipDisplay({
 
       {/* Deductions */}
       <div className="mb-4">
-        <h3 className="mb-2 text-xs font-bold text-[#1E293B] uppercase tracking-wider">
+        <h3 className="mb-2 text-xs font-bold text-[var(--foreground)] uppercase tracking-wider">
           Deductions
         </h3>
         <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -310,7 +310,7 @@ function PayslipDisplay({
       </div>
 
       {/* Net Pay */}
-      <div className="rounded-lg bg-[#1E293B] px-5 py-4 flex items-center justify-between">
+      <div className="rounded-lg bg-[var(--foreground)] px-5 py-4 flex items-center justify-between">
         <span className="text-sm font-bold text-white uppercase tracking-wider">
           Net Pay
         </span>
@@ -532,7 +532,7 @@ function PayslipViewerPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
+            <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
               Payslip Viewer
             </h1>
             {run && (

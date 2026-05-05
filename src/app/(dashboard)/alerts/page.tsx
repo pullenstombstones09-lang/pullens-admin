@@ -82,7 +82,7 @@ const SEVERITY_ICON_COLORS: Record<Severity, string> = {
 };
 
 const FILTER_OPTIONS: { value: Severity | 'all'; label: string; color: string }[] = [
-  { value: 'all', label: 'All', color: 'bg-[#1E293B] text-white' },
+  { value: 'all', label: 'All', color: 'bg-[var(--foreground)] text-white' },
   { value: 'red', label: 'Critical', color: 'bg-red-500 text-white' },
   { value: 'amber', label: 'Warning', color: 'bg-amber-500 text-white' },
   { value: 'yellow', label: 'Notice', color: 'bg-yellow-400 text-[#333]' },
@@ -292,7 +292,7 @@ export default function AlertsPage() {
                     {/* Employee name + action */}
                     <div className="flex items-center justify-between mt-3 gap-2">
                       {alert.employee_name ? (
-                        <span className="text-xs font-medium text-[#1E293B] bg-[#1E293B]/5 rounded px-2 py-1">
+                        <span className="text-xs font-medium text-[var(--foreground)] bg-[var(--foreground)]/5 rounded px-2 py-1">
                           {alert.employee_name}
                         </span>
                       ) : (

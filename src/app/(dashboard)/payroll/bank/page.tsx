@@ -236,7 +236,7 @@ export default function BankingPage() {
         <div>
           <div className="flex items-center gap-2">
             <Landmark size={20} className="text-[#1E40AF]" />
-            <h1 className="text-xl font-black text-[#1E293B] tracking-tight">Banking</h1>
+            <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">Banking</h1>
             {isComplete && (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                 <CheckCircle size={12} />
@@ -249,7 +249,7 @@ export default function BankingPage() {
 
         {/* Total */}
         <div className="text-right shrink-0">
-          <p className="text-2xl font-black text-[#1E293B] tabular-nums">
+          <p className="text-2xl font-black text-[var(--foreground)] tabular-nums">
             {formatCurrency(totalToPay)}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">total to bank</p>
@@ -260,7 +260,7 @@ export default function BankingPage() {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>{ticked.size} of {payslips.length} banked</span>
-          <span className="font-semibold text-[#1E293B]">{formatCurrency(totalBanked)} sent</span>
+          <span className="font-semibold text-[var(--foreground)]">{formatCurrency(totalBanked)} sent</span>
         </div>
         <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
           <div
@@ -306,7 +306,7 @@ export default function BankingPage() {
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'text-sm font-semibold truncate',
-                  isTicked ? 'text-green-800' : 'text-[#1E293B]'
+                  isTicked ? 'text-green-800' : 'text-[var(--foreground)]'
                 )}>
                   {name}
                 </p>
@@ -317,7 +317,7 @@ export default function BankingPage() {
               <div className="shrink-0 text-right">
                 <p className={cn(
                   'text-base font-black tabular-nums',
-                  isTicked ? 'text-green-700' : 'text-[#1E293B]'
+                  isTicked ? 'text-green-700' : 'text-[var(--foreground)]'
                 )}>
                   {formatCurrency(payslip.net ?? 0)}
                 </p>

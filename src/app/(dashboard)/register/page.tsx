@@ -568,7 +568,7 @@ export default function RegisterPage() {
       {/* Header bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-black text-[#1E293B] tracking-tight">
+          <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
             Daily Register
           </h1>
           <p className="mt-0.5 text-sm text-gray-500">
@@ -708,7 +708,7 @@ export default function RegisterPage() {
           >
             <div className={cn('h-3 w-3 rounded-full shrink-0', item.color)} />
             <div>
-              <p className="text-lg font-bold text-[#1E293B] leading-none">{item.count}</p>
+              <p className="text-lg font-bold text-[var(--foreground)] leading-none">{item.count}</p>
               <p className="text-xs text-gray-500 mt-0.5">{item.label}</p>
             </div>
           </div>
@@ -734,7 +734,7 @@ export default function RegisterPage() {
         <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 flex items-center gap-3">
           <span className="text-2xl">🏖</span>
           <div>
-            <p className="text-sm font-bold text-[#1E293B]">Public Holiday — {publicHoliday}</p>
+            <p className="text-sm font-bold text-[var(--foreground)]">Public Holiday — {publicHoliday}</p>
             <p className="text-xs text-gray-500">All staff automatically marked as PH. Counted as paid day in payroll.</p>
           </div>
         </div>
@@ -810,7 +810,7 @@ export default function RegisterPage() {
                               className="h-9 w-9 rounded-full object-cover shrink-0"
                             />
                           ) : (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E293B] text-white text-xs font-bold shrink-0">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--foreground)] text-white text-xs font-bold shrink-0">
                               {getInitials(row.full_name)}
                             </div>
                           )}
@@ -1013,7 +1013,7 @@ export default function RegisterPage() {
       {user?.role === 'owner' && (
         <Card padding="sm">
           <details>
-            <summary className="cursor-pointer text-sm font-semibold text-[#1E293B] select-none py-2">
+            <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)] select-none py-2">
               Add or Remove Employees from Register
             </summary>
             <div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">
@@ -1065,7 +1065,7 @@ export default function RegisterPage() {
                 <path d="M20 6L9 17l-5-5"/>
               </svg>
             </div>
-            <p className="text-xl font-bold text-[#1E293B]">Register Saved</p>
+            <p className="text-xl font-bold text-[var(--foreground)]">Register Saved</p>
             <p className="text-sm text-gray-500 mt-1">{formatDateLabel(selectedDate)}</p>
           </div>
         </div>

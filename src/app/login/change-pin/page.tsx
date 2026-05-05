@@ -12,7 +12,7 @@ export default async function ChangePinPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#1E293B] font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--foreground)] font-[Inter,system-ui,sans-serif]">
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#1E40AF]/[0.04] blur-[120px]" />
       </div>
