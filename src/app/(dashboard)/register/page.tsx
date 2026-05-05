@@ -126,6 +126,12 @@ function getDefaultTimes(dateStr: string, weeklyHours: number): {
 
 // ---------- WeekGrid component ----------
 
+function isStandardTime(timeIn: string | null, timeOut: string | null, dayIdx: number): boolean {
+  if (!timeIn || !timeOut) return false
+  const isFri = dayIdx === 4
+  return timeIn === '08:00' && (isFri ? timeOut === '16:00' : timeOut === '17:00')
+}
+
 function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: (date: string) => void }) {
   const supabase = createClient()
   const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
@@ -138,6 +144,7 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
     return format(d, 'yyyy-MM-dd')
   })
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   useEffect(() => {
     async function load() {
@@ -159,60 +166,177 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
     load()
   }, [weekStart])
 
-  if (loading) return <div className="text-center py-8 text-[var(--muted)]">Loading week...</div>
+  if (loading) {
+    return (
+      <div className="grid gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
-  const statusIcon: Record<string, string> = {
-    present: '✓', late: 'L', absent: 'A', leave: 'LV', sick: 'S', ph: 'PH', short_time: 'ST',
-  }
-  const statusColor: Record<string, string> = {
-    present: 'bg-green-100 text-green-700',
-    late: 'bg-amber-100 text-amber-700',
-    absent: 'bg-red-100 text-red-700',
-    leave: 'bg-blue-100 text-blue-700',
-    sick: 'bg-blue-100 text-blue-700',
-    ph: 'bg-gray-100 text-gray-500',
-    short_time: 'bg-gray-100 text-gray-500',
-  }
+  // Count stats per day
+  const dayCounts = days.map(d => {
+    let captured = 0, total = employees.length
+    for (const emp of employees) {
+      if (data.get(emp.id)?.get(d)) captured++
+    }
+    return { captured, total }
+  })
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[var(--border)]">
-            <th className="text-left p-2 font-semibold sticky left-0 bg-white z-10">Employee</th>
-            {days.map((d, i) => (
-              <th key={d} className="text-center p-2 font-semibold cursor-pointer hover:text-[var(--primary)]"
-                  onClick={() => onSelectDay(d)}>
-                {dayLabels[i]}<br />
-                <span className="text-xs font-normal text-[var(--muted)]">{format(new Date(d), 'dd')}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map(emp => (
-            <tr key={emp.id} className="border-b border-[var(--border)] hover:bg-gray-50">
-              <td className="p-2 font-medium sticky left-0 bg-white z-10 truncate max-w-[150px]">
-                <span className="text-xs text-[var(--muted)] mr-1">{emp.pt_code}</span>
-                {emp.full_name}
-              </td>
-              {days.map(d => {
-                const att = data.get(emp.id)?.get(d)
+    <div className="space-y-2">
+      {/* Day header row */}
+      <div className="grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 px-1">
+        <div />
+        {days.map((d, i) => {
+          const isToday = d === today
+          const { captured, total } = dayCounts[i]
+          const allDone = captured === total && total > 0
+          return (
+            <button
+              key={d}
+              onClick={() => onSelectDay(d)}
+              className={`text-center py-2 rounded-lg transition-all ${
+                isToday
+                  ? 'bg-[var(--primary)] text-white font-bold'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              <p className={`text-sm font-semibold ${isToday ? '' : 'text-[var(--foreground)]'}`}>{dayLabels[i]}</p>
+              <p className={`text-xs ${isToday ? 'text-white/70' : 'text-[var(--muted)]'}`}>{format(new Date(d), 'dd MMM')}</p>
+              <p className={`text-xs font-semibold mt-0.5 ${
+                allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
+              }`}>
+                {captured}/{total}
+              </p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Employee rows */}
+      {employees.map(emp => {
+        const weekComplete = days.every(d => data.get(emp.id)?.get(d))
+        return (
+          <div
+            key={emp.id}
+            className={`grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 items-center rounded-xl border px-3 py-2 transition-all ${
+              weekComplete
+                ? 'border-green-200 bg-green-50/50'
+                : 'border-[var(--border)] bg-white'
+            }`}
+          >
+            {/* Name */}
+            <div className="min-w-0 pr-2">
+              <p className="font-semibold text-sm truncate">{emp.full_name}</p>
+              <p className="text-xs text-[var(--muted)]">{emp.pt_code}</p>
+            </div>
+
+            {/* Day cells */}
+            {days.map((d, dayIdx) => {
+              const att = data.get(emp.id)?.get(d)
+              const isPast = d < today
+              const isToday = d === today
+
+              if (!att) {
                 return (
-                  <td key={d} className="text-center p-2">
-                    <button onClick={() => onSelectDay(d)}
-                      className={`w-10 h-10 rounded-lg text-xs font-bold flex items-center justify-center mx-auto ${
-                        att ? (statusColor[att.status] || 'bg-gray-100') : 'bg-gray-50 border border-dashed border-gray-300 text-gray-300'
-                      }`}>
-                      {att ? (statusIcon[att.status] || '?') : '—'}
-                    </button>
-                  </td>
+                  <button
+                    key={d}
+                    onClick={() => onSelectDay(d)}
+                    className={`h-12 rounded-lg flex flex-col items-center justify-center transition-all ${
+                      isToday
+                        ? 'border-2 border-dashed border-[var(--primary)] bg-blue-50 hover:bg-blue-100'
+                        : isPast
+                        ? 'border-2 border-dashed border-red-300 bg-red-50 hover:bg-red-100'
+                        : 'border border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className={`text-xs font-medium ${
+                      isToday ? 'text-[var(--primary)]' : isPast ? 'text-red-400' : 'text-gray-300'
+                    }`}>
+                      {isPast ? 'Missing' : isToday ? 'Capture' : '—'}
+                    </span>
+                  </button>
                 )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              }
+
+              // Status-based rendering
+              const s = att.status
+              if (s === 'present' && isStandardTime(att.time_in, att.time_out, dayIdx)) {
+                // Standard day — just a clean green tick
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-green-500 flex items-center justify-center hover:bg-green-600 transition-colors">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                )
+              }
+
+              if (s === 'present') {
+                // Non-standard times — show them
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center hover:bg-green-200 transition-colors">
+                    <span className="text-[10px] font-semibold text-green-700">{att.time_in || '?'}</span>
+                    <span className="text-[10px] font-semibold text-green-700">{att.time_out || '?'}</span>
+                  </button>
+                )
+              }
+
+              if (s === 'late') {
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-amber-100 border border-amber-300 flex flex-col items-center justify-center hover:bg-amber-200 transition-colors">
+                    <span className="text-[10px] font-bold text-amber-700">LATE</span>
+                    <span className="text-[10px] text-amber-600">{att.time_in || '?'}</span>
+                  </button>
+                )
+              }
+
+              if (s === 'absent') {
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors">
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )
+              }
+
+              if (s === 'leave' || s === 'sick') {
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-blue-100 border border-blue-300 flex items-center justify-center hover:bg-blue-200 transition-colors">
+                    <span className="text-[10px] font-bold text-blue-700">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
+                  </button>
+                )
+              }
+
+              if (s === 'ph') {
+                return (
+                  <button key={d} onClick={() => onSelectDay(d)}
+                    className="h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center hover:bg-purple-200 transition-colors">
+                    <span className="text-[10px] font-bold text-purple-600">PH</span>
+                  </button>
+                )
+              }
+
+              // short_time or other
+              return (
+                <button key={d} onClick={() => onSelectDay(d)}
+                  className="h-12 rounded-lg bg-gray-100 border border-gray-300 flex items-center justify-center hover:bg-gray-200 transition-colors">
+                  <span className="text-[10px] font-bold text-gray-500">ST</span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      })}
     </div>
   )
 }
