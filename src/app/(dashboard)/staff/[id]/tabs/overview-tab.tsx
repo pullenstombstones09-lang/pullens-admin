@@ -13,6 +13,9 @@ import {
   Palmtree,
   Receipt,
   FileWarning,
+  FileText,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 
 interface OverviewTabProps {
@@ -149,6 +152,27 @@ export default function OverviewTab({ employeeId, employee, userRole, setEmploye
           setEmployee((prev: any) => ({ ...prev, ...updates }));
         }}
       />
+
+      {/* ID Document status + quick actions */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium min-h-[48px] ${
+          employee.id_document_url
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {employee.id_document_url
+            ? <><CheckCircle className="h-4 w-4" /> ID Copy on file</>
+            : <><XCircle className="h-4 w-4" /> No ID Copy — upload in Documents tab</>
+          }
+        </div>
+        <button
+          onClick={() => window.open(`/api/pdf/confirmation-of-employment?id=${employee.id}`, '_blank')}
+          className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium bg-[#C4A35A]/10 text-[#C4A35A] hover:bg-[#C4A35A]/20 transition-colors min-h-[48px] border border-[#C4A35A]/20"
+        >
+          <FileText className="h-4 w-4" />
+          Confirmation of Employment
+        </button>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/* This week's attendance */}
