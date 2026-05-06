@@ -129,7 +129,10 @@ function getDefaultTimes(dateStr: string, weeklyHours: number): {
 function isStandardTime(timeIn: string | null, timeOut: string | null, dayIdx: number): boolean {
   if (!timeIn || !timeOut) return false
   const isFri = dayIdx === 4
-  return timeIn === '08:00' && (isFri ? timeOut === '16:00' : timeOut === '17:00')
+  const isSat = dayIdx === 5
+  if (isSat) return timeIn === '08:00' && timeOut === '13:00'
+  if (isFri) return timeIn === '08:00' && timeOut === '16:00'
+  return timeIn === '08:00' && timeOut === '17:00'
 }
 
 function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: string; onSelectDay: (date: string) => void; readOnly?: boolean }) {
@@ -139,19 +142,20 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null) // "empId-date" key
 
-  const days = Array.from({ length: 5 }, (_, i) => {
+  // 6 days: Mon-Sat (Saturday shows for 45hr staff)
+  const days = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(weekStart)
     d.setDate(d.getDate() + i)
     return format(d, 'yyyy-MM-dd')
   })
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const today = format(new Date(), 'yyyy-MM-dd')
 
   async function loadData() {
     setLoading(true)
-    const weekEnd = days[4]
+    const weekEnd = days[5]
     const [{ data: emps }, { data: att }] = await Promise.all([
-      supabase.from('employees').select('id, full_name, pt_code').eq('status', 'active').order('full_name'),
+      supabase.from('employees').select('id, full_name, pt_code, weekly_hours').eq('status', 'active').order('full_name'),
       supabase.from('attendance').select('*').gte('date', weekStart).lte('date', weekEnd),
     ])
     setEmployees(emps || [])
@@ -173,8 +177,9 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
     setSaving(key)
 
     const isFri = dayIdx === 4
+    const isSat = dayIdx === 5
     const stdIn = '08:00'
-    const stdOut = isFri ? '16:00' : '17:00'
+    const stdOut = isSat ? '13:00' : isFri ? '16:00' : '17:00'
 
     if (!att) {
       // Empty → Present with standard times
@@ -222,7 +227,7 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
       .from('attendance')
       .select('*')
       .gte('date', weekStart)
-      .lte('date', days[4])
+      .lte('date', days[5])
 
     const map = new Map<string, Map<string, any>>()
     for (const a of freshAtt || []) {
@@ -238,7 +243,7 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
     if (!timeOut) return 0
     const [h, m] = timeOut.split(':').map(Number)
     const outMin = h * 60 + m
-    const cutoff = dayIdx === 4 ? 16 * 60 : 17 * 60
+    const cutoff = dayIdx === 5 ? 13 * 60 : dayIdx === 4 ? 16 * 60 : 17 * 60
     return Math.max(0, outMin - cutoff)
   }
 
@@ -252,12 +257,17 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
     )
   }
 
-  const dayCounts = days.map(d => {
+  const dayCounts = days.map((d, dayIdx) => {
     let captured = 0
+    let total = 0
     for (const emp of employees) {
+      const isSatDay = dayIdx === 5
+      const is45hr = (emp.weekly_hours || 40) >= 45
+      if (isSatDay && !is45hr) continue // skip 40hr staff on Saturday
+      total++
       if (data.get(emp.id)?.get(d)) captured++
     }
-    return { captured, total: employees.length }
+    return { captured, total }
   })
 
   // Clear a single day's attendance for all employees
@@ -298,7 +308,7 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
       )}
 
       {/* Day header row */}
-      <div className="grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 px-1">
+      <div className="grid grid-cols-[1fr_repeat(6,minmax(0,1fr))] gap-1 px-1">
         <div />
         {days.map((d, i) => {
           const isToday = d === today
@@ -333,11 +343,13 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
 
       {/* Employee rows */}
       {employees.map(emp => {
-        const weekComplete = days.every(d => data.get(emp.id)?.get(d))
+        const is45hr = (emp.weekly_hours || 40) >= 45
+        const empDays = is45hr ? days : days.slice(0, 5) // 40hr = Mon-Fri only
+        const weekComplete = empDays.every(d => data.get(emp.id)?.get(d))
         return (
           <div
             key={emp.id}
-            className={`grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 items-center rounded-xl border px-3 py-2 transition-all ${
+            className={`grid grid-cols-[1fr_repeat(6,minmax(0,1fr))] gap-1 items-center rounded-xl border px-3 py-2 transition-all ${
               weekComplete ? 'border-green-200 bg-green-50/50' : 'border-[var(--border)] bg-white'
             }`}
           >
@@ -347,6 +359,11 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
             </div>
 
             {days.map((d, dayIdx) => {
+              // Saturday: greyed out for 40hr staff
+              if (dayIdx === 5 && !is45hr) {
+                return <div key={d} className="h-14 rounded-lg bg-gray-100 border border-gray-100" />
+              }
+
               const att = data.get(emp.id)?.get(d)
               const key = `${emp.id}-${d}`
               const isSaving = saving === key
@@ -386,7 +403,7 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
                                   records: [{ employee_id: emp.id, date: d, status: 'absent', time_in: null, time_out: null, late_minutes: 0, reason: null }],
                                 }),
                               })
-                              const { data: freshAtt } = await supabase.from('attendance').select('*').gte('date', weekStart).lte('date', days[4])
+                              const { data: freshAtt } = await supabase.from('attendance').select('*').gte('date', weekStart).lte('date', days[5])
                               const map = new Map<string, Map<string, any>>()
                               for (const a of freshAtt || []) {
                                 if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
@@ -524,6 +541,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
 
   const isAttendanceClerk = user?.role === 'attendance_clerk';
+  const [showDailyView, setShowDailyView] = useState(false);
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [rows, setRows] = useState<RegisterRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -868,14 +886,22 @@ export default function RegisterPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
-            {isAttendanceClerk ? 'Daily Register' : 'Weekly Overview'}
+            {isAttendanceClerk ? 'Daily Register' : (isOwner && showDailyView) ? 'Day Detail' : 'Weekly Register'}
           </h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {isAttendanceClerk ? 'Attendance capture' : 'Attendance overview'} &mdash; {rows.length} staff
+            {isAttendanceClerk ? 'Attendance capture' : 'Attendance'} &mdash; {rows.length} staff
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {isOwner && showDailyView && (
+            <button
+              onClick={() => setShowDailyView(false)}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors min-h-[48px]"
+            >
+              Back to Week
+            </button>
+          )}
           <a
             href={`/api/pdf/dol-register?month=${selectedDate.slice(0, 7)}`}
             target="_blank"
@@ -891,8 +917,8 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Date picker + actions — attendance_clerk only */}
-      {isAttendanceClerk && <Card padding="sm">
+      {/* Date picker + actions */}
+      {(isAttendanceClerk || (isOwner && showDailyView)) && <Card padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <label htmlFor="register-date" className="text-sm font-medium text-[#333] whitespace-nowrap">
@@ -958,8 +984,19 @@ export default function RegisterPage() {
         </div>
       </Card>}
 
-      {/* Week grid view — read-only for non-clerks */}
-      {!isAttendanceClerk && (
+      {/* Week grid view — owner gets full edit, others read-only */}
+      {!isAttendanceClerk && isOwner && (
+        <Card padding="none">
+          <WeekGrid
+            weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
+            onSelectDay={(date) => {
+              setSelectedDate(date)
+              setShowDailyView(true)
+            }}
+          />
+        </Card>
+      )}
+      {!isAttendanceClerk && !isOwner && (
         <Card padding="none">
           <WeekGrid
             weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
@@ -969,8 +1006,8 @@ export default function RegisterPage() {
         </Card>
       )}
 
-      {/* Daily view — attendance_clerk only */}
-      {isAttendanceClerk && <>
+      {/* Daily view — attendance_clerk always, owner when day selected */}
+      {(isAttendanceClerk || (isOwner && showDailyView)) && <>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
