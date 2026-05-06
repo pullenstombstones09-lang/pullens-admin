@@ -24,6 +24,7 @@ export const PERMISSIONS = {
   // Payslips
   view_payslips: ['owner', 'bookkeeper'],
   sign_payslips: ['owner', 'signer'],
+  manage_signing: ['owner', 'attendance_clerk'],
   print_payslips: ['owner', 'bookkeeper'],
   bank_payroll: ['owner', 'bookkeeper'],
   review_payroll: ['owner', 'bookkeeper'],
@@ -101,6 +102,7 @@ export function getNavItems(role: UserRole) {
     { label: 'Payroll', href: '/payroll', icon: 'banknotes', permission: 'view_payroll' },
     { label: 'Review', href: '/payroll/review', icon: 'clipboard-check', permission: 'review_payroll' },
     { label: 'Sign Payslips', href: '/payroll/sign', icon: 'clipboard-check', permission: 'sign_payslips' },
+    { label: 'Payslip Signing', href: '/payroll/signing', icon: 'pen-tool', permission: 'manage_signing' },
     { label: 'Saturday Pay', href: '/payroll/saturday', icon: 'sun', permission: 'capture_saturday' },
     { label: 'Petty Cash', href: '/petty-cash', icon: 'wallet', permission: 'view_petty_cash' },
     { label: 'HR Advisor', href: '/hr-advisor', icon: 'scale', permission: 'view_hr_advisor' },

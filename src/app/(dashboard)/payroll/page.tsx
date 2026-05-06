@@ -432,7 +432,7 @@ export default function PayrollPage() {
             </div>
           )}
 
-          {/* 2. Workflow progress cards */}
+          {/* 2. Workflow: Calculate → Print → Sign (next week) → Bank */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Calculate — completed */}
             <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
@@ -447,29 +447,34 @@ export default function PayrollPage() {
               </div>
             </div>
 
-            {/* Sign — active/in progress */}
-            <a href="/payroll/sign" className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow">
+            {/* Print — Friday payday action */}
+            <button
+              onClick={() => {
+                if (runId) window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
+              }}
+              className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow text-left"
+            >
               <div className="flex items-center gap-2 mb-2">
-                <PenTool size={18} className="opacity-80" />
+                <Printer size={18} className="opacity-80" />
                 <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
               </div>
+              <div className="text-base font-bold">Print All</div>
+              <div className="text-xs mt-1 opacity-90">Tap to print {results.length} payslips</div>
+            </button>
+
+            {/* Sign — next week, Marlyn/Cheryl handle */}
+            <a href="/payroll/signing" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#C4A35A]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <PenTool size={18} className="text-[#C4A35A]" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 3</span>
+              </div>
               <div className="text-base font-bold">Sign</div>
-              <div className="text-xs mt-1 opacity-90">
+              <div className="text-xs mt-1 text-gray-500">
                 {signedCount}/{results.length} signed
               </div>
             </a>
 
-            {/* Print — pending */}
-            <a href="/payroll/print" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-              <div className="flex items-center gap-2 mb-2">
-                <Printer size={18} className="text-gray-400" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
-              </div>
-              <div className="text-base font-bold">Print</div>
-              <div className="text-xs mt-1 text-gray-400">Payslips &amp; summary</div>
-            </a>
-
-            {/* Bank — pending */}
+            {/* Bank — mark payments done */}
             <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
               <div className="flex items-center gap-2 mb-2">
                 <Landmark size={18} className="text-gray-400" />
@@ -478,6 +483,26 @@ export default function PayrollPage() {
               <div className="text-base font-bold">Bank</div>
               <div className="text-xs mt-1 text-gray-400">Mark payments done</div>
             </a>
+          </div>
+
+          {/* Quick print buttons */}
+          <div className="flex gap-3">
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<Printer className="h-4 w-4" />}
+              onClick={() => { if (runId) window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank'); }}
+            >
+              Print All Payslips
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={<FileStack className="h-4 w-4" />}
+              onClick={() => { if (runId) window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank'); }}
+            >
+              Print Summary
+            </Button>
           </div>
 
           {/* 3. Results table */}

@@ -93,12 +93,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Fetch attendance for the week
+    // 2. Fetch attendance for the week (include Saturday for 45hr staff)
+    // Calculate the Saturday after week_end
+    const weForSat = new Date(week_end + 'T00:00:00');
+    const satAfterWeekEnd = new Date(weForSat);
+    // If week_end is Friday (day 5), Saturday is +1. Otherwise find next Saturday.
+    while (satAfterWeekEnd.getDay() !== 6) satAfterWeekEnd.setDate(satAfterWeekEnd.getDate() + 1);
+    const satDateStr = satAfterWeekEnd.toISOString().slice(0, 10);
+
     const { data: allAttendance, error: attError } = await supabase
       .from('attendance')
       .select('*')
       .gte('date', week_start)
-      .lte('date', week_end);
+      .lte('date', satDateStr); // Include Saturday
 
     if (attError) {
       return NextResponse.json({ error: attError.message }, { status: 500 });
@@ -233,9 +240,19 @@ export async function POST(request: Request) {
       }
     }
 
-    // Index data by employee
+    // Index data by employee — filter Saturday attendance for 40hr staff
+    const empHoursMap = new Map<string, number>();
+    for (const emp of employees as Employee[]) {
+      empHoursMap.set(emp.id, emp.weekly_hours || 40);
+    }
+
     const attendanceMap = new Map<string, Attendance[]>();
     for (const att of (allAttendance ?? []) as Attendance[]) {
+      // Skip Saturday records for 40hr staff (Saturday is separate cash payroll for them)
+      const attDay = new Date(att.date + 'T00:00:00').getDay();
+      if (attDay === 6 && (empHoursMap.get(att.employee_id) || 40) < 45) {
+        continue;
+      }
       const existing = attendanceMap.get(att.employee_id) ?? [];
       existing.push(att);
       attendanceMap.set(att.employee_id, existing);
@@ -256,12 +273,14 @@ export async function POST(request: Request) {
     }
 
     // 6. Run payroll calculation for each employee
-    // Garnishee only deducts when the pay week contains the last day of the month
+    // Garnishee deducts in the week containing the LAST FRIDAY of the month
     const wsDate = new Date(week_start + 'T00:00:00');
     const weDate = new Date(week_end + 'T00:00:00');
-    // Last day of the month that week_start falls in
+    // Find last Friday of the month: start from last day, walk back to Friday
     const lastDayOfMonth = new Date(wsDate.getFullYear(), wsDate.getMonth() + 1, 0);
-    const isLastWeekOfMonth = lastDayOfMonth >= wsDate && lastDayOfMonth <= weDate;
+    const lastFriday = new Date(lastDayOfMonth);
+    while (lastFriday.getDay() !== 5) lastFriday.setDate(lastFriday.getDate() - 1);
+    const isLastWeekOfMonth = lastFriday >= wsDate && lastFriday <= weDate;
 
     const results: PayrollResult[] = [];
     let totalGross = 0;
