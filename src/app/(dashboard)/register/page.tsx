@@ -135,7 +135,7 @@ function isStandardTime(timeIn: string | null, timeOut: string | null, dayIdx: n
   return timeIn === '08:00' && timeOut === '17:00'
 }
 
-function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: string; onSelectDay: (date: string) => void; readOnly?: boolean }) {
+function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }: { weekStart: string; onSelectDay: (date: string) => void; onSelectEmployee?: (employeeId: string, date: string) => void; readOnly?: boolean }) {
   const supabase = createClient()
   const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
   const [employees, setEmployees] = useState<any[]>([])
@@ -354,8 +354,20 @@ function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: str
             }`}
           >
             <div className="min-w-0 pr-2">
-              <p className="font-semibold text-sm truncate">{emp.full_name}</p>
-              <p className="text-xs text-[var(--muted)]">{emp.pt_code}</p>
+              {!readOnly && onSelectEmployee ? (
+                <button
+                  onClick={() => onSelectEmployee(emp.id, today)}
+                  className="text-left w-full"
+                >
+                  <p className="font-semibold text-sm truncate text-[#1E40AF] hover:underline">{emp.full_name}</p>
+                  <p className="text-xs text-[var(--muted)]">{emp.pt_code}</p>
+                </button>
+              ) : (
+                <>
+                  <p className="font-semibold text-sm truncate">{emp.full_name}</p>
+                  <p className="text-xs text-[var(--muted)]">{emp.pt_code}</p>
+                </>
+              )}
             </div>
 
             {days.map((d, dayIdx) => {
@@ -542,6 +554,7 @@ export default function RegisterPage() {
 
   const isAttendanceClerk = user?.role === 'attendance_clerk';
   const [showDailyView, setShowDailyView] = useState(false);
+  const [scrollToEmployeeId, setScrollToEmployeeId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [rows, setRows] = useState<RegisterRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -703,6 +716,20 @@ export default function RegisterPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Scroll to employee when selected from weekly grid
+  useEffect(() => {
+    if (scrollToEmployeeId && !loading && showDailyView) {
+      const el = document.getElementById(`register-row-${scrollToEmployeeId}`);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-2', 'ring-[#C4A35A]');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-[#C4A35A]'), 3000);
+        }, 300);
+      }
+    }
+  }, [scrollToEmployeeId, loading, showDailyView]);
 
   // ---------- row update helpers ----------
 
@@ -992,6 +1019,12 @@ export default function RegisterPage() {
             onSelectDay={(date) => {
               setSelectedDate(date)
               setShowDailyView(true)
+              setScrollToEmployeeId(null)
+            }}
+            onSelectEmployee={(empId, date) => {
+              setSelectedDate(date)
+              setShowDailyView(true)
+              setScrollToEmployeeId(empId)
             }}
           />
         </Card>
@@ -1111,8 +1144,9 @@ export default function RegisterPage() {
                   return (
                     <tr
                       key={row.employee_id}
+                      id={`register-row-${row.employee_id}`}
                       className={cn(
-                        'border-b border-gray-100 transition-colors',
+                        'border-b border-gray-100 transition-all',
                         idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
                       )}
                     >
