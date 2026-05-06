@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       supabase.from('payroll_runs').select('week_start, week_end').eq('id', runId).single(),
       supabase
         .from('payslips')
-        .select('*, employee:employees(full_name, pt_code, id_number, occupation, payment_method, bank_name, bank_acc)')
+        .select('*, employee:employees(full_name, pt_code, id_number, occupation, payment_method, bank_name, bank_acc, weekly_wage, weekly_hours)')
         .eq('payroll_run_id', runId)
         .order('created_at'),
     ]);
@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
         week_start: run.week_start,
         week_end: run.week_end,
         pay_date: run.week_end,
-        weekly_wage: gross - ot_amount,
+        weekly_wage: (emp?.weekly_wage as number) || (gross - ot_amount),
+        weekly_hours: (emp?.weekly_hours as number) || 40,
         ordinary_hours: slip.ordinary_hours as number,
         ot_hours,
         ot_rate: ot_hours > 0 ? ot_amount / (ot_hours * ((gross - ot_amount) / 40)) : 1.5,

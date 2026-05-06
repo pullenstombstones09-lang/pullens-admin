@@ -129,7 +129,7 @@ function renderPayslipPage(doc: jsPDF, data: PayslipPdfData) {
   doc.text('Amount', 192, y + 5, { align: 'right' });
   y += 9;
 
-  const hourlyRate = data.weekly_wage / 40;
+  const hourlyRate = data.weekly_wage / (data.weekly_hours || 40);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 51, 51);

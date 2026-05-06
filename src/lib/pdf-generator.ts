@@ -383,6 +383,7 @@ export interface PayslipPdfData {
 
   // Earnings
   weekly_wage: number;
+  weekly_hours: number;
   ordinary_hours: number;
   ot_hours: number;
   ot_rate: number;
@@ -446,7 +447,7 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 51, 51);
-  const hourlyRate = data.weekly_wage / 40;
+  const hourlyRate = data.weekly_wage / (data.weekly_hours || 40);
   doc.text('Ordinary Pay', 18, y + 4);
   doc.text(data.ordinary_hours.toFixed(1), 100, y + 4, { align: 'right' });
   doc.text(fmt(hourlyRate) + '/hr', 140, y + 4, { align: 'right' });

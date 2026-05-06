@@ -52,73 +52,42 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 6 May 2026 (session complete)
+## Status — 6 May 2026 (session in progress)
 
-### CURRENT BUILD — main branch, deployed to Vercel
+### CURRENT BUILD — main branch, NOT YET PUSHED
 
-**Session work (5-6 May):** Major payroll workflow redesign — approval gate, Saturday cash payroll, day-aware dashboard, register overhaul.
+**Session work (6 May):** Register tab redesign, payslip PDF fix, loans in payroll review.
 
-**Payroll workflow redesign (20 commits):**
-- Per-employee approval gate — all default approved, anomalies auto-flagged, "Run Final Payroll" button
-- Saturday cash payroll — separate run type, select workers, generate, sign, print
-- Individual payslip recalculation — fix one without scrapping the run
-- Friday 16:00 cutoff — OT after 4pm rolls into next week
-- OT only after 40 hours total for the week
-- Payslip viewer — tap any employee name on any page → slide panel with full breakdown + anomaly flags
-- Anomaly detection: late dock, missing time, zero hours, high OT, high deductions, week-on-week pay swing
+**Register redesign:**
+- Two tabs at top: "Day View" (default) | "Week View"
+- Day View = primary capture tool — date picker, "Mark All Present" button, time entry, status dropdowns, auto-late/OT calc, save
+- Week View = read-only at-a-glance — colour blocks with text (green+times=present, amber+time/-min=late, red+ABS=absent, blue+SICK/LEAVE, purple+PH, grey+ST, OT badge)
+- No tick/cross SVG icons, no clear day, no clear all on week view
+- Tap any cell in week view → switches to Day View for that employee + that day
+- Mark All Present stamps all active employees with standard times (skips leave/sick/PH)
+- Removed dead code: quickToggle, clearDay, clearAll from WeekGrid
 
-**Late-coming rules (updated):**
-- 08:00-08:05: grace
-- 08:06-08:15: dock 30 min
-- 08:16-09:00: dock 60 min
-- 09:01+: actual minutes missed (no supervisor override, owner can manually edit)
+**Payslip PDF hourly rate fix:**
+- Bug: hourly rate was hardcoded as `weekly_wage / 40` — wrong for 45hr staff
+- Fix: now uses `weekly_wage / weekly_hours` across all 3 PDF generators
+- Added `weekly_hours` to PayslipPdfData interface
+- Both `/api/pdf/payslip` and `/api/pdf/payslips-all` now fetch actual `weekly_wage` + `weekly_hours` from employee record
 
-**Dashboard (rewritten):**
-- Day-aware — knows what day it is, shows what needs doing
-- Pulsing "what's next" indicator on the priority action
-- Live counters via Supabase Realtime (attendance + payslips)
-- Compact weekly stepper (Reg → Review → Payroll → Sign → Print → Bank)
-- Role-gated — each user sees only their actions
+**Loans column in Payroll Review:**
+- New "Loans" column between Gross and Deduct in the review grid
+- Shows loan deduction amount per employee (amber text)
+- Tap amount → popover showing all active loans with purpose, outstanding balance, editable weekly deduction
+- Save updates loan in Supabase and instantly recalculates that employee's payroll
+- Totals row includes loans total
+- Loans tab on staff profile remains the full record (create, history, close)
 
-**Register (major rework):**
-- Weekly grid view (default) — tick/cross per employee per day
-- Split tick/cross buttons on empty cells for quick capture
-- Tap tick = present (auto-enters standard times), tap cross = absent
-- Late/OT/leave/sick/PH show as coloured blocks at a glance
-- Clear Day + Clear All buttons
-- Day View button switches to daily capture for fine-tuning
-- Daily view unchanged — TimePicker, auto-late detection, OT calc
-
-**New payroll pages:**
-- `/payroll/review` — per-employee approval with anomaly badges
-- `/payroll/saturday` — Saturday cash payroll capture + generate
-
-**Visual refresh:**
-- Royal blue (#1E40AF) primary everywhere — killed all charcoal (#1E293B) backgrounds
-- Gold (#C4A35A) accent for CTAs and badges
-- Favicon: gold P on royal blue (32px + 192px)
-- Manifest + themeColor set to #1E40AF
-- Removed gradient cards and decorative animations
-- Added .btn-gold utility class
-- Haptic feedback (Navigator.vibrate) on key actions
-
-**Users:**
-- Cheryl added as attendance_clerk (same as Marlyn)
-- 7 admin users total: Annika, Nisha, Veshi, Marlyn, Cheryl, Lee-Ann, Kam
-
-**New files:**
-- `src/lib/haptics.ts` — vibration feedback utility
-- `src/lib/anomalies.ts` — anomaly detection engine
-- `src/lib/use-realtime.ts` — Supabase Realtime hook
-- `src/components/ui/payslip-viewer.tsx` — global payslip slide panel
-- `src/components/ui/anomaly-badge.tsx` — red/amber flag badges
-- `src/components/ui/pulse-card.tsx` — animated priority card
-- `src/app/api/payroll/batch/route.ts` — approval batch management
-- `src/app/api/payroll/recalculate/route.ts` — single payslip recalc
-- `src/app/api/payroll/saturday/route.ts` — Saturday cash payroll
-- `src/app/(dashboard)/payroll/review/page.tsx` — approval gate page
-- `src/app/(dashboard)/payroll/saturday/page.tsx` — Saturday capture page
-- `supabase/migrations/00005_payroll_batch_and_saturday.sql` — payroll_batch table + payroll_type enum
+**Prior session work (5-6 May) — already on main:**
+- Per-employee approval gate, Saturday cash payroll, individual payslip recalc
+- Friday 16:00 cutoff, OT only after 40hrs
+- Payslip viewer slide panel, anomaly detection
+- Day-aware dashboard with workflow stepper + Realtime
+- Royal blue (#1E40AF) + gold (#C4A35A) theming
+- 7 admin users: Annika, Nisha, Veshi, Marlyn, Cheryl, Lee-Ann, Kam
 
 ### SQL MIGRATIONS — DONE
 - 00001-00004: original schema (done 29 April)
@@ -130,6 +99,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - Loans/ folder with WhatsApp images is in git — reference photos for loan accounts, leave as-is
 
 ### NOT YET DONE
+- [ ] **Payslip pay period formatting** — show "Pay Period: Mon 04 May — Fri 08 May 2026" in readable format, not raw date strings
 - [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month reporting
 - [ ] **Monthly reporting** — payroll/attendance/petty cash summaries per month
 - [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)

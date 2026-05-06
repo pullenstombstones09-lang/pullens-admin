@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: emp } = await supabase
       .from('employees')
-      .select('full_name, pt_code, occupation, id_number, payment_method, bank_name, bank_acc')
+      .select('full_name, pt_code, occupation, id_number, payment_method, bank_name, bank_acc, weekly_wage, weekly_hours')
       .eq('id', slip.employee_id)
       .single();
 
@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
       week_start: run?.week_start || '—',
       week_end: run?.week_end || '—',
       pay_date: run?.week_end || '—', // paid on Thursday (end of week)
-      weekly_wage: slip.gross - slip.ot_amount,
+      weekly_wage: emp?.weekly_wage || (slip.gross - slip.ot_amount),
+      weekly_hours: emp?.weekly_hours || 40,
       ordinary_hours: slip.ordinary_hours,
       ot_hours: slip.ot_hours,
       ot_rate: slip.ot_hours > 0 ? slip.ot_amount / (slip.ot_hours * ((slip.gross - slip.ot_amount) / 40)) : 1.5,

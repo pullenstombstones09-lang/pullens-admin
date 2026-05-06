@@ -140,7 +140,6 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
   const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState<string | null>(null) // "empId-date" key
 
   // 6 days: Mon-Sat (Saturday shows for 45hr staff)
   const days = Array.from({ length: 6 }, (_, i) => {
@@ -169,74 +168,6 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
   }
 
   useEffect(() => { loadData() }, [weekStart])
-
-  // Quick toggle: empty → present (standard times) → absent → empty
-  async function quickToggle(empId: string, date: string, dayIdx: number) {
-    const att = data.get(empId)?.get(date)
-    const key = `${empId}-${date}`
-    setSaving(key)
-
-    const isFri = dayIdx === 4
-    const isSat = dayIdx === 5
-    const stdIn = '08:00'
-    const stdOut = isSat ? '13:00' : isFri ? '16:00' : '17:00'
-
-    if (!att) {
-      // Empty → Present with standard times
-      await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date,
-          records: [{
-            employee_id: empId,
-            date,
-            status: 'present',
-            time_in: stdIn,
-            time_out: stdOut,
-            late_minutes: 0,
-            reason: null,
-          }],
-        }),
-      })
-    } else if (att.status === 'present' || att.status === 'late') {
-      // Present/Late → Absent
-      await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date,
-          records: [{
-            employee_id: empId,
-            date,
-            status: 'absent',
-            time_in: null,
-            time_out: null,
-            late_minutes: 0,
-            reason: null,
-          }],
-        }),
-      })
-    } else if (att.status === 'absent') {
-      // Absent → clear (delete)
-      await supabase.from('attendance').delete().eq('employee_id', empId).eq('date', date)
-    }
-
-    // Refresh data
-    const { data: freshAtt } = await supabase
-      .from('attendance')
-      .select('*')
-      .gte('date', weekStart)
-      .lte('date', days[5])
-
-    const map = new Map<string, Map<string, any>>()
-    for (const a of freshAtt || []) {
-      if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
-      map.get(a.employee_id)!.set(a.date, a)
-    }
-    setData(map)
-    setSaving(null)
-  }
 
   // Calculate OT minutes from time_out
   function getOtMinutes(timeOut: string | null, dayIdx: number): number {
@@ -270,42 +201,9 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
     return { captured, total }
   })
 
-  // Clear a single day's attendance for all employees
-  async function clearDay(date: string) {
-    setSaving('clearing')
-    await supabase.from('attendance').delete().eq('date', date)
-    await loadData()
-  }
-
-  // Clear all attendance for the entire week
-  async function clearAll() {
-    setSaving('clearing')
-    for (const d of days) {
-      await supabase.from('attendance').delete().eq('date', d)
-    }
-    await loadData()
-  }
-
   return (
     <div className="space-y-3">
-      {/* Action buttons — hidden in read-only mode */}
-      {!readOnly && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => onSelectDay(today)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity"
-          >
-            Day View
-          </button>
-          <div className="flex-1" />
-          <button
-            onClick={() => { if (confirm('Clear all attendance for this week?')) clearAll() }}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
-          >
-            Clear All
-          </button>
-        </div>
-      )}
+      {/* Week view is read-only — no action buttons */}
 
       {/* Day header row */}
       <div className="grid grid-cols-[1fr_repeat(6,minmax(0,1fr))] gap-1 px-1">
@@ -328,14 +226,7 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
                   allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
                 }`}>{captured}/{total}</p>
               </button>
-              {captured > 0 && !readOnly && (
-                <button
-                  onClick={() => { if (confirm(`Clear ${dayLabels[i]}?`)) clearDay(d) }}
-                  className="text-[9px] text-red-400 hover:text-red-600 mt-0.5"
-                >
-                  clear
-                </button>
-              )}
+              {/* no clear button — week view is read-only */}
             </div>
           )
         })}
@@ -377,165 +268,107 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
               }
 
               const att = data.get(emp.id)?.get(d)
-              const key = `${emp.id}-${d}`
-              const isSaving = saving === key
               const otMin = att ? getOtMinutes(att.time_out, dayIdx) : 0
 
-              // Empty — split button: left=tick(present), right=cross(absent)
+              // Empty — tap to go to day view for quick edit
               if (!att) {
-                if (readOnly) {
-                  return <div key={d} className="h-14 rounded-lg border border-gray-200 bg-gray-50" />
-                }
                 return (
-                  <div key={d} className="h-14 rounded-lg overflow-hidden flex border border-gray-200">
-                    {isSaving
-                      ? <div className="flex-1 flex items-center justify-center bg-gray-50">
-                          <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      : <>
-                          <button
-                            disabled={isSaving}
-                            onClick={() => quickToggle(emp.id, d, dayIdx)}
-                            className="flex-1 flex items-center justify-center bg-green-50 hover:bg-green-100 transition-all active:scale-95 border-r border-gray-200"
-                          >
-                            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            disabled={isSaving}
-                            onClick={async () => {
-                              const k = `${emp.id}-${d}`
-                              setSaving(k)
-                              await fetch('/api/register', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  date: d,
-                                  records: [{ employee_id: emp.id, date: d, status: 'absent', time_in: null, time_out: null, late_minutes: 0, reason: null }],
-                                }),
-                              })
-                              const { data: freshAtt } = await supabase.from('attendance').select('*').gte('date', weekStart).lte('date', days[5])
-                              const map = new Map<string, Map<string, any>>()
-                              for (const a of freshAtt || []) {
-                                if (!map.has(a.employee_id)) map.set(a.employee_id, new Map())
-                                map.get(a.employee_id)!.set(a.date, a)
-                              }
-                              setData(map)
-                              setSaving(null)
-                            }}
-                            className="flex-1 flex items-center justify-center bg-red-50 hover:bg-red-100 transition-all active:scale-95"
-                          >
-                            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </>
-                    }
-                  </div>
+                  <button
+                    key={d}
+                    onClick={() => onSelectEmployee ? onSelectEmployee(emp.id, d) : onSelectDay(d)}
+                    className="h-14 rounded-lg border border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-all cursor-pointer flex items-center justify-center"
+                  >
+                    <span className="text-[10px] text-gray-400">—</span>
+                  </button>
                 )
               }
 
               const s = att.status
+              const cellClick = () => onSelectEmployee ? onSelectEmployee(emp.id, d) : onSelectDay(d)
 
-              const CellTag = readOnly ? 'div' : 'button' as any
-
-              // Present (standard time) — big green tick
+              // Present (standard time) — solid green with times
               if ((s === 'present') && isStandardTime(att.time_in, att.time_out, dayIdx)) {
                 return (
-                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
-                    onClick={readOnly ? undefined : () => quickToggle(emp.id, d, dayIdx)}
-                    onDoubleClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-green-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-green-600 transition-all active:scale-95 cursor-pointer'}`}>
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </CellTag>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center hover:bg-green-600 transition-all cursor-pointer">
+                    <span className="text-[10px] font-bold text-white">{att.time_in}</span>
+                    <span className="text-[10px] font-bold text-white/80">{att.time_out}</span>
+                  </button>
                 )
               }
 
-              // Present with OT — green tick + OT badge
+              // Present with OT — green with times + OT badge
               if (s === 'present' && otMin > 0) {
                 return (
-                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
-                    onClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center relative ${readOnly ? '' : 'hover:bg-green-600 transition-all active:scale-95 cursor-pointer'}`}>
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center relative hover:bg-green-600 transition-all cursor-pointer">
+                    <span className="text-[10px] font-bold text-white">{att.time_in}</span>
+                    <span className="text-[10px] font-bold text-white/80">{att.time_out}</span>
                     <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[9px] font-bold text-white px-1 rounded-full">
                       +{Math.round(otMin / 60)}h
                     </span>
-                  </CellTag>
+                  </button>
                 )
               }
 
-              // Present with non-standard times (no OT) — green with times shown
+              // Present with non-standard times (no OT) — light green with times
               if (s === 'present') {
                 return (
-                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
-                    onClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center ${readOnly ? '' : 'hover:bg-green-200 transition-all active:scale-95 cursor-pointer'}`}>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center hover:bg-green-200 transition-all cursor-pointer">
                     <span className="text-[10px] font-semibold text-green-700">{att.time_in}</span>
                     <span className="text-[10px] font-semibold text-green-700">{att.time_out}</span>
-                  </CellTag>
+                  </button>
                 )
               }
 
-              // Late — amber with late minutes
+              // Late — amber with time in + late minutes
               if (s === 'late') {
                 return (
-                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
-                    onClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-amber-400 flex flex-col items-center justify-center ${readOnly ? '' : 'hover:bg-amber-500 transition-all active:scale-95 cursor-pointer'}`}>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-amber-400 flex flex-col items-center justify-center hover:bg-amber-500 transition-all cursor-pointer">
                     <span className="text-[10px] font-bold text-white">{att.time_in}</span>
                     <span className="text-[9px] font-bold text-white/80">-{att.late_minutes}m</span>
-                  </CellTag>
+                  </button>
                 )
               }
 
-              // Absent — red cross
+              // Absent — red with label
               if (s === 'absent') {
                 return (
-                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
-                    onClick={readOnly ? undefined : () => quickToggle(emp.id, d, dayIdx)}
-                    className={`h-14 rounded-lg bg-red-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-red-600 transition-all active:scale-95 cursor-pointer'}`}>
-                    {isSaving && !readOnly
-                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      : <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    }
-                  </CellTag>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-red-500 flex items-center justify-center hover:bg-red-600 transition-all cursor-pointer">
+                    <span className="text-[10px] font-bold text-white">ABS</span>
+                  </button>
                 )
               }
 
               // Leave/Sick — blue
               if (s === 'leave' || s === 'sick') {
                 return (
-                  <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-blue-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-blue-600 transition-all active:scale-95 cursor-pointer'}`}>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-all cursor-pointer">
                     <span className="text-[10px] font-bold text-white">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
-                  </CellTag>
+                  </button>
                 )
               }
 
               // PH
               if (s === 'ph') {
                 return (
-                  <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
-                    className={`h-14 rounded-lg bg-purple-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-purple-600 transition-all active:scale-95 cursor-pointer'}`}>
+                  <button key={d} onClick={cellClick}
+                    className="h-14 rounded-lg bg-purple-500 flex items-center justify-center hover:bg-purple-600 transition-all cursor-pointer">
                     <span className="text-[10px] font-bold text-white">PH</span>
-                  </CellTag>
+                  </button>
                 )
               }
 
               // Short time / other
               return (
-                <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
-                  className={`h-14 rounded-lg bg-gray-400 flex items-center justify-center ${readOnly ? '' : 'hover:bg-gray-500 transition-all active:scale-95 cursor-pointer'}`}>
+                <button key={d} onClick={cellClick}
+                  className="h-14 rounded-lg bg-gray-400 flex items-center justify-center hover:bg-gray-500 transition-all cursor-pointer">
                   <span className="text-[10px] font-bold text-white">ST</span>
-                </CellTag>
+                </button>
               )
             })}
           </div>
@@ -553,7 +386,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
 
   const isAttendanceClerk = user?.role === 'attendance_clerk';
-  const [showDailyView, setShowDailyView] = useState(false);
+  const [activeTab, setActiveTab] = useState<'day' | 'week'>('day');
   const [scrollToEmployeeId, setScrollToEmployeeId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [rows, setRows] = useState<RegisterRow[]>([]);
@@ -719,7 +552,7 @@ export default function RegisterPage() {
 
   // Scroll to employee when selected from weekly grid
   useEffect(() => {
-    if (scrollToEmployeeId && !loading && showDailyView) {
+    if (scrollToEmployeeId && !loading && activeTab === 'day') {
       const el = document.getElementById(`register-row-${scrollToEmployeeId}`);
       if (el) {
         setTimeout(() => {
@@ -729,7 +562,7 @@ export default function RegisterPage() {
         }, 300);
       }
     }
-  }, [scrollToEmployeeId, loading, showDailyView]);
+  }, [scrollToEmployeeId, loading, activeTab]);
 
   // ---------- row update helpers ----------
 
@@ -913,22 +746,14 @@ export default function RegisterPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
-            {isAttendanceClerk ? 'Daily Register' : (canEdit && showDailyView) ? 'Day Detail' : 'Weekly Register'}
+            Register
           </h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {isAttendanceClerk ? 'Attendance capture' : 'Attendance'} &mdash; {rows.length} staff
+            Attendance &mdash; {rows.length} staff
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {canEdit && showDailyView && (
-            <button
-              onClick={() => setShowDailyView(false)}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors min-h-[48px]"
-            >
-              Back to Week
-            </button>
-          )}
           <a
             href={`/api/pdf/dol-register?month=${selectedDate.slice(0, 7)}`}
             target="_blank"
@@ -944,8 +769,34 @@ export default function RegisterPage() {
         </div>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+        <button
+          onClick={() => setActiveTab('day')}
+          className={cn(
+            'flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all min-h-[44px]',
+            activeTab === 'day'
+              ? 'bg-white text-[var(--primary)] shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Day View
+        </button>
+        <button
+          onClick={() => setActiveTab('week')}
+          className={cn(
+            'flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all min-h-[44px]',
+            activeTab === 'week'
+              ? 'bg-white text-[var(--primary)] shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Week View
+        </button>
+      </div>
+
       {/* Date picker + actions */}
-      {(isAttendanceClerk || (canEdit && showDailyView)) && <Card padding="sm">
+      {activeTab === 'day' && <Card padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <label htmlFor="register-date" className="text-sm font-medium text-[#333] whitespace-nowrap">
@@ -1011,36 +862,28 @@ export default function RegisterPage() {
         </div>
       </Card>}
 
-      {/* Week grid view — owner + supervisor can edit, others read-only */}
-      {!isAttendanceClerk && canEdit && (
+      {/* Week grid view — read-only at-a-glance, tap cell to edit in day view */}
+      {activeTab === 'week' && (
         <Card padding="none">
           <WeekGrid
             weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
             onSelectDay={(date) => {
               setSelectedDate(date)
-              setShowDailyView(true)
+              setActiveTab('day')
               setScrollToEmployeeId(null)
             }}
-            onSelectEmployee={(empId, date) => {
+            onSelectEmployee={canEdit ? (empId, date) => {
               setSelectedDate(date)
-              setShowDailyView(true)
+              setActiveTab('day')
               setScrollToEmployeeId(empId)
-            }}
-          />
-        </Card>
-      )}
-      {!isAttendanceClerk && !canEdit && (
-        <Card padding="none">
-          <WeekGrid
-            weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
-            onSelectDay={() => {}}
+            } : undefined}
             readOnly
           />
         </Card>
       )}
 
-      {/* Daily view — attendance_clerk always, owner/supervisor when day selected */}
-      {(isAttendanceClerk || (canEdit && showDailyView)) && <>
+      {/* Daily view — shown when Day tab is active */}
+      {activeTab === 'day' && <>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -1064,9 +907,31 @@ export default function RegisterPage() {
         ))}
       </div>
 
-      {/* Save button — top */}
+      {/* Action buttons — top */}
       {canEdit && !editLocked && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              setRows(prev => prev.map(row => {
+                if (row.emp_status !== 'active') return row;
+                if (['leave', 'sick', 'ph'].includes(row.status) && row.existing_id) return row;
+                const defaults = getDefaultTimes(selectedDate, row.weekly_hours);
+                return {
+                  ...row,
+                  status: defaults.status,
+                  time_in: defaults.time_in,
+                  time_out: defaults.time_out,
+                  late_minutes: 0,
+                  late_deduction: 0,
+                  ot_minutes: 0,
+                };
+              }));
+            }}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors min-h-[48px]"
+          >
+            <Users className="h-4 w-4" />
+            Mark All Present
+          </button>
           <Button
             size="lg"
             loading={saving}

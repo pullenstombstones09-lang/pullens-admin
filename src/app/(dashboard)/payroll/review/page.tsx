@@ -99,11 +99,20 @@ export default function PayrollReviewPage() {
   const [editSaving, setEditSaving] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  // Loan edit state
+  const [editingLoan, setEditingLoan] = useState<string | null>(null); // employeeId
+  const [loanEdits, setLoanEdits] = useState<Map<string, number>>(new Map()); // loanId -> new weekly_deduction
+  const [loanSaving, setLoanSaving] = useState(false);
+  const loanPopoverRef = useRef<HTMLDivElement>(null);
+
   // ── Close popover on outside click ──────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setEditing(null);
+      }
+      if (loanPopoverRef.current && !loanPopoverRef.current.contains(e.target as Node)) {
+        setEditingLoan(null);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -337,6 +346,51 @@ export default function PayrollReviewPage() {
     }
   }
 
+  // ── Open loan editor ─────────────────────────────────────────────────
+  function openLoanEditor(employeeId: string) {
+    const row = rows.find((r) => r.employee.id === employeeId);
+    if (!row || row.loans.length === 0) return;
+    const edits = new Map<string, number>();
+    row.loans.forEach((l) => edits.set(l.id, l.weekly_deduction));
+    setLoanEdits(edits);
+    setEditingLoan(employeeId);
+  }
+
+  // ── Save loan edits ────────────────────────────────────────────────
+  async function saveLoanEdits() {
+    if (!editingLoan) return;
+    setLoanSaving(true);
+
+    try {
+      for (const [loanId, newDeduction] of loanEdits) {
+        await supabase
+          .from('loans')
+          .update({ weekly_deduction: newDeduction })
+          .eq('id', loanId);
+      }
+
+      // Update local state and recalculate
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.employee.id !== editingLoan) return row;
+          const updatedLoans = row.loans.map((l) => ({
+            ...l,
+            weekly_deduction: loanEdits.get(l.id) ?? l.weekly_deduction,
+          }));
+          const updatedRow = { ...row, loans: updatedLoans };
+          updatedRow.payroll = recalcEmployee(updatedRow);
+          return updatedRow;
+        })
+      );
+
+      setEditingLoan(null);
+    } catch {
+      setError('Failed to save loan changes');
+    } finally {
+      setLoanSaving(false);
+    }
+  }
+
   // ── Run Final Payroll ──────────────────────────────────────────────────
   async function runFinalPayroll() {
     setRunning(true);
@@ -377,11 +431,12 @@ export default function PayrollReviewPage() {
       acc.late += r.payroll.late_minutes;
       acc.ot += r.payroll.ot_hours;
       acc.gross += r.payroll.gross;
+      acc.loans += r.payroll.loan_deduction;
       acc.deductions += r.payroll.uif_employee + r.payroll.paye + r.payroll.loan_deduction + r.payroll.garnishee + r.payroll.petty_shortfall;
       acc.net += r.payroll.net;
       return acc;
     },
-    { hrs: 0, late: 0, ot: 0, gross: 0, deductions: 0, net: 0 }
+    { hrs: 0, late: 0, ot: 0, gross: 0, loans: 0, deductions: 0, net: 0 }
   );
 
   // ── Anomaly detection ──────────────────────────────────────────────────
@@ -627,6 +682,7 @@ export default function PayrollReviewPage() {
                 <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-14">Late</th>
                 <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-14">OT</th>
                 <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-20">Gross</th>
+                <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-20">Loans</th>
                 <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-20">Deduct</th>
                 <th className="px-2 py-3 text-right font-semibold text-gray-700 whitespace-nowrap w-20">Net</th>
               </tr>
@@ -687,6 +743,81 @@ export default function PayrollReviewPage() {
                       {p ? formatCurrency(p.gross) : '--'}
                     </td>
 
+                    {/* Loans */}
+                    <td className="px-2 py-2 text-right relative">
+                      {row.loans.length > 0 ? (
+                        <button
+                          onClick={() => openLoanEditor(row.employee.id)}
+                          className={`font-mono text-xs font-semibold hover:underline transition-colors ${
+                            p && p.loan_deduction > 0 ? 'text-amber-600' : 'text-gray-400'
+                          }`}
+                          title="Edit loan deductions"
+                        >
+                          {p && p.loan_deduction > 0 ? `-${formatCurrency(p.loan_deduction)}` : 'R0'}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-xs text-gray-300">--</span>
+                      )}
+
+                      {/* Loan edit popover */}
+                      {editingLoan === row.employee.id && (
+                        <div
+                          ref={loanPopoverRef}
+                          className="absolute z-50 top-full right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-xl p-4 w-72"
+                        >
+                          <p className="text-xs font-semibold text-gray-700 mb-3">
+                            Loans — {row.employee.full_name}
+                          </p>
+                          <div className="space-y-3">
+                            {row.loans.map((loan) => (
+                              <div key={loan.id} className="space-y-1">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-500">{loan.purpose || 'Loan'}</span>
+                                  <span className="text-gray-700 font-medium">
+                                    {formatCurrency(loan.outstanding)} left
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">R</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="50"
+                                    value={loanEdits.get(loan.id) ?? loan.weekly_deduction}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      setLoanEdits((prev) => {
+                                        const next = new Map(prev);
+                                        next.set(loan.id, val);
+                                        return next;
+                                      });
+                                    }}
+                                    className="flex-1 h-9 rounded-lg border border-gray-300 px-2 text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/30"
+                                  />
+                                  <span className="text-xs text-gray-400">/week</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => setEditingLoan(null)}
+                              className="flex-1 h-10 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveLoanEdits}
+                              disabled={loanSaving}
+                              className="flex-1 h-10 rounded-lg text-sm font-medium text-white bg-[#1E40AF] hover:bg-[#1E3A8A] transition-colors disabled:opacity-50"
+                            >
+                              {loanSaving ? 'Saving...' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+
                     {/* Deductions */}
                     <td className={`px-2 py-2 text-right font-mono text-xs ${
                       totalDeductions > 0 ? 'text-red-600' : 'text-gray-400'
@@ -728,6 +859,11 @@ export default function PayrollReviewPage() {
                 </td>
                 <td className="px-2 py-3 text-right font-mono text-xs text-gray-700">
                   {formatCurrency(totals.gross)}
+                </td>
+                <td className={`px-2 py-3 text-right font-mono text-xs ${
+                  totals.loans > 0 ? 'text-amber-600' : 'text-gray-400'
+                }`}>
+                  {totals.loans > 0 ? `-${formatCurrency(totals.loans)}` : '--'}
                 </td>
                 <td className="px-2 py-3 text-right font-mono text-xs text-red-600">
                   {totals.deductions > 0 ? `-${formatCurrency(totals.deductions)}` : '--'}
