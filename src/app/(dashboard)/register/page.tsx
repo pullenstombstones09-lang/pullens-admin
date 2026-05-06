@@ -886,7 +886,7 @@ export default function RegisterPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
-            {isAttendanceClerk ? 'Daily Register' : (isOwner && showDailyView) ? 'Day Detail' : 'Weekly Register'}
+            {isAttendanceClerk ? 'Daily Register' : (canEdit && showDailyView) ? 'Day Detail' : 'Weekly Register'}
           </h1>
           <p className="mt-0.5 text-sm text-gray-500">
             {isAttendanceClerk ? 'Attendance capture' : 'Attendance'} &mdash; {rows.length} staff
@@ -894,7 +894,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isOwner && showDailyView && (
+          {canEdit && showDailyView && (
             <button
               onClick={() => setShowDailyView(false)}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors min-h-[48px]"
@@ -918,7 +918,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Date picker + actions */}
-      {(isAttendanceClerk || (isOwner && showDailyView)) && <Card padding="sm">
+      {(isAttendanceClerk || (canEdit && showDailyView)) && <Card padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <label htmlFor="register-date" className="text-sm font-medium text-[#333] whitespace-nowrap">
@@ -984,8 +984,8 @@ export default function RegisterPage() {
         </div>
       </Card>}
 
-      {/* Week grid view — owner gets full edit, others read-only */}
-      {!isAttendanceClerk && isOwner && (
+      {/* Week grid view — owner + supervisor can edit, others read-only */}
+      {!isAttendanceClerk && canEdit && (
         <Card padding="none">
           <WeekGrid
             weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
@@ -996,7 +996,7 @@ export default function RegisterPage() {
           />
         </Card>
       )}
-      {!isAttendanceClerk && !isOwner && (
+      {!isAttendanceClerk && !canEdit && (
         <Card padding="none">
           <WeekGrid
             weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
@@ -1006,8 +1006,8 @@ export default function RegisterPage() {
         </Card>
       )}
 
-      {/* Daily view — attendance_clerk always, owner when day selected */}
-      {(isAttendanceClerk || (isOwner && showDailyView)) && <>
+      {/* Daily view — attendance_clerk always, owner/supervisor when day selected */}
+      {(isAttendanceClerk || (canEdit && showDailyView)) && <>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

@@ -545,6 +545,23 @@ export default function PayslipSigningPage() {
       });
     }
 
+    // Auto-file signed payslip PDF into employee folder
+    try {
+      const pdfRes = await fetch(`/api/pdf/payslip?id=${selectedSlip.id}`);
+      if (pdfRes.ok) {
+        const pdfBlob = await pdfRes.blob();
+        const pdfWeekLabel = run.week_end?.replace(/-/g, '') || 'unknown';
+        const pdfFile = new File([pdfBlob], `payslip-${pdfWeekLabel}-signed.pdf`, { type: 'application/pdf' });
+        const pdfForm = new FormData();
+        pdfForm.append('file', pdfFile);
+        pdfForm.append('path', `documents/${selectedSlip.employee_id}/payslips/week-${run.week_end || 'unknown'}-signed.pdf`);
+        await fetch('/api/upload-file', { method: 'POST', body: pdfForm });
+      }
+    } catch (e) {
+      // Non-blocking — signature is already saved
+      console.error('Auto-file PDF failed:', e);
+    }
+
     toast('success', `Signature captured for ${selectedSlip.employee.full_name}`);
 
     // Close panel

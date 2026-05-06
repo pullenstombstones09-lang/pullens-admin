@@ -63,7 +63,29 @@ export async function GET(request: NextRequest) {
       petty_shortfall: slip.petty_shortfall,
       total_deductions: totalDeductions,
       net: slip.net,
+      signature_url: undefined as string | undefined,
+      signed_at: slip.signed_at || undefined,
     };
+
+    // Fetch signature image as base64 data URL for PDF embedding
+    if (slip.signature_url) {
+      try {
+        if (slip.signature_url.startsWith('data:')) {
+          pdfData.signature_url = slip.signature_url;
+        } else {
+          const sigRes = await fetch(slip.signature_url);
+          if (sigRes.ok) {
+            const sigBuf = await sigRes.arrayBuffer();
+            const base64 = Buffer.from(sigBuf).toString('base64');
+            const contentType = sigRes.headers.get('content-type') || 'image/png';
+            pdfData.signature_url = `data:${contentType};base64,${base64}`;
+          }
+        }
+      } catch {
+        // Non-blocking — PDF will render without signature image
+        console.error('Failed to fetch signature image for PDF');
+      }
+    }
 
     const pdfBuffer = generatePayslipPdf(pdfData);
 

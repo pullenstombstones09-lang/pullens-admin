@@ -462,26 +462,26 @@ export default function PayrollPage() {
               <div className="text-xs mt-1 opacity-90">Tap to print {results.length} payslips</div>
             </button>
 
-            {/* Sign — next week, Marlyn/Cheryl handle */}
+            {/* Bank — Lee-Ann ticks off payments */}
+            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <Landmark size={18} className="text-gray-400" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
+              </div>
+              <div className="text-base font-bold">Bank</div>
+              <div className="text-xs mt-1 text-gray-400">Tick off payments</div>
+            </a>
+
+            {/* Sign — next week, Marlyn/Cheryl on tablet */}
             <a href="/payroll/signing" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#C4A35A]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
               <div className="flex items-center gap-2 mb-2">
                 <PenTool size={18} className="text-[#C4A35A]" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 3</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 4</span>
               </div>
               <div className="text-base font-bold">Sign</div>
               <div className="text-xs mt-1 text-gray-500">
                 {signedCount}/{results.length} signed
               </div>
-            </a>
-
-            {/* Bank — mark payments done */}
-            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-              <div className="flex items-center gap-2 mb-2">
-                <Landmark size={18} className="text-gray-400" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 4</span>
-              </div>
-              <div className="text-base font-bold">Bank</div>
-              <div className="text-xs mt-1 text-gray-400">Mark payments done</div>
             </a>
           </div>
 

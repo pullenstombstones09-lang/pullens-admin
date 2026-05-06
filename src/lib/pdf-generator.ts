@@ -399,6 +399,10 @@ export interface PayslipPdfData {
   petty_shortfall: number;
   total_deductions: number;
   net: number;
+
+  // Signature (optional — included when payslip has been signed)
+  signature_url?: string;
+  signed_at?: string;
 }
 
 export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
@@ -531,8 +535,31 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
 
   // Signature — with gap from net pay
   y += 8;
-  signatureLine(doc, 15, y, 'Employee Signature (Acknowledgement of Receipt)');
-  signatureLine(doc, 115, y, 'Authorised By');
+  if (data.signature_url) {
+    // Render the actual captured signature image
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(102, 102, 102);
+    doc.text('Employee Signature:', 15, y);
+    y += 2;
+    try {
+      doc.addImage(data.signature_url, 'PNG', 15, y, 60, 20);
+    } catch {
+      // If image fails, fall back to blank line
+      signatureLine(doc, 15, y + 16, 'Employee Signature (Acknowledgement of Receipt)');
+    }
+    y += 22;
+    if (data.signed_at) {
+      doc.setFontSize(7);
+      doc.setTextColor(153, 153, 153);
+      doc.text(`Signed: ${data.signed_at}`, 15, y);
+      y += 6;
+    }
+    signatureLine(doc, 115, y - 6, 'Authorised By');
+  } else {
+    signatureLine(doc, 15, y, 'Employee Signature (Acknowledgement of Receipt)');
+    signatureLine(doc, 115, y, 'Authorised By');
+  }
 
   addFooter(doc);
 

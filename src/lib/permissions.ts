@@ -12,22 +12,22 @@ export const PERMISSIONS = {
 
   // Register
   view_register: ['owner', 'supervisor', 'bookkeeper', 'attendance_clerk'],
-  edit_register: ['owner', 'attendance_clerk'],
+  edit_register: ['owner', 'supervisor', 'attendance_clerk'],
   override_register: ['owner'],
 
   // Payroll
-  view_payroll: ['owner', 'bookkeeper'],
-  run_payroll: ['owner', 'bookkeeper'],
+  view_payroll: ['owner', 'supervisor', 'bookkeeper'],
+  run_payroll: ['owner', 'supervisor', 'bookkeeper'],
   approve_payroll: ['owner'],
   mark_paid: ['owner', 'bookkeeper'],
 
   // Payslips
-  view_payslips: ['owner', 'bookkeeper'],
+  view_payslips: ['owner', 'supervisor', 'bookkeeper'],
   sign_payslips: ['owner', 'signer'],
   manage_signing: ['owner', 'attendance_clerk'],
-  print_payslips: ['owner', 'bookkeeper'],
-  bank_payroll: ['owner', 'bookkeeper'],
-  review_payroll: ['owner', 'bookkeeper'],
+  print_payslips: ['owner', 'supervisor', 'bookkeeper'],
+  bank_payroll: ['owner', 'supervisor', 'bookkeeper'],
+  review_payroll: ['owner', 'supervisor', 'bookkeeper'],
 
   // Loans
   view_loans: ['owner', 'supervisor', 'bookkeeper'],

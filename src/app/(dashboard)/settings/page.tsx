@@ -352,7 +352,7 @@ export default function SettingsPage() {
   }
 
   const ROLES: { value: UserRole; label: string }[] = [
-    { value: 'owner', label: 'Owner' },
+    { value: 'owner', label: 'Head Ops' },
     { value: 'supervisor', label: 'Supervisor' },
     { value: 'bookkeeper', label: 'Bookkeeper' },
     { value: 'attendance_clerk', label: 'Attendance Clerk' },

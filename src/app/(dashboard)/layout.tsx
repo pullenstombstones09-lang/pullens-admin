@@ -104,7 +104,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="mb-3">
           <p className="text-sm font-medium text-white truncate">{user.name}</p>
           <p className="text-xs text-white/50 capitalize">
-            {user.role.replace(/_/g, " ")}
+            {user.role === 'owner' ? 'Head Ops' : user.role.replace(/_/g, " ")}
           </p>
         </div>
         <button
