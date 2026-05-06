@@ -76,6 +76,7 @@ export interface Employee {
   eif_date: string | null;
   status: EmployeeStatus;
   photo_url: string | null;
+  id_document_url: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

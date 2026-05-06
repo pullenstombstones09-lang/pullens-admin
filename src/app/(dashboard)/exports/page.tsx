@@ -16,6 +16,9 @@ import {
   Loader2,
   CheckCircle,
   ChevronDown,
+  Banknote,
+  CalendarCheck,
+  Wallet,
 } from 'lucide-react';
 import type { Employee } from '@/types/database';
 
@@ -27,6 +30,40 @@ interface ExportCard {
   icon: React.ReactNode;
   periodType: 'month' | 'year' | 'employee';
 }
+
+const MONTHLY_REPORT_CARDS = [
+  {
+    id: 'payroll-monthly',
+    title: 'Monthly Payroll Summary',
+    description: 'Aggregated payroll data for the month: hours, gross, deductions, and net pay per employee.',
+    icon: <Banknote className="h-6 w-6" />,
+    endpoint: '/api/pdf/payroll-monthly',
+  },
+  {
+    id: 'attendance-monthly',
+    title: 'Monthly Attendance Summary',
+    description: 'Present, late, absent, leave, and sick counts per employee. Flags high-absence staff.',
+    icon: <CalendarCheck className="h-6 w-6" />,
+    endpoint: '/api/pdf/attendance-monthly',
+  },
+  {
+    id: 'petty-cash-monthly',
+    title: 'Monthly Petty Cash Summary',
+    description: 'Cash in/out totals, category breakdown, and outstanding transaction list for the month.',
+    icon: <Wallet className="h-6 w-6" />,
+    endpoint: '/api/pdf/petty-cash-monthly',
+  },
+];
+
+const EMPLOYEE_REPORT_CARDS = [
+  {
+    id: 'confirmation',
+    title: 'Confirmation of Employment',
+    description: 'Formal letter confirming employment status, position, and remuneration. Opens as PDF.',
+    icon: <FileText className="h-6 w-6" />,
+    endpoint: '/api/pdf/confirmation-of-employment',
+  },
+];
 
 const EXPORT_CARDS: ExportCard[] = [
   {
@@ -105,6 +142,8 @@ export default function ExportsPage() {
   const [results, setResults] = useState<Record<string, { success: boolean; data?: unknown; error?: string }>>({});
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [reportMonth, setReportMonth] = useState<Record<string, string>>({});
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const monthOptions = getMonthOptions();
   const yearOptions = getYearOptions();
@@ -129,6 +168,17 @@ export default function ExportsPage() {
   );
 
   const selectedEmpName = employees.find((e) => e.id === selectedEmployee)?.full_name || '';
+
+  async function handleDownloadReport(cardId: string, endpoint: string) {
+    const month = reportMonth[cardId] || monthOptions[0]?.value;
+    setDownloading(cardId);
+    try {
+      const url = `${endpoint}?month=${month}`;
+      window.open(url, '_blank');
+    } finally {
+      setTimeout(() => setDownloading(null), 1000);
+    }
+  }
 
   async function handleGenerate(cardId: string) {
     setGenerating(cardId);
@@ -205,7 +255,128 @@ export default function ExportsPage() {
         </p>
       </div>
 
-      {/* Export cards */}
+      {/* Monthly Reports */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-[#333333] mb-4">Monthly Reports</h2>
+        <div className="flex flex-col gap-4">
+          {MONTHLY_REPORT_CARDS.map((card) => {
+            const isDownloading = downloading === card.id;
+            return (
+              <Card key={card.id}>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1E40AF]/10">
+                      <span className="text-[#1E40AF]">{card.icon}</span>
+                    </div>
+                    <div>
+                      <CardTitle>{card.title}</CardTitle>
+                      <Badge color="blue" className="mt-1">PDF</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-500 mb-4">{card.description}</p>
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <div className="flex-1 max-w-xs">
+                      <label className="text-sm font-medium text-[#333333] mb-1.5 block">Month</label>
+                      <div className="relative">
+                        <select
+                          value={reportMonth[card.id] || monthOptions[0]?.value}
+                          onChange={(e) =>
+                            setReportMonth((prev) => ({ ...prev, [card.id]: e.target.value }))
+                          }
+                          className={cn(
+                            'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
+                            'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
+                            'min-h-[48px] appearance-none'
+                          )}
+                        >
+                          {monthOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={() => handleDownloadReport(card.id, card.endpoint)}
+                      loading={isDownloading}
+                      icon={isDownloading ? undefined : <Download className="h-4 w-4" />}
+                    >
+                      Download PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Employee Reports */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-[#333333] mb-4">Employee Reports</h2>
+        <div className="flex flex-col gap-4">
+          {EMPLOYEE_REPORT_CARDS.map((card) => (
+            <Card key={card.id}>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#C4A35A]/10">
+                    <span className="text-[#C4A35A]">{card.icon}</span>
+                  </div>
+                  <div>
+                    <CardTitle>{card.title}</CardTitle>
+                    <Badge color="blue" className="mt-1">PDF</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500 mb-4">{card.description}</p>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                  <div className="flex-1 max-w-sm relative">
+                    <label className="text-sm font-medium text-[#333333] mb-1.5 block">Employee</label>
+                    <div className="relative">
+                      <select
+                        value={selectedEmployee}
+                        onChange={(e) => setSelectedEmployee(e.target.value)}
+                        className={cn(
+                          'h-12 w-full rounded-lg border border-gray-300 bg-white px-3.5 pr-10 text-sm text-[#333333]',
+                          'focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40 focus:border-[#3B82F6]',
+                          'min-h-[48px] appearance-none'
+                        )}
+                      >
+                        <option value="">Select employee...</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.full_name} ({emp.pt_code})</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    disabled={!selectedEmployee}
+                    onClick={() => {
+                      if (selectedEmployee) window.open(`${card.endpoint}?id=${selectedEmployee}`, '_blank');
+                    }}
+                    icon={<Download className="h-4 w-4" />}
+                  >
+                    Generate PDF
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Compliance Export cards */}
+      <div className="mb-6">
+        <h2 className="text-lg font-bold text-[#333333] mb-4">Compliance Exports</h2>
+      </div>
       <div className="flex flex-col gap-4">
         {EXPORT_CARDS.map((card) => {
           const isGenerating = generating === card.id;

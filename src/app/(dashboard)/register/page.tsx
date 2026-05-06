@@ -132,7 +132,7 @@ function isStandardTime(timeIn: string | null, timeOut: string | null, dayIdx: n
   return timeIn === '08:00' && (isFri ? timeOut === '16:00' : timeOut === '17:00')
 }
 
-function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: (date: string) => void }) {
+function WeekGrid({ weekStart, onSelectDay, readOnly = false }: { weekStart: string; onSelectDay: (date: string) => void; readOnly?: boolean }) {
   const supabase = createClient()
   const [data, setData] = useState<Map<string, Map<string, any>>>(new Map())
   const [employees, setEmployees] = useState<any[]>([])
@@ -278,22 +278,24 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
 
   return (
     <div className="space-y-3">
-      {/* Action buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => onSelectDay(today)}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity"
-        >
-          Day View
-        </button>
-        <div className="flex-1" />
-        <button
-          onClick={() => { if (confirm('Clear all attendance for this week?')) clearAll() }}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
-        >
-          Clear All
-        </button>
-      </div>
+      {/* Action buttons — hidden in read-only mode */}
+      {!readOnly && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => onSelectDay(today)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity"
+          >
+            Day View
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => { if (confirm('Clear all attendance for this week?')) clearAll() }}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
       {/* Day header row */}
       <div className="grid grid-cols-[1fr_repeat(5,minmax(0,1fr))] gap-1 px-1">
@@ -316,7 +318,7 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
                   allDone ? 'text-green-500' : isToday ? 'text-white/80' : 'text-[var(--muted)]'
                 }`}>{captured}/{total}</p>
               </button>
-              {captured > 0 && (
+              {captured > 0 && !readOnly && (
                 <button
                   onClick={() => { if (confirm(`Clear ${dayLabels[i]}?`)) clearDay(d) }}
                   className="text-[9px] text-red-400 hover:text-red-600 mt-0.5"
@@ -352,6 +354,9 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
 
               // Empty — split button: left=tick(present), right=cross(absent)
               if (!att) {
+                if (readOnly) {
+                  return <div key={d} className="h-14 rounded-lg border border-gray-200 bg-gray-50" />
+                }
                 return (
                   <div key={d} className="h-14 rounded-lg overflow-hidden flex border border-gray-200">
                     {isSaving
@@ -404,102 +409,104 @@ function WeekGrid({ weekStart, onSelectDay }: { weekStart: string; onSelectDay: 
 
               const s = att.status
 
+              const CellTag = readOnly ? 'div' : 'button' as any
+
               // Present (standard time) — big green tick
               if ((s === 'present') && isStandardTime(att.time_in, att.time_out, dayIdx)) {
                 return (
-                  <button key={d} disabled={isSaving}
-                    onClick={() => quickToggle(emp.id, d, dayIdx)}
-                    onDoubleClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-green-500 flex items-center justify-center hover:bg-green-600 transition-all active:scale-95">
+                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
+                    onClick={readOnly ? undefined : () => quickToggle(emp.id, d, dayIdx)}
+                    onDoubleClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-green-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-green-600 transition-all active:scale-95 cursor-pointer'}`}>
                     <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                  </button>
+                  </CellTag>
                 )
               }
 
               // Present with OT — green tick + OT badge
               if (s === 'present' && otMin > 0) {
                 return (
-                  <button key={d} disabled={isSaving}
-                    onClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center hover:bg-green-600 transition-all active:scale-95 relative">
+                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
+                    onClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-green-500 flex flex-col items-center justify-center relative ${readOnly ? '' : 'hover:bg-green-600 transition-all active:scale-95 cursor-pointer'}`}>
                     <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[9px] font-bold text-white px-1 rounded-full">
                       +{Math.round(otMin / 60)}h
                     </span>
-                  </button>
+                  </CellTag>
                 )
               }
 
               // Present with non-standard times (no OT) — green with times shown
               if (s === 'present') {
                 return (
-                  <button key={d} disabled={isSaving}
-                    onClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center hover:bg-green-200 transition-all active:scale-95">
+                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
+                    onClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-green-100 border border-green-300 flex flex-col items-center justify-center ${readOnly ? '' : 'hover:bg-green-200 transition-all active:scale-95 cursor-pointer'}`}>
                     <span className="text-[10px] font-semibold text-green-700">{att.time_in}</span>
                     <span className="text-[10px] font-semibold text-green-700">{att.time_out}</span>
-                  </button>
+                  </CellTag>
                 )
               }
 
-              // Late — amber with late minutes, tap to edit in daily
+              // Late — amber with late minutes
               if (s === 'late') {
                 return (
-                  <button key={d} disabled={isSaving}
-                    onClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-amber-400 flex flex-col items-center justify-center hover:bg-amber-500 transition-all active:scale-95">
+                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
+                    onClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-amber-400 flex flex-col items-center justify-center ${readOnly ? '' : 'hover:bg-amber-500 transition-all active:scale-95 cursor-pointer'}`}>
                     <span className="text-[10px] font-bold text-white">{att.time_in}</span>
                     <span className="text-[9px] font-bold text-white/80">-{att.late_minutes}m</span>
-                  </button>
+                  </CellTag>
                 )
               }
 
-              // Absent — red cross, tap to toggle back to empty
+              // Absent — red cross
               if (s === 'absent') {
                 return (
-                  <button key={d} disabled={isSaving}
-                    onClick={() => quickToggle(emp.id, d, dayIdx)}
-                    className="h-14 rounded-lg bg-red-500 flex items-center justify-center hover:bg-red-600 transition-all active:scale-95">
-                    {isSaving
+                  <CellTag key={d} disabled={readOnly ? undefined : isSaving}
+                    onClick={readOnly ? undefined : () => quickToggle(emp.id, d, dayIdx)}
+                    className={`h-14 rounded-lg bg-red-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-red-600 transition-all active:scale-95 cursor-pointer'}`}>
+                    {isSaving && !readOnly
                       ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       : <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     }
-                  </button>
+                  </CellTag>
                 )
               }
 
-              // Leave/Sick — blue, tap to edit
+              // Leave/Sick — blue
               if (s === 'leave' || s === 'sick') {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-all active:scale-95">
+                  <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-blue-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-blue-600 transition-all active:scale-95 cursor-pointer'}`}>
                     <span className="text-[10px] font-bold text-white">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
-                  </button>
+                  </CellTag>
                 )
               }
 
               // PH
               if (s === 'ph') {
                 return (
-                  <button key={d} onClick={() => onSelectDay(d)}
-                    className="h-14 rounded-lg bg-purple-500 flex items-center justify-center hover:bg-purple-600 transition-all active:scale-95">
+                  <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
+                    className={`h-14 rounded-lg bg-purple-500 flex items-center justify-center ${readOnly ? '' : 'hover:bg-purple-600 transition-all active:scale-95 cursor-pointer'}`}>
                     <span className="text-[10px] font-bold text-white">PH</span>
-                  </button>
+                  </CellTag>
                 )
               }
 
               // Short time / other
               return (
-                <button key={d} onClick={() => onSelectDay(d)}
-                  className="h-14 rounded-lg bg-gray-400 flex items-center justify-center hover:bg-gray-500 transition-all active:scale-95">
+                <CellTag key={d} onClick={readOnly ? undefined : () => onSelectDay(d)}
+                  className={`h-14 rounded-lg bg-gray-400 flex items-center justify-center ${readOnly ? '' : 'hover:bg-gray-500 transition-all active:scale-95 cursor-pointer'}`}>
                   <span className="text-[10px] font-bold text-white">ST</span>
-                </button>
+                </CellTag>
               )
             })}
           </div>
@@ -516,7 +523,7 @@ export default function RegisterPage() {
   const supabase = createClient();
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('weekly');
+  const isAttendanceClerk = user?.role === 'attendance_clerk';
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [rows, setRows] = useState<RegisterRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -861,10 +868,10 @@ export default function RegisterPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-[var(--foreground)] tracking-tight">
-            Daily Register
+            {isAttendanceClerk ? 'Daily Register' : 'Weekly Overview'}
           </h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            Attendance capture &mdash; {rows.length} staff
+            {isAttendanceClerk ? 'Attendance capture' : 'Attendance overview'} &mdash; {rows.length} staff
           </p>
         </div>
 
@@ -881,29 +888,11 @@ export default function RegisterPage() {
             <Download className="h-4 w-4" />
             DOL Register
           </a>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode('weekly')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
-                viewMode === 'weekly' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              Week View
-            </button>
-            <button
-              onClick={() => setViewMode('daily')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
-                viewMode === 'daily' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              Day View
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Date picker + actions */}
-      <Card padding="sm">
+      {/* Date picker + actions — attendance_clerk only */}
+      {isAttendanceClerk && <Card padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <label htmlFor="register-date" className="text-sm font-medium text-[#333] whitespace-nowrap">
@@ -967,23 +956,21 @@ export default function RegisterPage() {
           <div className="flex items-center gap-2 flex-wrap">
           </div>
         </div>
-      </Card>
+      </Card>}
 
-      {/* Week grid view */}
-      {viewMode === 'weekly' && (
+      {/* Week grid view — read-only for non-clerks */}
+      {!isAttendanceClerk && (
         <Card padding="none">
           <WeekGrid
             weekStart={format(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')}
-            onSelectDay={(date) => {
-              setSelectedDate(date)
-              setViewMode('daily')
-            }}
+            onSelectDay={() => {}}
+            readOnly
           />
         </Card>
       )}
 
-      {/* Daily view — summary + table */}
-      {viewMode === 'daily' && <>
+      {/* Daily view — attendance_clerk only */}
+      {isAttendanceClerk && <>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

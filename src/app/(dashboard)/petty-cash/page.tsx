@@ -18,6 +18,11 @@ import {
   Filter,
   Camera,
   Search,
+  CalendarDays,
+  BarChart3,
+  ArrowLeftRight,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import CashInModal from "./cash-in-modal";
 import SlipReturnModal from "./slip-return-modal";
@@ -31,7 +36,7 @@ import type {
   PettyRecipientType,
 } from "@/types/database";
 
-type Tab = "cash-out" | "slips" | "history";
+type Tab = "cash-out" | "slips" | "history" | "daily" | "breakdown" | "comparison";
 
 const CATEGORIES: { value: PettyCashCategory; label: string }[] = [
   { value: "sundries", label: "Sundries" },
@@ -49,6 +54,299 @@ const STATUS_BADGE: Record<PettyCashOutStatus, { color: "green" | "amber" | "red
   partial: { color: "red", label: "Partial" },
   converted_to_loan: { color: "blue", label: "Loan" },
 };
+
+/* ─── Daily View Tab ─── */
+function DailyViewTab() {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await fetch(`/api/petty-cash/daily?date=${date}`);
+      setData(await res.json());
+      setLoading(false);
+    })();
+  }, [date]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card padding="md">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-[#333]">Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40" />
+        </div>
+      </Card>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" /></div>
+      ) : data ? (
+        <>
+          {/* Daily totals */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Cash In', value: data.totalIn, color: 'text-emerald-600' },
+              { label: 'Cash Out', value: data.totalOut, color: 'text-red-600' },
+              { label: 'Net', value: data.net, color: data.net >= 0 ? 'text-emerald-600' : 'text-red-600' },
+            ].map((item) => (
+              <Card key={item.label} padding="md">
+                <p className="text-xs text-gray-500">{item.label}</p>
+                <p className={`text-lg font-bold ${item.color}`}>R{(item.value || 0).toFixed(2)}</p>
+              </Card>
+            ))}
+          </div>
+
+          {/* Cash ins */}
+          {data.cashIns?.length > 0 && (
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-[#333] mb-3">Cash In</h3>
+              <div className="space-y-2">
+                {data.cashIns.map((i: any) => (
+                  <div key={i.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-[#333] capitalize">{i.source}</p>
+                      {i.notes && <p className="text-xs text-gray-400">{i.notes}</p>}
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-600">+R{(i.amount || 0).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Cash outs */}
+          {data.cashOuts?.length > 0 && (
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-[#333] mb-3">Cash Out</h3>
+              <div className="space-y-2">
+                {data.cashOuts.map((o: any) => (
+                  <div key={o.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-[#333]">{o.employee_name}</p>
+                      <p className="text-xs text-gray-400 capitalize">{o.category}{o.reason ? ` — ${o.reason}` : ''}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-red-600">-R{(o.amount || 0).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {!data.cashIns?.length && !data.cashOuts?.length && (
+            <Card padding="md">
+              <p className="text-center text-sm text-gray-400 py-6">No transactions for this date</p>
+            </Card>
+          )}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── Category Breakdown Tab ─── */
+function BreakdownTab() {
+  const now = new Date();
+  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await fetch(`/api/petty-cash/breakdown?month=${month}`);
+      setData(await res.json());
+      setLoading(false);
+    })();
+  }, [month]);
+
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return { value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }) };
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card padding="md">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-[#333]">Month</label>
+          <select value={month} onChange={(e) => setMonth(e.target.value)}
+            className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40">
+            {monthOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </Card>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" /></div>
+      ) : data ? (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <Card padding="md"><p className="text-xs text-gray-500">Total In</p><p className="text-lg font-bold text-emerald-600">R{(data.totalIn || 0).toFixed(2)}</p></Card>
+            <Card padding="md"><p className="text-xs text-gray-500">Total Out</p><p className="text-lg font-bold text-red-600">R{(data.totalOut || 0).toFixed(2)}</p></Card>
+            <Card padding="md"><p className="text-xs text-gray-500">Balance</p><p className={`text-lg font-bold ${(data.balance || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R{(data.balance || 0).toFixed(2)}</p></Card>
+          </div>
+
+          {/* Category breakdown */}
+          <Card padding="md">
+            <h3 className="text-sm font-semibold text-[#333] mb-4">Spend by Category</h3>
+            {data.byCategory?.length > 0 ? (
+              <div className="space-y-3">
+                {data.byCategory.map((cat: any) => {
+                  const maxTotal = data.byCategory[0]?.total || 1;
+                  return (
+                    <div key={cat.category}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm font-medium text-[#333] capitalize">{cat.category}</span>
+                        <span className="text-sm font-semibold text-[#333]">R{cat.total.toFixed(2)} <span className="text-xs text-gray-400">({cat.pct}%)</span></span>
+                      </div>
+                      <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-[#1E40AF] transition-all" style={{ width: `${(cat.total / maxTotal) * 100}%` }} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{cat.count} transaction{cat.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-gray-400 py-6">No transactions this month</p>
+            )}
+          </Card>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── Month Comparison Tab ─── */
+function ComparisonTab() {
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastMonth = `${now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()}-${String(now.getMonth() === 0 ? 12 : now.getMonth()).padStart(2, '0')}`;
+
+  const [month1, setMonth1] = useState(thisMonth);
+  const [month2, setMonth2] = useState(lastMonth);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await fetch(`/api/petty-cash/comparison?month1=${month1}&month2=${month2}`);
+      setData(await res.json());
+      setLoading(false);
+    })();
+  }, [month1, month2]);
+
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return { value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }) };
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card padding="md">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-[#333]">Month 1</label>
+            <select value={month1} onChange={(e) => setMonth1(e.target.value)}
+              className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40">
+              {monthOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <span className="text-gray-400 font-bold">vs</span>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-[#333]">Month 2</label>
+            <select value={month2} onChange={(e) => setMonth2(e.target.value)}
+              className="h-12 min-h-[48px] rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40">
+              {monthOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+      </Card>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E40AF] border-t-transparent" /></div>
+      ) : data?.comparison ? (
+        <>
+          {/* Total comparison */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card padding="md">
+              <p className="text-xs text-gray-500">Total Spend — {monthOptions.find(o => o.value === month1)?.label}</p>
+              <p className="text-lg font-bold text-[#333]">R{(data.month1?.totalOut || 0).toFixed(2)}</p>
+            </Card>
+            <Card padding="md">
+              <p className="text-xs text-gray-500">Total Spend — {monthOptions.find(o => o.value === month2)?.label}</p>
+              <p className="text-lg font-bold text-[#333]">R{(data.month2?.totalOut || 0).toFixed(2)}</p>
+            </Card>
+          </div>
+
+          {data.totalPctChange !== 0 && (
+            <Card padding="md">
+              <div className="flex items-center gap-2">
+                {data.totalPctChange > 0
+                  ? <TrendingUp className="h-5 w-5 text-red-500" />
+                  : <TrendingDown className="h-5 w-5 text-emerald-500" />
+                }
+                <span className={`text-sm font-semibold ${data.totalPctChange > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {data.totalPctChange > 0 ? '+' : ''}{data.totalPctChange}% overall
+                </span>
+                <span className="text-xs text-gray-400">
+                  (R{Math.abs(data.totalDiff || 0).toFixed(2)} {data.totalDiff > 0 ? 'more' : 'less'})
+                </span>
+              </div>
+            </Card>
+          )}
+
+          {/* Category comparison table */}
+          <Card padding="none">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase">Category</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase text-right">{monthOptions.find(o => o.value === month1)?.label}</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase text-right">{monthOptions.find(o => o.value === month2)?.label}</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase text-right">Variance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {data.comparison.map((row: any) => (
+                    <tr key={row.category} className="hover:bg-gray-50">
+                      <td className="px-5 py-3 font-medium text-[#333] capitalize">{row.category}</td>
+                      <td className="px-5 py-3 text-right text-[#333]">R{row.month1.toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right text-[#333]">R{row.month2.toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right">
+                        <span className={`font-semibold ${row.diff > 0 ? 'text-red-600' : row.diff < 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                          {row.diff > 0 ? '+' : ''}{row.pctChange}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Totals row */}
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="px-5 py-3 text-[#333]">Total</td>
+                    <td className="px-5 py-3 text-right text-[#333]">R{(data.month1?.totalOut || 0).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right text-[#333]">R{(data.month2?.totalOut || 0).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`${data.totalPctChange > 0 ? 'text-red-600' : data.totalPctChange < 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        {data.totalPctChange > 0 ? '+' : ''}{data.totalPctChange}%
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      ) : (
+        <Card padding="md"><p className="text-center text-sm text-gray-400 py-6">No data to compare</p></Card>
+      )}
+    </div>
+  );
+}
 
 export default function PettyCashPage() {
   const supabase = createClient();
@@ -291,8 +589,11 @@ export default function PettyCashPage() {
       <div className="mb-6 flex gap-1 rounded-xl bg-white p-1 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
         {([
           { key: "cash-out" as Tab, label: "Cash Out", icon: <ArrowDownLeft className="h-4 w-4" /> },
-          { key: "slips" as Tab, label: "Slip Return", icon: <Receipt className="h-4 w-4" /> },
+          { key: "slips" as Tab, label: "Slips", icon: <Receipt className="h-4 w-4" /> },
           { key: "history" as Tab, label: "History", icon: <Clock className="h-4 w-4" /> },
+          { key: "daily" as Tab, label: "Daily", icon: <CalendarDays className="h-4 w-4" /> },
+          { key: "breakdown" as Tab, label: "Categories", icon: <BarChart3 className="h-4 w-4" /> },
+          { key: "comparison" as Tab, label: "Compare", icon: <ArrowLeftRight className="h-4 w-4" /> },
         ]).map((t) => (
           <button
             key={t.key}
@@ -641,6 +942,15 @@ export default function PettyCashPage() {
           </Card>
         </div>
       )}
+
+      {/* --- DAILY VIEW TAB --- */}
+      {tab === "daily" && <DailyViewTab />}
+
+      {/* --- CATEGORY BREAKDOWN TAB --- */}
+      {tab === "breakdown" && <BreakdownTab />}
+
+      {/* --- MONTH COMPARISON TAB --- */}
+      {tab === "comparison" && <ComparisonTab />}
 
       {/* --- MODALS --- */}
       {showCashIn && (

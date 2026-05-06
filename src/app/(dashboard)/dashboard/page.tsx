@@ -18,6 +18,10 @@ import {
   Sun,
   CheckCircle2,
   Circle,
+  FileText,
+  TrendingUp,
+  Wallet,
+  CalendarCheck,
 } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, getDay } from 'date-fns'
 
@@ -30,6 +34,12 @@ interface WorkflowState {
   alerts: number
 }
 
+interface MonthSummary {
+  payroll: { totalGross: number; totalNet: number; runCount: number }
+  attendance: { rate: number; presentDays: number; possibleDays: number }
+  pettyCash: { totalIn: number; totalOut: number; outstanding: number; balance: number }
+}
+
 const STEPS = ['Reg', 'Review', 'Payroll', 'Sign', 'Print', 'Bank'] as const
 
 export default function DashboardPage() {
@@ -37,6 +47,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null)
   const [payrollRunStatus, setPayrollRunStatus] = useState<string | null>(null)
+  const [monthSummary, setMonthSummary] = useState<MonthSummary | null>(null)
   const supabase = createClient()
 
   const today = new Date()
@@ -165,6 +176,16 @@ export default function DashboardPage() {
   useEffect(() => {
     loadWorkflow()
   }, [loadWorkflow])
+
+  // Load monthly snapshot (owner only)
+  const currentMonth = format(today, 'yyyy-MM')
+  useEffect(() => {
+    if (!user || user.role !== 'owner') return
+    fetch(`/api/dashboard/month-summary?month=${currentMonth}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setMonthSummary(data) })
+      .catch(() => {})
+  }, [user, currentMonth])
 
   // Live refresh on attendance or payslip changes
   useRealtime('attendance', loadWorkflow)
@@ -372,6 +393,67 @@ export default function DashboardPage() {
           </PulseCard>
         )}
       </div>
+
+      {/* Monthly Snapshot — owner only */}
+      {user.role === 'owner' && monthSummary && (
+        <div className="rounded-xl border border-[var(--border)] bg-white p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+            {format(today, 'MMMM yyyy')} Snapshot
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Payroll */}
+            <button
+              onClick={() => window.open(`/api/pdf/payroll-monthly?month=${format(today, 'yyyy-MM')}`, '_blank')}
+              className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-gray-50 transition-colors text-left min-h-[48px]"
+            >
+              <div className="p-2 rounded-lg bg-blue-100 text-[#1E40AF] shrink-0">
+                <Banknote size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500">Payroll ({monthSummary.payroll.runCount} runs)</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">
+                  R {monthSummary.payroll.totalNet.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} net
+                </p>
+              </div>
+              <FileText size={14} className="text-gray-300 shrink-0 ml-auto" />
+            </button>
+
+            {/* Attendance */}
+            <button
+              onClick={() => window.open(`/api/pdf/attendance-monthly?month=${format(today, 'yyyy-MM')}`, '_blank')}
+              className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-gray-50 transition-colors text-left min-h-[48px]"
+            >
+              <div className="p-2 rounded-lg bg-green-100 text-green-700 shrink-0">
+                <CalendarCheck size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500">Attendance</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">
+                  {monthSummary.attendance.rate}% present
+                </p>
+              </div>
+              <FileText size={14} className="text-gray-300 shrink-0 ml-auto" />
+            </button>
+
+            {/* Petty Cash */}
+            <button
+              onClick={() => window.open(`/api/pdf/petty-cash-monthly?month=${format(today, 'yyyy-MM')}`, '_blank')}
+              className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-gray-50 transition-colors text-left min-h-[48px]"
+            >
+              <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                <Wallet size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500">Petty Cash</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">
+                  R {monthSummary.pettyCash.balance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} bal
+                </p>
+              </div>
+              <FileText size={14} className="text-gray-300 shrink-0 ml-auto" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Weekly stepper */}
       {hasPermission(user.role, 'view_payroll') && (

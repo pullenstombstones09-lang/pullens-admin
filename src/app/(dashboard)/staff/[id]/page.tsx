@@ -724,6 +724,17 @@ export default function EmployeeProfilePage({
                   </Badge>
                 ))}
               </div>
+
+              {/* Quick actions */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  onClick={() => window.open(`/api/pdf/confirmation-of-employment?id=${employee.id}`, '_blank')}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium bg-[#C4A35A]/10 text-[#C4A35A] hover:bg-[#C4A35A]/20 transition-colors min-h-[44px]"
+                >
+                  <FileText className="h-4 w-4" />
+                  Confirmation of Employment
+                </button>
+              </div>
             </div>
           </div>
         </div>
