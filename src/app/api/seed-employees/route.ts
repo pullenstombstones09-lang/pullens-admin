@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const NEW_EMPLOYEES = [
   { pt_code: 'PT039', full_name: 'SHAFIE', occupation: 'GENERAL WORKER' },
   { pt_code: 'PT040', full_name: 'PHUMLANI OXBANGS', occupation: 'GENERAL WORKER' },
@@ -25,6 +20,11 @@ const NEW_EMPLOYEES = [
 ];
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get('secret');
   if (secret !== 'pullens-seed-2026') {

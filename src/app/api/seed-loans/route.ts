@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const LOANS = [
   // Musa PT005 — multiple small loans, complex history, current balance R380
   { pt_code: 'PT005', amount: 1480, outstanding: 380, weekly_deduction: 100, date_advanced: '2026-01-08', purpose: 'Multiple advances (Jan–Apr 2026)' },
@@ -24,6 +19,11 @@ const LOANS = [
 ];
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get('secret');
   if (secret !== 'pullens-seed-2026') {

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const FORTY_FIVE_HR_PT_CODES = ['PT008', 'PT012', 'PT023', 'PT024', 'PT028', 'PT032'];
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   const { searchParams } = new URL(req.url);
   if (searchParams.get('secret') !== 'pullens-seed-2026') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
