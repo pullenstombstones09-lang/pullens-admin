@@ -86,6 +86,8 @@ export default function PayrollPage() {
   const [printed, setPrinted] = useState(false);
   const [runStatus, setRunStatus] = useState<string>('draft');
   const [payslipIdMap, setPayslipIdMap] = useState<Map<string, string>>(new Map()); // employee_id → payslip_id
+  const [staleData, setStaleData] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   // Selection + inline loan edit state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -211,6 +213,19 @@ export default function PayrollPage() {
             friday_ot_rollover: [],
           })) as unknown as PayrollResult[];
           setResults(payrollResults);
+        }
+
+        // Check if attendance data is newer than the payroll run
+        const runAt = existingRun.run_at || existingRun.created_at;
+        if (runAt) {
+          const { data: newerAtt } = await supabase
+            .from('attendance')
+            .select('captured_at')
+            .gte('date', existingRun.week_start)
+            .lte('date', existingRun.week_end)
+            .gt('captured_at', runAt)
+            .limit(1);
+          setStaleData((newerAtt?.length ?? 0) > 0);
         }
       }
     }
@@ -375,6 +390,29 @@ export default function PayrollPage() {
     executePayrollCalculation();
   }
 
+  async function handleRecalculate() {
+    setRecalculating(true);
+    try {
+      // Delete old run + payslips first
+      if (runId) {
+        await supabase.from('payslips').delete().eq('payroll_run_id', runId);
+        await supabase.from('payroll_runs').delete().eq('id', runId);
+      }
+      setRunId(null);
+      setResults(null);
+      setPrinted(false);
+      setRunStatus('draft');
+      setStaleData(false);
+      setPayslipIdMap(new Map());
+      await executePayrollCalculation();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Recalculation failed';
+      toast('error', message);
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
   async function executePayrollCalculation() {
     try {
       const res = await fetch('/api/payroll/run', {
@@ -427,6 +465,9 @@ export default function PayrollPage() {
         }
       }
 
+      setStaleData(false);
+      setPrinted(false);
+      setRunStatus('draft');
       toast('success', `Payroll calculated for ${weekLabel(weekStart, weekEnd)}`);
       fetchHistory();
     } catch (err: unknown) {
@@ -501,6 +542,27 @@ export default function PayrollPage() {
               )}
             </div>
           </div>
+
+          {/* Stale data alert */}
+          {staleData && (
+            <div className="rounded-lg border border-orange-300 bg-orange-50 p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-orange-800">Data has changed</p>
+                  <p className="text-xs text-orange-600">Attendance was updated after this payroll was calculated. Recalculate to apply changes.</p>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                loading={recalculating}
+                onClick={handleRecalculate}
+              >
+                Recalculate
+              </Button>
+            </div>
+          )}
 
           {/* Anomalies */}
           {anomalies.length > 0 && (
