@@ -10,6 +10,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { UndoProvider } from "@/components/ui/undo-toast";
 import { WorkflowStepper } from "@/components/ui/workflow-stepper";
 import { AlertBadge } from "@/components/alert-badge";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import {
   Home,
   Users,
@@ -187,6 +188,9 @@ function DashboardShell({ children }: { children: ReactNode }) {
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* PWA install banner */}
+        <PwaInstallBanner />
+
         {/* Mobile top bar */}
         <header className="flex h-14 items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 lg:hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <button

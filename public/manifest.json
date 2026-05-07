@@ -2,7 +2,7 @@
   "name": "Pullens Admin",
   "short_name": "Pullens",
   "description": "HR & Payroll Management — Pullens Tombstones",
-  "start_url": "/login",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#F8FAFC",
   "theme_color": "#1E40AF",
