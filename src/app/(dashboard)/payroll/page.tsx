@@ -505,91 +505,90 @@ export default function PayrollPage() {
             </div>
           )}
 
-          {/* 2. Workflow steps — tick off as completed */}
+          {/* 2. Workflow steps — always visible, always clickable, show status */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Step 1: Calculate — always done if we have results */}
-            <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
+            {/* Step 1: Calculate — done */}
+            <button
+              onClick={() => { window.location.href = '/payroll/review'; }}
+              className="block rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] hover:shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition-shadow text-left"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle size={18} />
                 <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 1</span>
               </div>
               <div className="text-base font-bold">Calculated</div>
               <div className="text-xs mt-1 opacity-90">{results.length} employees</div>
-            </div>
+            </button>
 
-            {/* Step 2: Print — one-time action, marks as printed */}
-            {printed ? (
-              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle size={18} />
-                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
-                </div>
-                <div className="text-base font-bold">Printed</div>
-                <div className="text-xs mt-1 opacity-90">Payslips printed</div>
-              </div>
-            ) : (
-              <button
-                onClick={async () => {
-                  if (runId) {
-                    window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
+            {/* Step 2: Print — always clickable, green if printed before */}
+            <button
+              onClick={async () => {
+                if (runId) {
+                  window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
+                  if (!printed) {
                     await supabase.from('payroll_runs').update({ summary_pdf_url: 'printed' }).eq('id', runId);
                     setPrinted(true);
                   }
-                }}
-                className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow text-left"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Printer size={18} className="opacity-80" />
-                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
-                </div>
-                <div className="text-base font-bold">Print All</div>
-                <div className="text-xs mt-1 opacity-90">Tap to print {results.length} payslips</div>
-              </button>
-            )}
-
-            {/* Step 3: Bank — tick off payments */}
-            {runStatus === 'paid' ? (
-              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle size={18} />
-                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 3</span>
-                </div>
-                <div className="text-base font-bold">Banked</div>
-                <div className="text-xs mt-1 opacity-90">Payments confirmed</div>
+                }
+              }}
+              className={cn(
+                'block rounded-xl p-4 text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow text-left',
+                printed
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                  : 'bg-gradient-to-br from-[#1E40AF] to-[#3B82F6]'
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {printed ? <CheckCircle size={18} /> : <Printer size={18} className="opacity-80" />}
+                <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
               </div>
-            ) : (
-              <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-                <div className="flex items-center gap-2 mb-2">
-                  <Landmark size={18} className="text-gray-400" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
-                </div>
-                <div className="text-base font-bold">Bank</div>
-                <div className="text-xs mt-1 text-gray-400">Tick off payments</div>
-              </a>
-            )}
-
-            {/* Step 4: Sign — next week */}
-            {signedCount === results.length && results.length > 0 ? (
-              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle size={18} />
-                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 4</span>
-                </div>
-                <div className="text-base font-bold">Signed</div>
-                <div className="text-xs mt-1 opacity-90">All {results.length} signed</div>
+              <div className="text-base font-bold">{printed ? 'Printed' : 'Print All'}</div>
+              <div className="text-xs mt-1 opacity-90">
+                {printed ? 'Tap to reprint' : `Tap to print ${results.length} payslips`}
               </div>
-            ) : (
-              <a href="/payroll/signing" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#C4A35A]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-                <div className="flex items-center gap-2 mb-2">
-                  <PenTool size={18} className="text-[#C4A35A]" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 4</span>
-                </div>
-                <div className="text-base font-bold">Sign</div>
-                <div className="text-xs mt-1 text-gray-500">
-                  {signedCount}/{results.length} signed
-                </div>
-              </a>
-            )}
+            </button>
+
+            {/* Step 3: Bank — always clickable */}
+            <a
+              href="/payroll/bank"
+              className={cn(
+                'block rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all text-left',
+                runStatus === 'paid'
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
+                  : 'bg-white border border-gray-200 text-[var(--foreground)] hover:border-[#3B82F6]/40'
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {runStatus === 'paid' ? <CheckCircle size={18} /> : <Landmark size={18} className="text-gray-400" />}
+                <span className={cn('text-xs font-semibold uppercase tracking-wide', runStatus === 'paid' ? 'opacity-80' : 'text-gray-400')}>Step 3</span>
+              </div>
+              <div className="text-base font-bold">{runStatus === 'paid' ? 'Banked' : 'Bank'}</div>
+              <div className={cn('text-xs mt-1', runStatus === 'paid' ? 'opacity-90' : 'text-gray-400')}>
+                {runStatus === 'paid' ? 'Payments confirmed' : 'Tick off payments'}
+              </div>
+            </a>
+
+            {/* Step 4: Sign — always clickable */}
+            <a
+              href="/payroll/signing"
+              className={cn(
+                'block rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all text-left',
+                signedCount === results.length && results.length > 0
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
+                  : 'bg-white border border-gray-200 text-[var(--foreground)] hover:border-[#C4A35A]/40'
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {signedCount === results.length && results.length > 0
+                  ? <CheckCircle size={18} />
+                  : <PenTool size={18} className="text-[#C4A35A]" />}
+                <span className={cn('text-xs font-semibold uppercase tracking-wide', signedCount === results.length && results.length > 0 ? 'opacity-80' : 'text-[#C4A35A]')}>Step 4</span>
+              </div>
+              <div className="text-base font-bold">{signedCount === results.length && results.length > 0 ? 'Signed' : 'Sign'}</div>
+              <div className={cn('text-xs mt-1', signedCount === results.length && results.length > 0 ? 'opacity-90' : 'text-gray-500')}>
+                {signedCount}/{results.length} signed
+              </div>
+            </a>
           </div>
 
           {/* 3. Results table */}
