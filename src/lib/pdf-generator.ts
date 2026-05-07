@@ -409,85 +409,156 @@ export interface PayslipPdfData {
 export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   const doc = new jsPDF('p', 'mm', 'a4');
   const fmt = (n: number) => `R ${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  const pw = 210; // page width
+  const mx = 15; // margin x
+  const cw = pw - mx * 2; // content width
+  const hourlyRate = data.weekly_wage / (data.weekly_hours || 40);
 
-  let y = addHeader(doc, 'PAYSLIP', `Week: ${data.week_start} - ${data.week_end}`);
+  // Format dates readable
+  const fmtDate = (d: string) => {
+    try {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    } catch { return d; }
+  };
 
-  // Employee details
-  y = sectionTitle(doc, y, 'Employee Details');
-  labelValue(doc, 15, y, 'Name:', data.employee_name);
-  labelValue(doc, 115, y, 'Code:', data.pt_code);
-  y += 6;
-  labelValue(doc, 15, y, 'Occupation:', data.occupation);
-  labelValue(doc, 115, y, 'ID Number:', data.id_number || '—');
-  y += 6;
-  labelValue(doc, 15, y, 'Payment:', data.payment_method.toUpperCase());
-  if (data.bank_name) {
-    labelValue(doc, 115, y, 'Bank:', `${data.bank_name} (${data.bank_acc})`);
+  // ── HEADER ──────────────────────────────────────────────────────────
+  // Logo — proportional, not stretched (original ~2:1 ratio)
+  try {
+    doc.addImage(LOGO_BASE64, 'JPEG', mx, 8, 40, 20);
+  } catch {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(30, 64, 175);
+    doc.text('PULLENS TOMBSTONES', mx, 18);
   }
-  y += 6;
-  labelValue(doc, 15, y, 'Pay Date:', data.pay_date);
+
+  // Right side — PAYSLIP title + pay period
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(30, 64, 175);
+  doc.text('PAYSLIP', pw - mx, 14, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Pay Period: ${fmtDate(data.week_start)} - ${fmtDate(data.week_end)}`, pw - mx, 20, { align: 'right' });
+  doc.text(`Pay Date: ${fmtDate(data.pay_date)}`, pw - mx, 25, { align: 'right' });
+
+  // Thin blue line
+  doc.setDrawColor(30, 64, 175);
+  doc.setLineWidth(0.6);
+  doc.line(mx, 32, pw - mx, 32);
+
+  let y = 40;
+
+  // ── EMPLOYEE INFO — two column grid ─────────────────────────────────
+  doc.setFillColor(245, 247, 250);
+  doc.roundedRect(mx, y, cw, 28, 2, 2, 'F');
+
+  const col1 = mx + 5;
+  const col2 = 110;
+  const labelStyle = () => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120); };
+  const valueStyle = () => { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(30, 30, 30); };
+
+  y += 7;
+  labelStyle(); doc.text('Employee Name', col1, y);
+  labelStyle(); doc.text('Employee Code', col2, y);
+  y += 5;
+  valueStyle(); doc.text(data.employee_name || '-', col1, y);
+  valueStyle(); doc.text(data.pt_code || '-', col2, y);
+
+  y += 8;
+  labelStyle(); doc.text('Occupation', col1, y);
+  labelStyle(); doc.text('ID Number', col2, y);
+  y += 5;
+  valueStyle(); doc.text(data.occupation || '-', col1, y);
+  valueStyle(); doc.text(data.id_number || '-', col2, y);
+
   y += 10;
 
-  // Earnings table
-  y = sectionTitle(doc, y, 'Earnings');
-
-  // Table header
-  doc.setFillColor(26, 26, 46);
-  doc.rect(15, y, 180, 7, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255);
-  doc.text('Description', 18, y + 5);
-  doc.text('Hours', 100, y + 5, { align: 'right' });
-  doc.text('Rate', 140, y + 5, { align: 'right' });
-  doc.text('Amount', 192, y + 5, { align: 'right' });
-  y += 9;
-
-  // Ordinary pay
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 51, 51);
-  const hourlyRate = data.weekly_wage / (data.weekly_hours || 40);
-  doc.text('Ordinary Pay', 18, y + 4);
-  doc.text(data.ordinary_hours.toFixed(1), 100, y + 4, { align: 'right' });
-  doc.text(fmt(hourlyRate) + '/hr', 140, y + 4, { align: 'right' });
-  doc.text(fmt(data.weekly_wage), 192, y + 4, { align: 'right' });
-  y += 7;
-
-  // Overtime
-  if (data.ot_hours > 0) {
-    doc.text(`Overtime (x${data.ot_rate})`, 18, y + 4);
-    doc.text(data.ot_hours.toFixed(1), 100, y + 4, { align: 'right' });
-    doc.text(fmt(hourlyRate * data.ot_rate) + '/hr', 140, y + 4, { align: 'right' });
-    doc.text(fmt(data.ot_amount), 192, y + 4, { align: 'right' });
-    y += 7;
+  // Bank details (if available)
+  if (data.bank_name) {
+    labelStyle(); doc.text('Bank', col1, y);
+    valueStyle(); doc.text(`${data.bank_name} - ${data.bank_acc}`, col1 + 20, y);
+    y += 6;
   }
 
-  // Gross line
-  doc.setDrawColor(37, 99, 235);
-  doc.setLineWidth(0.4);
-  doc.line(15, y + 1, 195, y + 1);
+  y += 4;
+
+  // ── EARNINGS TABLE ──────────────────────────────────────────────────
+  // Section label
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('GROSS PAY', 18, y + 6);
-  doc.text(fmt(data.gross), 192, y + 6, { align: 'right' });
+  doc.setTextColor(30, 64, 175);
+  doc.text('EARNINGS', mx, y);
+  y += 3;
+
+  // Table header
+  doc.setFillColor(30, 64, 175);
+  doc.rect(mx, y, cw, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Description', mx + 3, y + 5);
+  doc.text('Hours', 95, y + 5, { align: 'right' });
+  doc.text('Rate', 140, y + 5, { align: 'right' });
+  doc.text('Amount', pw - mx - 3, y + 5, { align: 'right' });
+  y += 9;
+
+  // Ordinary pay row
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text('Ordinary Pay', mx + 3, y + 4);
+  doc.text(data.ordinary_hours.toFixed(1), 95, y + 4, { align: 'right' });
+  doc.text(fmt(hourlyRate) + '/hr', 140, y + 4, { align: 'right' });
+  doc.text(fmt(data.weekly_wage), pw - mx - 3, y + 4, { align: 'right' });
+  y += 8;
+
+  // Overtime row
+  if (data.ot_hours > 0) {
+    doc.setFillColor(250, 250, 252);
+    doc.rect(mx, y - 2, cw, 8, 'F');
+    doc.setTextColor(40, 40, 40);
+    doc.text(`Overtime (x${data.ot_rate.toFixed(1)})`, mx + 3, y + 4);
+    doc.text(data.ot_hours.toFixed(1), 95, y + 4, { align: 'right' });
+    doc.text(fmt(hourlyRate * data.ot_rate) + '/hr', 140, y + 4, { align: 'right' });
+    doc.text(fmt(data.ot_amount), pw - mx - 3, y + 4, { align: 'right' });
+    y += 8;
+  }
+
+  // Gross pay total
+  doc.setDrawColor(30, 64, 175);
+  doc.setLineWidth(0.4);
+  doc.line(mx, y, pw - mx, y);
+  y += 2;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(30, 30, 30);
+  doc.text('GROSS PAY', mx + 3, y + 4);
+  doc.text(fmt(data.gross), pw - mx - 3, y + 4, { align: 'right' });
   y += 12;
 
-  // Deductions table
-  y = sectionTitle(doc, y, 'Deductions');
-
-  doc.setFillColor(26, 26, 46);
-  doc.rect(15, y, 180, 7, 'F');
+  // ── DEDUCTIONS TABLE ────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
+  doc.setTextColor(30, 64, 175);
+  doc.text('DEDUCTIONS', mx, y);
+  y += 3;
+
+  doc.setFillColor(30, 64, 175);
+  doc.rect(mx, y, cw, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Description', 18, y + 5);
-  doc.text('Amount', 192, y + 5, { align: 'right' });
+  doc.text('Description', mx + 3, y + 5);
+  doc.text('Amount', pw - mx - 3, y + 5, { align: 'right' });
   y += 9;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.setTextColor(51, 51, 51);
+  doc.setTextColor(40, 40, 40);
 
   const deductions = [
     { label: 'UIF (Employee 1%)', amount: data.uif_employee },
@@ -498,67 +569,71 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
     { label: 'Petty Cash Shortfall', amount: data.petty_shortfall },
   ];
 
+  let stripe = false;
   for (const d of deductions) {
     if (d.amount > 0) {
-      doc.text(d.label, 18, y + 4);
-      doc.text(fmt(d.amount), 192, y + 4, { align: 'right' });
-      y += 7;
+      if (stripe) {
+        doc.setFillColor(250, 250, 252);
+        doc.rect(mx, y - 2, cw, 8, 'F');
+      }
+      doc.setTextColor(40, 40, 40);
+      doc.text(d.label, mx + 3, y + 4);
+      doc.text(fmt(d.amount), pw - mx - 3, y + 4, { align: 'right' });
+      y += 8;
+      stripe = !stripe;
     }
   }
 
   // Total deductions
-  doc.setDrawColor(221, 221, 221);
+  doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
-  doc.line(15, y + 1, 195, y + 1);
+  doc.line(mx, y, pw - mx, y);
+  y += 2;
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL DEDUCTIONS', 18, y + 6);
-  doc.text(fmt(data.total_deductions), 192, y + 6, { align: 'right' });
-  y += 14;
+  doc.setFontSize(9);
+  doc.text('TOTAL DEDUCTIONS', mx + 3, y + 4);
+  doc.text(fmt(data.total_deductions), pw - mx - 3, y + 4, { align: 'right' });
+  y += 10;
 
-  // Employer contributions (shown for transparency, not deducted from pay)
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(102, 102, 102);
-  doc.text('Employer Contributions (not deducted from employee pay):', 15, y);
-  y += 5;
-  doc.text(`UIF Employer (1%): ${fmt(data.uif_employer)}`, 18, y);
-  y += 8;
+  // Employer contributions — small italic note
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(140, 140, 140);
+  doc.text(`Employer UIF Contribution (1%): ${fmt(data.uif_employer)} - not deducted from pay`, mx, y);
+  y += 10;
 
-  // NET PAY — highlight box
-  doc.setFillColor(37, 99, 235);
-  doc.roundedRect(15, y, 180, 16, 2, 2, 'F');
+  // ── NET PAY BOX ─────────────────────────────────────────────────────
+  doc.setFillColor(30, 64, 175);
+  doc.roundedRect(mx, y, cw, 18, 3, 3, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(26, 26, 46);
-  doc.text('NET PAY', 22, y + 11);
-  doc.text(fmt(data.net), 190, y + 11, { align: 'right' });
-  y += 24;
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text('NET PAY', mx + 8, y + 12);
+  doc.setFontSize(16);
+  doc.text(fmt(data.net), pw - mx - 8, y + 12, { align: 'right' });
+  y += 28;
 
-  // Signature — with gap from net pay
-  y += 8;
+  // ── SIGNATURES ──────────────────────────────────────────────────────
   if (data.signature_url) {
-    // Render the actual captured signature image
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
-    doc.setTextColor(102, 102, 102);
-    doc.text('Employee Signature:', 15, y);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Employee Signature:', mx, y);
     y += 2;
     try {
-      doc.addImage(data.signature_url, 'PNG', 15, y, 60, 20);
+      doc.addImage(data.signature_url, 'PNG', mx, y, 55, 18);
     } catch {
-      // If image fails, fall back to blank line
-      signatureLine(doc, 15, y + 16, 'Employee Signature (Acknowledgement of Receipt)');
+      signatureLine(doc, mx, y + 14, 'Employee Signature');
     }
-    y += 22;
+    y += 20;
     if (data.signed_at) {
       doc.setFontSize(7);
-      doc.setTextColor(153, 153, 153);
-      doc.text(`Signed: ${data.signed_at}`, 15, y);
-      y += 6;
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Signed: ${data.signed_at}`, mx, y);
     }
     signatureLine(doc, 115, y - 6, 'Authorised By');
   } else {
-    signatureLine(doc, 15, y, 'Employee Signature (Acknowledgement of Receipt)');
+    signatureLine(doc, mx, y, 'Employee Signature');
     signatureLine(doc, 115, y, 'Authorised By');
   }
 
