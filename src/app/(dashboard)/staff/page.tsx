@@ -84,6 +84,7 @@ function AddEmployeeModal({
     full_name: '',
     pt_code: nextPtCode,
     weekly_wage: '',
+    weekly_hours: '40' as string,
     occupation: '',
     id_number: '',
     cell: '',
@@ -107,6 +108,7 @@ function AddEmployeeModal({
         pt_code: form.pt_code,
         full_name: form.full_name.trim(),
         weekly_wage: parseFloat(form.weekly_wage),
+        weekly_hours: parseInt(form.weekly_hours) || 40,
         occupation: form.occupation.trim(),
         id_number: form.id_number || null,
         cell: form.cell || null,
@@ -135,13 +137,10 @@ function AddEmployeeModal({
     // Insert leave balances
     const { error: leaveError } = await supabase.from('leave_balances').insert({
       employee_id: emp.id,
-      annual: 15,
-      sick: 30,
-      family: 3,
-      used_annual: 0,
-      used_sick: 0,
-      used_family: 0,
-      year: 2026,
+      annual_remaining: 15,
+      sick_remaining: 30,
+      family_remaining: 3,
+      parental_used: 0,
     });
 
     if (leaveError) {
@@ -205,6 +204,17 @@ function AddEmployeeModal({
               placeholder="e.g. Polisher"
               required
             />
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Staff Type *</label>
+              <select
+                value={form.weekly_hours}
+                onChange={(e) => setForm((p) => ({ ...p, weekly_hours: e.target.value }))}
+                className="h-12 min-h-[48px] w-full rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/40"
+              >
+                <option value="40">Normal (40 hrs/week - Mon-Fri)</option>
+                <option value="45">Sales (45 hrs/week - Mon-Sat)</option>
+              </select>
+            </div>
             <Input
               label="ID number"
               value={form.id_number}
