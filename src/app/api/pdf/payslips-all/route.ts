@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       supabase.from('payroll_runs').select('week_start, week_end').eq('id', runId).single(),
       supabase
         .from('payslips')
-        .select('*, employee:employees(full_name, pt_code, id_number, occupation, payment_method, bank_name, bank_acc, weekly_wage, weekly_hours)')
+        .select('*, employee:employees(full_name, pt_code, id_number, occupation, bank_name, bank_acc, weekly_wage, weekly_hours)')
         .eq('payroll_run_id', runId)
         .order('created_at'),
     ]);
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         pt_code: (emp?.pt_code as string) || '-',
         occupation: (emp?.occupation as string) || 'General Worker',
         id_number: (emp?.id_number as string) || '-',
-        payment_method: (emp?.payment_method as string) || 'eft',
+        payment_method: 'eft',
         bank_name: (emp?.bank_name as string) || '',
         bank_acc: (emp?.bank_acc as string) || '',
         week_start: run.week_start,

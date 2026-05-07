@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: emp } = await supabase
       .from('employees')
-      .select('full_name, pt_code, occupation, id_number, payment_method, bank_name, bank_acc, weekly_wage, weekly_hours')
+      .select('full_name, pt_code, occupation, id_number, bank_name, bank_acc, weekly_wage, weekly_hours')
       .eq('id', slip.employee_id)
       .single();
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       pt_code: emp?.pt_code || '-',
       occupation: emp?.occupation || 'General Worker',
       id_number: emp?.id_number || '-',
-      payment_method: emp?.payment_method || 'eft',
+      payment_method: 'eft',
       bank_name: emp?.bank_name || '',
       bank_acc: emp?.bank_acc || '',
       week_start: run?.week_start || '-',
