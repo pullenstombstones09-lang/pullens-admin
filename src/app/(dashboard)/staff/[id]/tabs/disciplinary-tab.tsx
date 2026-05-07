@@ -74,6 +74,7 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
 
       // Incidents
       ((incidentRes.data ?? []) as Incident[]).forEach((inc) => {
+        const advice = inc.advisor_output as Record<string, string> | null;
         events.push({
           id: inc.id,
           date: inc.incident_date,
@@ -84,6 +85,10 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
           pdfUrl: null,
           meta: {
             ...(inc.resolution ? { Resolution: inc.resolution } : {}),
+            ...(advice?.recommendation ? { 'HR Advice': advice.recommendation } : {}),
+            ...(advice?.action ? { 'Recommended Action': advice.action } : {}),
+            ...(advice?.legal_basis ? { 'Legal Basis': advice.legal_basis } : {}),
+            ...(inc.advised_at ? { 'Advised': formatDate(inc.advised_at) } : {}),
           },
         });
       });
@@ -284,12 +289,20 @@ export default function DisciplinaryTab({ employeeId }: DisciplinaryTabProps) {
                   )}
 
                   {Object.keys(event.meta).length > 0 && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-400">
-                      {Object.entries(event.meta).map(([key, value]) => (
-                        <span key={key}>
-                          {key}: <span className="text-stone-600">{value}</span>
-                        </span>
-                      ))}
+                    <div className="space-y-1.5 text-xs">
+                      {Object.entries(event.meta).map(([key, value]) => {
+                        const isLong = typeof value === 'string' && value.length > 80;
+                        return isLong ? (
+                          <div key={key} className="rounded bg-stone-50 p-2 border border-stone-100">
+                            <span className="font-medium text-stone-500">{key}:</span>
+                            <p className="text-stone-600 mt-0.5 whitespace-pre-wrap">{value}</p>
+                          </div>
+                        ) : (
+                          <div key={key} className="text-stone-400">
+                            {key}: <span className="text-stone-600">{value}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
