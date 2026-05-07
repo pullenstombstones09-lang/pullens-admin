@@ -34,10 +34,12 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 6. NMW — R30.23/hr (March 2026)
 7. Profile-first UI, Tablet-first (48px touch targets)
 8. Pay week = Monday 00:00 → Friday 16:00. Friday after 16:00 = OT, rolls into next week
-9. OT only kicks in after 40 hours total for the week
+9. OT only kicks in after 40 hours total for the week (45 for sales staff)
 10. Saturday payroll is a separate cash run (type: saturday_cash)
 11. Per-employee approval gate before payroll generates (default all approved)
 12. Royal blue (#1E40AF) primary + gold (#C4A35A) accent — no charcoal
+13. Payroll runs from ONE place only — the Payroll page. Review page is for editing/previewing only.
+14. One standard payslip PDF design used everywhere (Print All, Signing, Individual preview)
 
 ## Key Infrastructure
 
@@ -51,49 +53,82 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Vercel URL | `https://pullens-admin.vercel.app` |
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
+| Duplicate Vercel project | `pullens-admin-i4dp` exists — can be deleted, just wastes build minutes |
 
-## Status — 6 May 2026 (session complete)
+## Status — 7 May 2026 (session complete)
 
 ### CURRENT BUILD — main branch, deployed to Vercel
 
-**Session work (6 May):** Register tab redesign, payslip PDF fix, loans in payroll review, Vercel build fix.
+**Session work (7 May):** Payroll workflow polish, PDF fixes, banking page, payslip redesign, stale data alert, add employee fixes.
 
-**Commits:** 13edc6f, 0998f72
+**Commits:** 9b93133 through e77ce8d
 
-**Register redesign:**
-- Two tabs at top: "Day View" (default) | "Week View"
-- Day View = primary capture tool — date picker, "Mark All Present" button, time entry, status dropdowns, auto-late/OT calc, save
-- Week View = read-only at-a-glance — colour blocks with text (green+times=present, amber+time/-min=late, red+ABS=absent, blue+SICK/LEAVE, purple+PH, grey+ST, OT badge)
-- No tick/cross SVG icons, no clear day, no clear all on week view
-- Tap any cell in week view → switches to Day View for that employee + that day
-- Mark All Present stamps all active employees with standard times (skips leave/sick/PH)
-- Removed dead code: quickToggle, clearDay, clearAll from WeekGrid
+**Login screen fix:**
+- Filtered to 7 admin users only (OS users no longer appear)
+- Uses hardcoded ADMIN_NAMES list in `/api/auth/users` route
+- OS users (Ali, Faith, Gugu, Sipho, Zandi, Randhir) are in shared Supabase but filtered out
 
-**Payslip PDF hourly rate fix:**
-- Bug: hourly rate was hardcoded as `weekly_wage / 40` — wrong for 45hr staff
-- Fix: now uses `weekly_wage / weekly_hours` across all 3 PDF generators
-- Added `weekly_hours` to PayslipPdfData interface
-- Both `/api/pdf/payslip` and `/api/pdf/payslips-all` now fetch actual `weekly_wage` + `weekly_hours` from employee record
+**PDF fixes:**
+- Em dash (—) crash in jsPDF fixed — replaced with hyphens in all PDF routes
+- Null safety on all payslip fields
+- Removed `payment_method` column reference (doesn't exist in DB)
+- `createServiceRoleSupabase` now uses `createClient` from `@supabase/supabase-js` (true RLS bypass)
 
-**Loans column in Payroll Review:**
-- New "Loans" column between Gross and Deduct in the review grid
-- Shows loan deduction amount per employee (amber text)
-- Tap amount → popover showing all active loans with purpose, outstanding balance, editable weekly deduction
-- Save updates loan in Supabase and instantly recalculates that employee's payroll
-- Totals row includes loans total
-- Loans tab on staff profile remains the full record (create, history, close)
+**Payslip PDF redesign (modern):**
+- Proportional logo (40x20mm, not stretched)
+- Pay period in readable format (Mon 05 May 2026)
+- Employee info in clean grey card, two-column grid
+- Royal blue table headers, alternating row stripes
+- Net pay: white text on blue rounded box
+- Employer UIF as italic footnote
+- Signature lines at bottom
+- One design used in Print All, Signing, and Individual preview
 
-**Vercel build fix:**
-- 6 API routes had module-level `createClient()` calls — fails during Vercel's page data collection step
-- Moved all `createClient()` inside route handler functions: change-pin, upload-photo, upload-file, seed-loans, seed-employees, migrate-weekly-hours
+**Payroll workflow redesign:**
+- Week calculation fixed: Mon-Fri (was wrong Fri-Thu)
+- Workflow steps always visible, always clickable, show green tick when done
+- Print step marks as printed on first tap, shows "Tap to reprint" after
+- Workflow persists across navigation (loads existing run for current week)
+- Removed duplicate "Print All Payslips" button and bottom action row
+- Removed "Sign Payslips" from sidebar (accessible from workflow only)
+- Tap employee row → opens individual payslip PDF in new tab (replaced checkboxes)
+- Dashboard week progress reordered: Reg → Review → Payroll → Print → Bank → Sign
 
-**Prior session work (5-6 May) — already on main:**
-- Per-employee approval gate, Saturday cash payroll, individual payslip recalc
-- Friday 16:00 cutoff, OT only after 40hrs
-- Payslip viewer slide panel, anomaly detection
-- Day-aware dashboard with workflow stepper + Realtime
-- Royal blue (#1E40AF) + gold (#C4A35A) theming
-- 7 admin users: Annika, Nisha, Veshi, Marlyn, Cheryl, Lee-Ann, Kam
+**Banking page fixes:**
+- Employees start unticked (Lee-Ann ticks as she processes)
+- Cash/EFT badge next to each employee (blue = EFT, amber = Cash)
+
+**Payroll API fixes:**
+- All payroll routes switched to `createServiceRoleSupabase` (RLS was blocking)
+- Saturday payroll: fixed response key mismatch, added uif_employer, fixed print URL
+- PH attendance records get crypto.randomUUID() (was null id crash)
+- Register save: new records get crypto.randomUUID()
+- Stale data alert: if attendance updated after payroll calculated, orange alert with Recalculate button
+- Recalculate deletes old run + payslips, generates fresh — one payroll per week only
+
+**Add Employee fixes:**
+- Leave balances: fixed column names (annual_remaining, sick_remaining, family_remaining)
+- Staff Type selector: Normal (40hr Mon-Fri) or Sales (45hr Mon-Sat)
+- weekly_hours saved to employee on creation
+- payment_method column added to DB (ALTER TABLE run manually)
+
+**HR Advisor:**
+- Advisor output now displays on employee Disciplinary tab (recommendation, action, legal basis)
+- Generated PDF forms + digital signatures still TODO (noted in memory)
+
+**45-hour sales staff:**
+- 6 employees set to weekly_hours=45: Marlyn, Nicolette, Randhir, Gugu, Faith, Zandile
+- Register already shows Saturday column for 45hr staff
+- Saturday attendance (9:00-13:00) must be entered for correct payroll calc
+
+**PWA install banner:**
+- Shows once on first login (localStorage dismissed)
+- Native install prompt on Android/Chrome, share instructions on iOS
+- Manifest start_url changed to /dashboard
+
+**Pullens OS note:**
+- Added TODO in OS CLAUDE.md: create separate Supabase project before next build
+- OS shares Supabase project with Admin — causes user leakage on login
 
 ### SQL MIGRATIONS — DONE
 - 00001-00004: original schema (done 29 April)
@@ -105,17 +140,19 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - Loans/ folder with WhatsApp images is in git — reference photos for loan accounts, leave as-is
 
 ### NOT YET DONE
-- [ ] **Payslip pay period formatting** — show "Pay Period: Mon 04 May — Fri 08 May 2026" in readable format, not raw date strings
+- [ ] **HR Advisor forms** — generated warning/hearing PDFs need save to employee profile + digital signature capture (employee + issuer + witness)
 - [ ] **Petty cash overhaul** — daily view, monthly category breakdown, tick-to-square, month-over-month reporting
 - [ ] **Monthly reporting** — payroll/attendance/petty cash summaries per month
-- [ ] Payslip compliance: add PAYE ref, leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)
+- [ ] Payslip compliance: add leave balance, YTD totals (DO NOT TOUCH PAYE CALCULATION)
 - [ ] Garnishee: add 25% net pay cap per Magistrates' Courts Act s65J
 - [ ] Document template engine (filling HR pack Word templates)
 - [ ] Thursday 16:00 petty cash cron trigger (Vercel cron)
 - [ ] V12 parity testing (parallel run with old spreadsheet)
 - [ ] Custom domain (admin.pullens.co.za) — non-blocking
 - [ ] Clean up test pages (/test, /test2, /test3) and screenshot PNGs from repo
-- [ ] Worktree cleanup — `payroll-workflow-redesign` branch can be deleted after merge confirmed
+- [ ] Worktree cleanup — `payroll-workflow-redesign` branch can be deleted
+- [ ] Delete duplicate Vercel project `pullens-admin-i4dp`
+- [ ] Lungiswa Mpambane anomaly — verify attendance entered for correct week dates (Mon 5 May - Fri 9 May)
 
 ## File Structure
 
@@ -135,14 +172,11 @@ pullens-admin/
 │   ├── app/
 │   │   ├── layout.tsx            # Root layout (Inter font, metadata)
 │   │   ├── globals.css           # Tailwind v4 + custom vars
-│   │   ├── login/page.tsx        # PIN login (rewritten, still buggy)
+│   │   ├── login/page.tsx        # PIN login
 │   │   ├── change-pin/page.tsx   # Force PIN change
-│   │   ├── test/page.tsx         # Debug: server component (works)
-│   │   ├── test2/page.tsx        # Debug: client component (works)
-│   │   ├── test3/page.tsx        # Debug: useRouter test
 │   │   ├── api/
-│   │   │   ├── auth/             # login, logout, change-pin routes
-│   │   │   ├── payroll/          # run, generate-payslips routes
+│   │   │   ├── auth/             # login, logout, change-pin, users routes
+│   │   │   ├── payroll/          # run, generate-payslips, saturday, batch, recalculate, bank
 │   │   │   ├── petty-cash/       # cutoff route
 │   │   │   ├── hr-advisor/       # advise route (Claude API)
 │   │   │   ├── alerts/           # GET alerts route
@@ -151,25 +185,28 @@ pullens-admin/
 │   │   │   ├── cleanup/          # Wipe test data (secret-protected)
 │   │   │   └── seed/             # Initial data seed (run once)
 │   │   └── (dashboard)/          # Protected routes (AuthProvider)
-│   │       ├── layout.tsx        # Sidebar + AuthProvider + ToastProvider
-│   │       ├── dashboard/        # Home dashboard
+│   │       ├── layout.tsx        # Sidebar + AuthProvider + ToastProvider + PWA banner
+│   │       ├── dashboard/        # Home dashboard with week progress
 │   │       ├── staff/            # Staff list + [id] profile (8 tabs)
-│   │       ├── register/         # Daily attendance + weekly view
-│   │       ├── payroll/          # Payroll run + payslip viewer
+│   │       ├── register/         # Daily attendance + weekly view (6 days for 45hr staff)
+│   │       ├── payroll/          # Payroll run + workflow steps + print + bank + sign + saturday
 │   │       ├── petty-cash/       # Cash flows + modals
 │   │       ├── hr-advisor/       # AI compliance engine
 │   │       ├── alerts/           # 16 notification types
 │   │       ├── exports/          # Compliance exports
 │   │       └── settings/         # Settings + audit log
 │   ├── components/
-│   │   ├── ui/                   # card, button, badge, input, toast
-│   │   └── alert-badge.tsx       # Sidebar alert counter
+│   │   ├── ui/                   # card, button, badge, input, toast, workflow-stepper
+│   │   ├── alert-badge.tsx       # Sidebar alert counter
+│   │   └── pwa-install-banner.tsx # Add to Home Screen prompt
 │   ├── lib/
 │   │   ├── supabase/client.ts    # Browser Supabase client
-│   │   ├── supabase/server.ts    # Server Supabase client + service role
+│   │   ├── supabase/server.ts    # Server client + service role (true RLS bypass)
 │   │   ├── auth-context.tsx      # AuthProvider (dashboard only)
 │   │   ├── payroll-engine.ts     # Payroll calculation (exact V12 formula)
-│   │   ├── permissions.ts        # 6-role permission matrix
+│   │   ├── pdf-generator.ts      # Warning, hearing notice, payslip PDF (modern design)
+│   │   ├── pdf-generator-all.ts  # Bulk payslip PDF (multi-page)
+│   │   ├── permissions.ts        # 6-role permission matrix + nav items
 │   │   ├── seed-employees.ts     # 38 employee seed data
 │   │   └── utils.ts              # formatCurrency, formatDate, getInitials, etc.
 │   └── types/
@@ -178,10 +215,7 @@ pullens-admin/
 
 ## Supabase MCP Access
 
-The Supabase MCP is authenticated to YeboPro org only. It CANNOT access this project (different org). To run SQL, either:
-1. Reconnect MCP to include the Pullens org
-2. Use Supabase SQL Editor in the dashboard manually
-3. Use the service role key directly via fetch/curl
+The Supabase MCP is authenticated to YeboPro org only. It CANNOT access this project (different org). To run SQL, use the service role key via curl/fetch against the REST API.
 
 ## Seed Data Notes
 
@@ -193,3 +227,4 @@ The Supabase MCP is authenticated to YeboPro org only. It CANNOT access this pro
 - Missing: EIFs for PT021, PT022, PT023, PT024, PT031, PT036
 - Passport holders: PT013 (Alli Yessa), PT021 (Tumelo Lebofa)
 - No ID at all: PT022 (Thabani Ximba), PT031 (Xolani Xolani), PT036 (Philani Rasta)
+- 45hr sales staff: PT008 (Marlyn), PT012 (Nicolette), PT023 (Faith), PT024 (Gugu), PT028 (Randhir), PT032 (Zandile)
