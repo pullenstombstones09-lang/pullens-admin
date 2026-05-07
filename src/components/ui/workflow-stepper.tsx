@@ -57,14 +57,6 @@ export function WorkflowStepper({ compact }: { compact?: boolean }) {
       status: data.steps.payroll.status as StepStatus,
     },
     {
-      key: 'sign',
-      label: 'Sign',
-      icon: <PenTool size={compact ? 16 : 20} />,
-      href: '/payroll/payslip-viewer' + (data.steps.payroll.runId ? `?run=${data.steps.payroll.runId}` : ''),
-      status: data.steps.sign.status as StepStatus,
-      detail: data.steps.sign.total > 0 ? `${data.steps.sign.signed}/${data.steps.sign.total}` : undefined,
-    },
-    {
       key: 'print',
       label: 'Print',
       icon: <Printer size={compact ? 16 : 20} />,
@@ -77,6 +69,14 @@ export function WorkflowStepper({ compact }: { compact?: boolean }) {
       icon: <Landmark size={compact ? 16 : 20} />,
       href: '/payroll',
       status: data.steps.bank.status as StepStatus,
+    },
+    {
+      key: 'sign',
+      label: 'Sign',
+      icon: <PenTool size={compact ? 16 : 20} />,
+      href: '/payroll/payslip-viewer' + (data.steps.payroll.runId ? `?run=${data.steps.payroll.runId}` : ''),
+      status: data.steps.sign.status as StepStatus,
+      detail: data.steps.sign.total > 0 ? `${data.steps.sign.signed}/${data.steps.sign.total}` : undefined,
     },
   ]
 

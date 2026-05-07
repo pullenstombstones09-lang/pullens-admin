@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServiceRoleSupabase } from '@/lib/supabase/server';
 import { calculatePayroll, type PayrollInput } from '@/lib/payroll-engine';
 import type { Employee, Attendance, OvertimeRequest, Loan } from '@/types/database';
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = await createServerSupabase();
+    const supabase = await createServiceRoleSupabase();
 
     // 1. Fetch the payslip and its payroll_run (for week_start, week_end)
     const { data: payslip, error: payslipError } = await supabase

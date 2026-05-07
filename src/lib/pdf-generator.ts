@@ -94,7 +94,7 @@ function labelValue(doc: jsPDF, x: number, y: number, label: string, value: stri
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(51, 51, 51);
-  doc.text(value || '—', x + labelWidth, y);
+  doc.text(value || '-', x + labelWidth, y);
 }
 
 function signatureLine(doc: jsPDF, x: number, y: number, label: string, width = 70) {
@@ -410,7 +410,7 @@ export function generatePayslipPdf(data: PayslipPdfData): ArrayBuffer {
   const doc = new jsPDF('p', 'mm', 'a4');
   const fmt = (n: number) => `R ${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 
-  let y = addHeader(doc, 'PAYSLIP', `Week: ${data.week_start} — ${data.week_end}`);
+  let y = addHeader(doc, 'PAYSLIP', `Week: ${data.week_start} - ${data.week_end}`);
 
   // Employee details
   y = sectionTitle(doc, y, 'Employee Details');

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServiceRoleSupabase } from '@/lib/supabase/server';
 
 // GET: fetch batch for a payroll run
 export async function GET(req: NextRequest) {
-  const supabase = await createServerSupabase();
+  const supabase = await createServiceRoleSupabase();
   const runId = req.nextUrl.searchParams.get('run_id');
 
   if (!runId) {
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
 // POST: create batch (all employees default approved)
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabase();
+  const supabase = await createServiceRoleSupabase();
   const { run_id, employee_ids } = await req.json();
 
   const records = employee_ids.map((eid: string) => ({
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH: update individual employee status
 export async function PATCH(req: NextRequest) {
-  const supabase = await createServerSupabase();
+  const supabase = await createServiceRoleSupabase();
   const { run_id, employee_id, status, pulled_reason } = await req.json();
 
   const { error } = await supabase

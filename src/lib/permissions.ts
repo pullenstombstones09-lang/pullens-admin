@@ -87,7 +87,7 @@ const HOME_ROUTES: Record<UserRole, string> = {
   bookkeeper: '/payroll',
   attendance_clerk: '/register',
   cash_clerk: '/petty-cash',
-  signer: '/payroll/sign',
+  signer: '/payroll/print',
 };
 
 export function getHomeRoute(role: UserRole): string {
@@ -101,7 +101,6 @@ export function getNavItems(role: UserRole) {
     { label: 'Register', href: '/register', icon: 'clipboard-check', permission: 'view_register' },
     { label: 'Payroll', href: '/payroll', icon: 'banknotes', permission: 'view_payroll' },
     { label: 'Review', href: '/payroll/review', icon: 'clipboard-check', permission: 'review_payroll' },
-    { label: 'Sign Payslips', href: '/payroll/sign', icon: 'clipboard-check', permission: 'sign_payslips' },
     { label: 'Payslip Signing', href: '/payroll/signing', icon: 'pen-tool', permission: 'manage_signing' },
     { label: 'Saturday Pay', href: '/payroll/saturday', icon: 'sun', permission: 'capture_saturday' },
     { label: 'Petty Cash', href: '/petty-cash', icon: 'wallet', permission: 'view_petty_cash' },

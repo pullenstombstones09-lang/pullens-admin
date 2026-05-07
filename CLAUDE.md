@@ -52,11 +52,13 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 
-## Status — 6 May 2026 (session in progress)
+## Status — 6 May 2026 (session complete)
 
-### CURRENT BUILD — main branch, NOT YET PUSHED
+### CURRENT BUILD — main branch, deployed to Vercel
 
-**Session work (6 May):** Register tab redesign, payslip PDF fix, loans in payroll review.
+**Session work (6 May):** Register tab redesign, payslip PDF fix, loans in payroll review, Vercel build fix.
+
+**Commits:** 13edc6f, 0998f72
 
 **Register redesign:**
 - Two tabs at top: "Day View" (default) | "Week View"
@@ -80,6 +82,10 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - Save updates loan in Supabase and instantly recalculates that employee's payroll
 - Totals row includes loans total
 - Loans tab on staff profile remains the full record (create, history, close)
+
+**Vercel build fix:**
+- 6 API routes had module-level `createClient()` calls — fails during Vercel's page data collection step
+- Moved all `createClient()` inside route handler functions: change-pin, upload-photo, upload-file, seed-loans, seed-employees, migrate-weekly-hours
 
 **Prior session work (5-6 May) — already on main:**
 - Per-employee approval gate, Saturday cash payroll, individual payslip recalc

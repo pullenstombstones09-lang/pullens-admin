@@ -670,7 +670,7 @@ export default function RegisterPage() {
     const records = rows.map((row) => {
       const clearTimes = noTimeStatuses.includes(row.status);
       return {
-        ...(row.existing_id ? { id: row.existing_id } : {}),
+        id: row.existing_id || crypto.randomUUID(),
         employee_id: row.employee_id,
         date: selectedDate,
         status: row.status,

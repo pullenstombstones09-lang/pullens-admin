@@ -41,12 +41,13 @@ function getCurrentWeek(offset: number = 0): { weekStart: string; weekEnd: strin
   const now = new Date();
   now.setDate(now.getDate() + offset * 7);
   const dow = now.getDay();
-  const daysToFri = (dow + 2) % 7;
-  const fri = new Date(now);
-  fri.setDate(now.getDate() - daysToFri);
-  const thu = new Date(fri);
-  thu.setDate(fri.getDate() + 6);
-  return { weekStart: toDateString(fri), weekEnd: toDateString(thu) };
+  // Monday-based week: Mon 00:00 → Fri 16:00
+  const daysToMon = dow === 0 ? 6 : dow - 1; // Sunday=6 back, else dow-1
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - daysToMon);
+  const fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  return { weekStart: toDateString(mon), weekEnd: toDateString(fri) };
 }
 
 function weekLabel(start: string, end: string): string {
@@ -82,6 +83,8 @@ export default function PayrollPage() {
   const [anomalies, setAnomalies] = useState<string[]>([]);
   const [hasAttendance, setHasAttendance] = useState<boolean | null>(null);
   const [signedCount, setSignedCount] = useState(0);
+  const [printed, setPrinted] = useState(false);
+  const [runStatus, setRunStatus] = useState<string>('draft');
 
   // Selection + inline loan edit state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -138,15 +141,85 @@ export default function PayrollPage() {
     fetchHistory();
   }, [fetchHistory]);
 
+  // Load existing payroll run for the current week on page load
+  useEffect(() => {
+    async function loadExistingRun() {
+      // Try exact match first, then fall back to most recent run
+      let existingRun = null;
+      const { data: exactMatch } = await supabase
+        .from('payroll_runs')
+        .select('*')
+        .eq('week_start', weekStart)
+        .eq('week_end', weekEnd)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (exactMatch) {
+        existingRun = exactMatch;
+      } else {
+        // Fall back to most recent non-saturday run
+        const { data: recent } = await supabase
+          .from('payroll_runs')
+          .select('*')
+          .neq('payroll_type', 'saturday_cash')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        existingRun = recent;
+      }
+
+      if (existingRun) {
+        setRunId(existingRun.id);
+        setRunStatus(existingRun.status);
+        setPrinted(!!existingRun.summary_pdf_url);
+
+        // Load payslips for this run to populate results
+        const { data: payslips } = await supabase
+          .from('payslips')
+          .select('*, employees(full_name, pt_code, occupation)')
+          .eq('payroll_run_id', existingRun.id)
+          .order('created_at');
+
+        if (payslips && payslips.length > 0) {
+          const payrollResults = payslips.map((slip: any) => ({
+            employee_id: slip.employee_id,
+            full_name: slip.employees?.full_name || 'Unknown',
+            pt_code: slip.employees?.pt_code || '-',
+            weekly_wage: slip.gross ?? 0,
+            hourly_rate: 0,
+            ordinary_hours: slip.ordinary_hours ?? 0,
+            ot_hours: slip.ot_hours ?? 0,
+            ot_amount: slip.ot_amount ?? 0,
+            late_minutes: 0,
+            gross: slip.gross ?? 0,
+            late_deduction: slip.late_deduction ?? 0,
+            uif_employee: slip.uif_employee ?? 0,
+            uif_employer: slip.uif_employer ?? 0,
+            paye: slip.paye ?? 0,
+            loan_deduction: slip.loan_deduction ?? 0,
+            garnishee: slip.garnishee ?? 0,
+            petty_shortfall: slip.petty_shortfall ?? 0,
+            net: slip.net ?? 0,
+            breakdown: { days: [] },
+            friday_ot_rollover: [],
+          })) as unknown as PayrollResult[];
+          setResults(payrollResults);
+        }
+      }
+    }
+    loadExistingRun();
+  }, [weekStart, weekEnd, supabase]);
+
   useEffect(() => {
     async function checkAttendance() {
-      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const ws = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const we = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const { count } = await supabase
         .from('attendance')
         .select('*', { count: 'exact', head: true })
-        .gte('date', weekStart)
-        .lte('date', weekEnd);
+        .gte('date', ws)
+        .lte('date', we);
       setHasAttendance((count || 0) > 0);
     }
     checkAttendance();
@@ -432,77 +505,91 @@ export default function PayrollPage() {
             </div>
           )}
 
-          {/* 2. Workflow: Calculate → Print → Sign (next week) → Bank */}
+          {/* 2. Workflow steps — tick off as completed */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Calculate — completed */}
+            {/* Step 1: Calculate — always done if we have results */}
             <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
               <div className="flex items-center gap-2 mb-2">
-                <Calculator size={18} className="opacity-80" />
+                <CheckCircle size={18} />
                 <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 1</span>
               </div>
-              <div className="text-base font-bold">Calculate</div>
-              <div className="text-xs mt-1 opacity-90 flex items-center gap-1">
-                <CheckCircle size={13} />
-                Done
-              </div>
+              <div className="text-base font-bold">Calculated</div>
+              <div className="text-xs mt-1 opacity-90">{results.length} employees</div>
             </div>
 
-            {/* Print — Friday payday action */}
-            <button
-              onClick={() => {
-                if (runId) window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
-              }}
-              className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow text-left"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Printer size={18} className="opacity-80" />
-                <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
+            {/* Step 2: Print — one-time action, marks as printed */}
+            {printed ? (
+              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={18} />
+                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
+                </div>
+                <div className="text-base font-bold">Printed</div>
+                <div className="text-xs mt-1 opacity-90">Payslips printed</div>
               </div>
-              <div className="text-base font-bold">Print All</div>
-              <div className="text-xs mt-1 opacity-90">Tap to print {results.length} payslips</div>
-            </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  if (runId) {
+                    window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank');
+                    await supabase.from('payroll_runs').update({ summary_pdf_url: 'printed' }).eq('id', runId);
+                    setPrinted(true);
+                  }
+                }}
+                className="block rounded-xl p-4 bg-gradient-to-br from-[#1E40AF] to-[#3B82F6] text-white shadow-[0_2px_8px_rgba(30,64,175,0.30)] hover:shadow-[0_4px_16px_rgba(30,64,175,0.40)] transition-shadow text-left"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Printer size={18} className="opacity-80" />
+                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 2</span>
+                </div>
+                <div className="text-base font-bold">Print All</div>
+                <div className="text-xs mt-1 opacity-90">Tap to print {results.length} payslips</div>
+              </button>
+            )}
 
-            {/* Bank — Lee-Ann ticks off payments */}
-            <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-              <div className="flex items-center gap-2 mb-2">
-                <Landmark size={18} className="text-gray-400" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
+            {/* Step 3: Bank — tick off payments */}
+            {runStatus === 'paid' ? (
+              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={18} />
+                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 3</span>
+                </div>
+                <div className="text-base font-bold">Banked</div>
+                <div className="text-xs mt-1 opacity-90">Payments confirmed</div>
               </div>
-              <div className="text-base font-bold">Bank</div>
-              <div className="text-xs mt-1 text-gray-400">Tick off payments</div>
-            </a>
+            ) : (
+              <a href="/payroll/bank" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#3B82F6]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+                <div className="flex items-center gap-2 mb-2">
+                  <Landmark size={18} className="text-gray-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Step 3</span>
+                </div>
+                <div className="text-base font-bold">Bank</div>
+                <div className="text-xs mt-1 text-gray-400">Tick off payments</div>
+              </a>
+            )}
 
-            {/* Sign — next week, Marlyn/Cheryl on tablet */}
-            <a href="/payroll/signing" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#C4A35A]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
-              <div className="flex items-center gap-2 mb-2">
-                <PenTool size={18} className="text-[#C4A35A]" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 4</span>
+            {/* Step 4: Sign — next week */}
+            {signedCount === results.length && results.length > 0 ? (
+              <div className="rounded-xl p-4 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={18} />
+                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">Step 4</span>
+                </div>
+                <div className="text-base font-bold">Signed</div>
+                <div className="text-xs mt-1 opacity-90">All {results.length} signed</div>
               </div>
-              <div className="text-base font-bold">Sign</div>
-              <div className="text-xs mt-1 text-gray-500">
-                {signedCount}/{results.length} signed
-              </div>
-            </a>
-          </div>
-
-          {/* Quick print buttons */}
-          <div className="flex gap-3">
-            <Button
-              variant="primary"
-              size="lg"
-              icon={<Printer className="h-4 w-4" />}
-              onClick={() => { if (runId) window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank'); }}
-            >
-              Print All Payslips
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              icon={<FileStack className="h-4 w-4" />}
-              onClick={() => { if (runId) window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank'); }}
-            >
-              Print Summary
-            </Button>
+            ) : (
+              <a href="/payroll/signing" className="block rounded-xl p-4 bg-white border border-gray-200 text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:border-[#C4A35A]/40 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all">
+                <div className="flex items-center gap-2 mb-2">
+                  <PenTool size={18} className="text-[#C4A35A]" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[#C4A35A]">Step 4</span>
+                </div>
+                <div className="text-base font-bold">Sign</div>
+                <div className="text-xs mt-1 text-gray-500">
+                  {signedCount}/{results.length} signed
+                </div>
+              </a>
+            )}
           </div>
 
           {/* 3. Results table */}
@@ -647,30 +734,7 @@ export default function PayrollPage() {
             </table>
           </div>
 
-          {/* 4. Single action row */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <span className="text-sm text-gray-500">{selected.size} selected</span>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="md"
-                icon={<FileText size={16} />}
-                onClick={() => window.open(`/api/pdf/payroll-summary?run=${runId}`, '_blank')}
-              >
-                Print Summary
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<PenTool size={16} />}
-                onClick={() => { window.location.href = '/payroll/sign'; }}
-              >
-                Go to Signing
-              </Button>
-            </div>
-          </div>
-
-          {/* 5. Quick-view slide panel */}
+          {/* 4. Quick-view slide panel */}
           <SlidePanel open={!!quickView} onClose={() => setQuickView(null)} title={quickView?.full_name || ''}>
             {quickView && (
               <div className="space-y-4">

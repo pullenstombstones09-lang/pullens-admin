@@ -222,7 +222,7 @@ export default function SaturdayPayrollPage() {
             size="lg"
             className="flex-1"
             icon={<Printer className="w-5 h-5" />}
-            onClick={() => window.open(`/api/pdf/saturday-payslips?run_id=${runId}`, '_blank')}
+            onClick={() => window.open(`/api/pdf/payslips-all?run=${runId}`, '_blank')}
           >
             Print Saturday Payslips
           </Button>

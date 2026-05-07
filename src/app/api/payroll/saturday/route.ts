@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServiceRoleSupabase } from '@/lib/supabase/server';
 import { calculateSaturdayPayroll } from '@/lib/payroll-engine';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
+    const supabase = await createServiceRoleSupabase();
     const { date, employees } = await req.json();
     // employees: Array<{ employee_id: string, time_in: string, time_out: string }>
 
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       gross: r.gross,
       late_deduction: 0,
       uif_employee: 0,
+      uif_employer: 0,
       paye: 0,
       loan_deduction: 0,
       garnishee: 0,
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create Saturday payslips' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, runId: run.id, results });
+    return NextResponse.json({ success: true, run_id: run.id, results });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });

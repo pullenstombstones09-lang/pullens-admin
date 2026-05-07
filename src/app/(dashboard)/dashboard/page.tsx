@@ -40,7 +40,7 @@ interface MonthSummary {
   pettyCash: { totalIn: number; totalOut: number; outstanding: number; balance: number }
 }
 
-const STEPS = ['Reg', 'Review', 'Payroll', 'Sign', 'Print', 'Bank'] as const
+const STEPS = ['Reg', 'Review', 'Payroll', 'Print', 'Bank', 'Sign'] as const
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -225,9 +225,9 @@ export default function DashboardPage() {
         Reg: workflow.register.done,
         Review: workflow.review.done,
         Payroll: workflow.payroll.done,
-        Sign: workflow.sign.done,
         Print: payrollRunStatus === 'printed' || payrollRunStatus === 'banked',
         Bank: payrollRunStatus === 'banked',
+        Sign: workflow.sign.done,
       }
     : {}
 
@@ -321,7 +321,30 @@ export default function DashboardPage() {
           </PulseCard>
         )}
 
-        {/* Sign */}
+        {/* Saturday */}
+        {hasPermission(user.role, 'view_payroll') && (isFriday || isSaturday) && (
+          <PulseCard
+            pulse={getPulse('saturday')}
+            onClick={() => router.push('/payroll/saturday')}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-100 text-orange-700 shrink-0">
+                <Sun size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--foreground)]">Saturday Pay</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {workflow?.saturday.done ? 'Captured' : 'Not yet captured'}
+                </p>
+              </div>
+              {workflow?.saturday.done && (
+                <CheckCircle2 size={18} className="text-green-500 shrink-0" />
+              )}
+            </div>
+          </PulseCard>
+        )}
+
+        {/* Sign (next week — staff sign payslips the week after payday) */}
         {hasPermission(user.role, 'sign_payslips') && (workflow?.sign.total ?? 0) > 0 && (
           <PulseCard
             pulse={getPulse('sign')}
@@ -344,29 +367,6 @@ export default function DashboardPage() {
                 )}
               </div>
               {workflow?.sign.done && (
-                <CheckCircle2 size={18} className="text-green-500 shrink-0" />
-              )}
-            </div>
-          </PulseCard>
-        )}
-
-        {/* Saturday */}
-        {hasPermission(user.role, 'view_payroll') && (isFriday || isSaturday) && (
-          <PulseCard
-            pulse={getPulse('saturday')}
-            onClick={() => router.push('/payroll/saturday')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-100 text-orange-700 shrink-0">
-                <Sun size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[var(--foreground)]">Saturday Pay</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {workflow?.saturday.done ? 'Captured' : 'Not yet captured'}
-                </p>
-              </div>
-              {workflow?.saturday.done && (
                 <CheckCircle2 size={18} className="text-green-500 shrink-0" />
               )}
             </div>

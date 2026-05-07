@@ -14,9 +14,14 @@ export async function GET() {
     }
   )
 
+  // Only show the 7 Pullens Admin users — OS users share this Supabase project
+  const ADMIN_NAMES = ['Annika', 'Nisha', 'Veshi', 'Marlyn', 'Cheryl', 'Lee-Ann', 'Kam']
+
   const { data, error } = await supabase
     .from('users')
     .select('id, name, role')
+    .eq('active', true)
+    .in('name', ADMIN_NAMES)
     .order('name')
 
   if (error) {

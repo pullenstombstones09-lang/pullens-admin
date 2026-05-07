@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServiceRoleSupabase } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = await createServerSupabase();
+    const supabase = await createServiceRoleSupabase();
 
     // Verify the payroll run exists
     const { data: run, error: runError } = await supabase

@@ -25,16 +25,24 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!runRes.data) {
+      console.error('Payslips-all: run not found', runId, runRes.error);
       return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 });
     }
 
     const run = runRes.data;
+
+    if (slipRes.error) {
+      console.error('Payslips-all: slip query error', slipRes.error);
+      return NextResponse.json({ error: slipRes.error.message }, { status: 500 });
+    }
+
     const slips = (slipRes.data ?? []).map((s: Record<string, unknown>) => ({
       ...s,
       employee: Array.isArray(s.employee) ? s.employee[0] : s.employee,
     }));
 
     if (slips.length === 0) {
+      console.error('Payslips-all: no slips found for run', runId, 'raw data:', slipRes.data?.length);
       return NextResponse.json({ error: 'No payslips in this run' }, { status: 404 });
     }
 
@@ -59,9 +67,9 @@ export async function GET(request: NextRequest) {
 
       return {
         employee_name: (emp?.full_name as string) || 'Unknown',
-        pt_code: (emp?.pt_code as string) || '—',
+        pt_code: (emp?.pt_code as string) || '-',
         occupation: (emp?.occupation as string) || 'General Worker',
-        id_number: (emp?.id_number as string) || '—',
+        id_number: (emp?.id_number as string) || '-',
         payment_method: (emp?.payment_method as string) || 'eft',
         bank_name: (emp?.bank_name as string) || '',
         bank_acc: (emp?.bank_acc as string) || '',

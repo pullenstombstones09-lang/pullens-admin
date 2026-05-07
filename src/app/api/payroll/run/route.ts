@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServiceRoleSupabase } from '@/lib/supabase/server';
 import { calculatePayroll, type PayrollInput, type PayrollResult } from '@/lib/payroll-engine';
 import type { Employee, Attendance, OvertimeRequest, Loan } from '@/types/database';
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = await createServerSupabase();
+    const supabase = await createServiceRoleSupabase();
 
     // ── FINALIZE: delete pulled employees' payslips, mark run generated ──────
     if (finalize && existingRunId && approvedEmployeeIds) {
@@ -218,6 +218,7 @@ export async function POST(request: Request) {
         const missingEmployees = employees.filter((e: any) => !existingIds.has(e.id));
         if (missingEmployees.length > 0) {
           const phRows = missingEmployees.map((e: any) => ({
+            id: crypto.randomUUID(),
             employee_id: e.id,
             date: hol.date,
             status: 'ph',
