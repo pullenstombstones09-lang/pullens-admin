@@ -20,6 +20,7 @@ interface PayslipRow {
     full_name: string
     pt_code: string
     bank_name: string | null
+    payment_method: string | null
   } | null
 }
 
@@ -48,7 +49,7 @@ export default function BankingPage() {
 
   const [run, setRun] = useState<RunRow | null>(null)
   const [payslips, setPayslips] = useState<PayslipRow[]>([])
-  const [ticked, setTicked] = useState<Set<string>>(new Set())
+  const [ticked, setTicked] = useState<Map<string, 'eft' | 'cash'>>(new Map()) // employee_id → method
   const [saving, setSaving] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -80,7 +81,7 @@ export default function BankingPage() {
       // Payslips for that run
       const { data: slips, error: slipErr } = await supabase
         .from('payslips')
-        .select('id, employee_id, net, banked_at, employees(full_name, pt_code, bank_name)')
+        .select('id, employee_id, net, banked_at, employees(full_name, pt_code, bank_name, payment_method)')
         .eq('payroll_run_id', latestRun.id)
         .order('employees(full_name)')
 
@@ -94,7 +95,11 @@ export default function BankingPage() {
       setPayslips(rows)
 
       // Only tick employees that were already banked (banked_at not null)
-      const alreadyBanked = new Set(rows.filter((r) => r.banked_at).map((r) => r.employee_id))
+      const alreadyBanked = new Map<string, 'eft' | 'cash'>()
+      rows.filter((r) => r.banked_at).forEach((r) => {
+        const method = (r.employees?.payment_method === 'cash' ? 'cash' : 'eft') as 'eft' | 'cash'
+        alreadyBanked.set(r.employee_id, method)
+      })
       setTicked(alreadyBanked)
       setLoading(false)
     }
@@ -104,28 +109,33 @@ export default function BankingPage() {
 
   // ---------- tick handler ----------
 
-  const handleTick = async (employeeId: string) => {
+  const handleTick = async (employeeId: string, method: 'eft' | 'cash') => {
     if (!run) return
 
-    const wasTickedBefore = ticked.has(employeeId)
+    const wasTickedWithSameMethod = ticked.get(employeeId) === method
 
     // Optimistic local toggle
     setTicked((prev) => {
-      const next = new Set(prev)
-      wasTickedBefore ? next.delete(employeeId) : next.add(employeeId)
+      const next = new Map(prev)
+      wasTickedWithSameMethod ? next.delete(employeeId) : next.set(employeeId, method)
       return next
     })
 
     setSaving((prev) => new Set(prev).add(employeeId))
 
     try {
-      if (!wasTickedBefore) {
+      if (!wasTickedWithSameMethod) {
         // Mark banked
         await fetch('/api/payroll/bank', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ run_id: run.id, employee_ids: [employeeId] }),
         })
+        // Update employee payment method
+        await supabase
+          .from('employees')
+          .update({ payment_method: method })
+          .eq('id', employeeId)
       } else {
         // Clear banked_at — untick
         await supabase
@@ -137,8 +147,8 @@ export default function BankingPage() {
     } catch {
       // Revert on failure
       setTicked((prev) => {
-        const next = new Set(prev)
-        wasTickedBefore ? next.add(employeeId) : next.delete(employeeId)
+        const next = new Map(prev)
+        wasTickedWithSameMethod ? next.set(employeeId, method) : next.delete(employeeId)
         return next
       })
       toast('error', 'Failed to update banking status — check connection and retry')
@@ -181,6 +191,8 @@ export default function BankingPage() {
   // ---------- derived ----------
 
   const allTicked = payslips.length > 0 && ticked.size === payslips.length
+  const eftTotal = payslips.filter((p) => ticked.get(p.employee_id) === 'eft').reduce((s, p) => s + (p.net ?? 0), 0)
+  const cashTotal = payslips.filter((p) => ticked.get(p.employee_id) === 'cash').reduce((s, p) => s + (p.net ?? 0), 0)
   const totalToPay = payslips.reduce((s, p) => s + (p.net ?? 0), 0)
   const totalBanked = payslips
     .filter((p) => ticked.has(p.employee_id))
@@ -260,8 +272,11 @@ export default function BankingPage() {
       {/* Progress bar */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{ticked.size} of {payslips.length} banked</span>
-          <span className="font-semibold text-[var(--foreground)]">{formatCurrency(totalBanked)} sent</span>
+          <span>{ticked.size} of {payslips.length} confirmed</span>
+          <div className="flex gap-3">
+            {eftTotal > 0 && <span className="text-blue-600 font-semibold">EFT: {formatCurrency(eftTotal)}</span>}
+            {cashTotal > 0 && <span className="text-amber-600 font-semibold">Cash: {formatCurrency(cashTotal)}</span>}
+          </div>
         </div>
         <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
           <div
@@ -274,36 +289,23 @@ export default function BankingPage() {
       {/* Employee list */}
       <div className="rounded-xl border border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] overflow-hidden">
         {payslips.map((payslip, idx) => {
-          const isTicked = ticked.has(payslip.employee_id)
+          const tickedMethod = ticked.get(payslip.employee_id)
+          const isTicked = !!tickedMethod
           const isSaving = saving.has(payslip.employee_id)
           const name = payslip.employees?.full_name ?? '—'
           const ptCode = payslip.employees?.pt_code ?? ''
 
           return (
-            <button
+            <div
               key={payslip.id}
-              onClick={() => handleTick(payslip.employee_id)}
-              disabled={isSaving}
               className={cn(
-                'w-full flex items-center justify-between gap-4 px-4 py-3.5 text-left',
-                'transition-colors duration-150',
+                'flex items-center gap-3 px-4 py-3.5',
                 idx !== payslips.length - 1 && 'border-b border-gray-100',
-                isTicked
-                  ? 'bg-green-50/60 hover:bg-green-50'
-                  : 'bg-white hover:bg-gray-50/60',
+                isTicked ? 'bg-green-50/60' : 'bg-white',
                 isSaving && 'opacity-60 pointer-events-none'
               )}
             >
-              {/* Tick icon */}
-              <div className="shrink-0">
-                {isTicked ? (
-                  <CheckCircle size={22} className="text-green-500" />
-                ) : (
-                  <Circle size={22} className="text-gray-300" />
-                )}
-              </div>
-
-              {/* Name + code + Cash/EFT */}
+              {/* Name + code */}
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'text-sm font-semibold truncate',
@@ -311,32 +313,47 @@ export default function BankingPage() {
                 )}>
                   {name}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-gray-400 font-mono">{ptCode}</span>
-                  <span className={cn(
-                    'text-[10px] font-bold uppercase px-1.5 py-0.5 rounded',
-                    payslip.employees?.bank_name
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-amber-100 text-amber-700'
-                  )}>
-                    {payslip.employees?.bank_name ? 'EFT' : 'Cash'}
-                  </span>
-                </div>
+                <span className="text-xs text-gray-400 font-mono">{ptCode}</span>
               </div>
 
               {/* Net pay */}
-              <div className="shrink-0 text-right">
+              <div className="shrink-0 text-right mr-3">
                 <p className={cn(
-                  'text-base font-black tabular-nums',
+                  'text-sm font-black tabular-nums',
                   isTicked ? 'text-green-700' : 'text-[var(--foreground)]'
                 )}>
                   {formatCurrency(payslip.net ?? 0)}
                 </p>
-                {isTicked && (
-                  <p className="text-xs text-green-600 font-medium">banked</p>
-                )}
               </div>
-            </button>
+
+              {/* EFT / Cash buttons */}
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => handleTick(payslip.employee_id, 'eft')}
+                  disabled={isSaving}
+                  className={cn(
+                    'px-3 py-2 rounded-lg text-xs font-bold uppercase min-h-[44px] min-w-[52px] transition-all',
+                    tickedMethod === 'eft'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                  )}
+                >
+                  EFT
+                </button>
+                <button
+                  onClick={() => handleTick(payslip.employee_id, 'cash')}
+                  disabled={isSaving}
+                  className={cn(
+                    'px-3 py-2 rounded-lg text-xs font-bold uppercase min-h-[44px] min-w-[52px] transition-all',
+                    tickedMethod === 'cash'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200'
+                  )}
+                >
+                  Cash
+                </button>
+              </div>
+            </div>
           )
         })}
       </div>
