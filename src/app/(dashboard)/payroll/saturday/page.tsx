@@ -243,7 +243,7 @@ export default function SaturdayPayrollPage() {
   // ── Pre-generation capture view ────────────────────────────────────────
 
   const hourlyRate = (emp: WorkerRow) =>
-    emp.weekly_hours > 0 ? emp.weekly_wage / emp.weekly_hours : 0;
+    (emp.weekly_hours || 40) > 0 ? (emp.weekly_wage || 0) / (emp.weekly_hours || 40) : 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-32 animate-fade-in-up">

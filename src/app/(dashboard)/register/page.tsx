@@ -416,7 +416,7 @@ export default function RegisterPage() {
   const selected = new Date(selectedDate + 'T00:00:00');
   const diffDays = Math.floor((today.getTime() - selected.getTime()) / (1000 * 60 * 60 * 24));
   const withinEditWindow = diffDays <= 1;
-  const editLocked = canEdit ? (!withinEditWindow && !isOwner) : true;
+  const editLocked = !canEdit;
 
   // Fetch employees + existing attendance for the selected date
   const fetchData = useCallback(async () => {
