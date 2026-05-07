@@ -85,6 +85,7 @@ export default function PayrollPage() {
   const [signedCount, setSignedCount] = useState(0);
   const [printed, setPrinted] = useState(false);
   const [runStatus, setRunStatus] = useState<string>('draft');
+  const [payslipIdMap, setPayslipIdMap] = useState<Map<string, string>>(new Map()); // employee_id → payslip_id
 
   // Selection + inline loan edit state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -182,6 +183,11 @@ export default function PayrollPage() {
           .order('created_at');
 
         if (payslips && payslips.length > 0) {
+          // Build payslip ID map for individual PDF links
+          const idMap = new Map<string, string>();
+          payslips.forEach((slip: any) => idMap.set(slip.employee_id, slip.id));
+          setPayslipIdMap(idMap);
+
           const payrollResults = payslips.map((slip: any) => ({
             employee_id: slip.employee_id,
             full_name: slip.employees?.full_name || 'Unknown',
@@ -408,6 +414,17 @@ export default function PayrollPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ payroll_run_id: data.run_id }),
         });
+
+        // Fetch payslip IDs for individual PDF links
+        const { data: slips } = await supabase
+          .from('payslips')
+          .select('id, employee_id')
+          .eq('payroll_run_id', data.run_id);
+        if (slips) {
+          const idMap = new Map<string, string>();
+          slips.forEach((s: any) => idMap.set(s.employee_id, s.id));
+          setPayslipIdMap(idMap);
+        }
       }
 
       toast('success', `Payroll calculated for ${weekLabel(weekStart, weekEnd)}`);
@@ -596,14 +613,6 @@ export default function PayrollPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-[var(--primary)] text-white">
-                  <th className="px-3 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selected.size === results.length && results.length > 0}
-                      onChange={toggleSelectAll}
-                      className="w-5 h-5 rounded accent-[#1E40AF]"
-                    />
-                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">PT</th>
                   <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">Name</th>
                   <th className="px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap">Hrs</th>
@@ -622,40 +631,26 @@ export default function PayrollPage() {
                   return (
                     <tr
                       key={r.employee_id}
+                      onClick={() => {
+                        const slipId = payslipIdMap.get(r.employee_id);
+                        if (slipId) window.open(`/api/pdf/payslip?id=${slipId}`, '_blank');
+                      }}
                       className={cn(
-                        'border-b border-gray-100 transition-colors',
-                        selected.has(r.employee_id) && 'bg-blue-50/60',
-                        !selected.has(r.employee_id) && hasAnomaly && 'bg-red-50/60',
-                        !selected.has(r.employee_id) && !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
+                        'border-b border-gray-100 transition-colors cursor-pointer hover:bg-blue-50/40',
+                        hasAnomaly && 'bg-red-50/60',
+                        !hasAnomaly && (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40')
                       )}
                     >
-                      <td className="px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(r.employee_id)}
-                          onChange={() => toggleSelect(r.employee_id)}
-                          className="w-5 h-5 rounded accent-[#1E40AF]"
-                        />
-                      </td>
                       <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.pt_code}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className="font-medium text-[#1E40AF] cursor-pointer hover:underline"
-                            onClick={() => setQuickView(r)}
-                          >
+                          <span className="font-medium text-[#1E40AF]">
                             {r.full_name}
                           </span>
                           {hasAnomaly && (
                             <AlertTriangle className="inline-block h-3.5 w-3.5 text-red-500 shrink-0" />
                           )}
-                          <button
-                            onClick={() => setViewingEmployee({ id: r.employee_id, name: r.full_name })}
-                            className="ml-1 text-gray-400 hover:text-[#1E40AF] transition-colors"
-                            title="View payslip"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                          </button>
+                          <FileText className="h-3.5 w-3.5 text-gray-300" />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">{r.ordinary_hours.toFixed(1)}</td>
@@ -690,7 +685,7 @@ export default function PayrollPage() {
                           />
                         ) : (
                           <span
-                            onClick={() => { setEditingLoan(r.employee_id); setLoanValue(r.loan_deduction?.toString() || '0'); }}
+                            onClick={(e) => { e.stopPropagation(); setEditingLoan(r.employee_id); setLoanValue(r.loan_deduction?.toString() || '0'); }}
                             className={r.loan_deduction > 0 ? 'cursor-pointer text-[#1E40AF] underline decoration-dotted' : 'text-gray-400'}
                             title="Click to edit"
                           >
@@ -713,7 +708,6 @@ export default function PayrollPage() {
 
                 {/* Totals row */}
                 <tr className="border-t-2 border-[var(--foreground)] bg-[#F8FAFC] font-bold">
-                  <td className="px-3 py-3" />
                   <td className="px-3 py-3" />
                   <td className="px-3 py-3 text-sm text-[var(--foreground)]">
                     TOTAL ({results.length})
