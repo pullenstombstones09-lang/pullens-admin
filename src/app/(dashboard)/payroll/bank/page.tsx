@@ -19,6 +19,7 @@ interface PayslipRow {
   employees: {
     full_name: string
     pt_code: string
+    bank_name: string | null
   } | null
 }
 
@@ -79,7 +80,7 @@ export default function BankingPage() {
       // Payslips for that run
       const { data: slips, error: slipErr } = await supabase
         .from('payslips')
-        .select('id, employee_id, net, banked_at, employees(full_name, pt_code)')
+        .select('id, employee_id, net, banked_at, employees(full_name, pt_code, bank_name)')
         .eq('payroll_run_id', latestRun.id)
         .order('employees(full_name)')
 
@@ -92,9 +93,9 @@ export default function BankingPage() {
       const rows = (slips ?? []) as unknown as PayslipRow[]
       setPayslips(rows)
 
-      // Default all employees to ticked
-      const allEmployeeIds = new Set(rows.map((r) => r.employee_id))
-      setTicked(allEmployeeIds)
+      // Only tick employees that were already banked (banked_at not null)
+      const alreadyBanked = new Set(rows.filter((r) => r.banked_at).map((r) => r.employee_id))
+      setTicked(alreadyBanked)
       setLoading(false)
     }
 
@@ -302,7 +303,7 @@ export default function BankingPage() {
                 )}
               </div>
 
-              {/* Name + code */}
+              {/* Name + code + Cash/EFT */}
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'text-sm font-semibold truncate',
@@ -310,7 +311,17 @@ export default function BankingPage() {
                 )}>
                   {name}
                 </p>
-                <p className="text-xs text-gray-400 font-mono">{ptCode}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-gray-400 font-mono">{ptCode}</span>
+                  <span className={cn(
+                    'text-[10px] font-bold uppercase px-1.5 py-0.5 rounded',
+                    payslip.employees?.bank_name
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-amber-100 text-amber-700'
+                  )}>
+                    {payslip.employees?.bank_name ? 'EFT' : 'Cash'}
+                  </span>
+                </div>
               </div>
 
               {/* Net pay */}
