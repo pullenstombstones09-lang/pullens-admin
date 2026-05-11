@@ -55,6 +55,33 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Local env | `.env.local` has all real keys |
 | Duplicate Vercel project | `pullens-admin-i4dp` exists — can be deleted, just wastes build minutes |
 
+## Status — 11 May 2026 (session complete)
+
+### SESSION WORK (11 May)
+
+**Dev server fix:**
+- `npm run dev` was crashing with OOM — fixed by adding `cross-env NODE_OPTIONS=--max-old-space-size=4096` to dev script in `package.json`
+- Root cause: stale Node processes accumulating in memory
+
+**PIN login fix:**
+- PIN keypad was unresponsive — root cause was inline `<script>` in server component not firing reliably in Next.js 16 + Turbopack
+- Rewrote `src/app/login/pin/page.tsx` as a client component with React state + `useSearchParams` wrapped in `<Suspense>`
+
+**Payroll date selector fix:**
+- Attendance check was hardcoded to current week — now uses selected `weekStart`/`weekEnd` dates
+- Date picker was hidden entirely when no attendance found — now always visible with inline warning below instead
+- Owner can now navigate to any past week and run payroll regardless of current week attendance state
+
+**Undo toast fix:**
+- `UndoToast` was calling `setUndo(null)` inside a `setElapsed` updater — React setState-in-render warning
+- Fixed by moving `onExpire()` call into a separate `useEffect`
+
+**Git remote fix:**
+- Remote was authenticating as `yebokhaya` — fixed to `annika-dev@github.com/pullenstombstones09-lang/pullens-admin.git`
+- Commits pushed: `5054ec6`, `049ef8a`
+
+---
+
 ## Status — 7 May 2026 (session complete)
 
 ### CURRENT BUILD — main branch, deployed to Vercel
