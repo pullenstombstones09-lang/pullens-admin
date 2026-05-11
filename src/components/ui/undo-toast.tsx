@@ -21,14 +21,19 @@ export function UndoToast({ message, duration = 10000, onUndo, onExpire, onDismi
         if (prev + 100 >= duration) {
           clearInterval(interval)
           setVisible(false)
-          onExpire()
           return duration
         }
         return prev + 100
       })
     }, 100)
     return () => clearInterval(interval)
-  }, [duration, onExpire])
+  }, [duration])
+
+  useEffect(() => {
+    if (!visible && elapsed >= duration) {
+      onExpire()
+    }
+  }, [visible, elapsed, duration, onExpire])
 
   const handleUndo = useCallback(() => {
     setVisible(false)

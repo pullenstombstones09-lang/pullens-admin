@@ -852,19 +852,7 @@ export default function PayrollPage() {
               <CardTitle>Run Payroll</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {hasAttendance === false ? (
-                <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-8 text-center">
-                  <ClipboardList size={40} className="mx-auto text-amber-400 mb-3" />
-                  <h3 className="text-lg font-bold text-[var(--foreground)]">No register data for this week</h3>
-                  <p className="text-sm text-gray-500 mt-1">Capture the daily register first before running payroll.</p>
-                  <a href="/register" className="inline-block mt-4">
-                    <button className="h-11 px-6 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] transition-colors">
-                      Go to Register
-                    </button>
-                  </a>
-                </div>
-              ) : (
-                <>
+              <>
                   {/* Week selector */}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
@@ -937,8 +925,14 @@ export default function PayrollPage() {
                       </Button>
                     )}
                   </div>
-                </>
-              )}
+
+                  {hasAttendance === false && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-3">
+                      <ClipboardList size={18} className="text-amber-500 shrink-0" />
+                      <p className="text-sm text-amber-700">No register data for this week. <a href="/register" className="font-semibold underline">Go to Register</a> to capture attendance first.</p>
+                    </div>
+                  )}
+              </>
             </CardContent>
           </Card>
         </>
