@@ -29,7 +29,6 @@ import {
   Landmark,
   CreditCard,
 } from 'lucide-react';
-import { startOfWeek, endOfWeek, format } from 'date-fns';
 
 // ---------- helpers ----------
 
@@ -234,17 +233,15 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function checkAttendance() {
-      const ws = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const we = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const { count } = await supabase
         .from('attendance')
         .select('*', { count: 'exact', head: true })
-        .gte('date', ws)
-        .lte('date', we);
+        .gte('date', weekStart)
+        .lte('date', weekEnd);
       setHasAttendance((count || 0) > 0);
     }
     checkAttendance();
-  }, []);
+  }, [weekStart, weekEnd]);
 
   // Fetch signed count when runId changes
   useEffect(() => {
