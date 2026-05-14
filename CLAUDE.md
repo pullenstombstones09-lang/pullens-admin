@@ -2,6 +2,17 @@
 
 # Pullens Admin — Project CLAUDE.md
 
+## Accounts (check these at session start)
+- **Claude Code:** annikas82@gmail.com
+- **GitHub:** annika-dev
+- **Vercel team:** pullenstombstones09-langs-projects
+- **Supabase:** annikas82@gmail.com → Pullens org (eznppvewksorfoedgzpa)
+
+## Skills & Tools
+- **Playwright** — webapp testing via `document-skills:webapp-testing` skill
+- **Supabase MCP** — note: MCP is authed to YeboPro org only, cannot access Pullens Supabase. Use service role key + REST API instead.
+- **Superpowers** — systematic debugging, TDD, code review
+
 ## What This Is
 
 Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones (Amazon Creek Trading (Pty) Ltd). Replaces the old Google Sheets + Apps Script system entirely. Profile-first, tablet-first, compliant by default.
@@ -10,7 +21,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 
 | Layer | Choice |
 |---|---|
-| Frontend | Next.js 14+ (App Router), React, TypeScript, Tailwind CSS |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL) — RLS, real-time |
 | Auth | Supabase Auth — PIN login, bcrypt hashed |
 | Storage | Supabase Storage — photos, PDFs, documents |
@@ -48,12 +59,100 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Supabase project ref | `eznppvewksorfoedgzpa` |
 | Supabase URL | `https://eznppvewksorfoedgzpa.supabase.co` |
 | Supabase org | Separate from YeboPro (Annika created new org) |
-| GitHub repo | `https://github.com/pullenstombstones09-lang/pullens-admin` |
+| GitHub repo | `https://github.com/annika-dev/pullens-admin` |
 | Vercel project | `pullens-admin` on team `pullenstombstones09-langs-projects` |
 | Vercel URL | `https://pullens-admin.vercel.app` |
 | Anthropic API key | Set in Vercel env vars (sk-ant-api03-8O1...) |
 | Local env | `.env.local` has all real keys |
 | Duplicate Vercel project | `pullens-admin-i4dp` exists — can be deleted, just wastes build minutes |
+
+## 🔴 URGENT FIX SPEC — 4-8 May Payroll Discrepancies (added 14 May 2026)
+
+**Source of truth for comparison:** `C:\Users\Annika\Downloads\V12_ALLANDALE NEW 4 - 8 MAY.xlsm` (Excel) vs payroll_run `4e62b415-3cc9-44c7-81c9-f44708124c7a` in Supabase (app, status=generated, run_at 2026-05-11). App paid total net **R51,291.71** vs Excel's ~R47,500. The 38 payslips diverge in three systemic ways plus several one-offs. **App was NOT recalculated or modified — payslips remain as generated 11 May.**
+
+### Issue 1 — Overtime hours absent from the app run
+Excel logged OT for 8 employees this week; app shows 0 OT for all of them. Either the attendance register never had Friday-after-16:00 / >40h captured, OR the payroll engine isn't pulling OT from the register correctly. Affected employees and their Excel OT hours:
+
+| PT Code | Name | Excel OT hrs |
+|---|---|---|
+| PT010 | Sibusiso Mdawe | 6.00 |
+| PT013 | Alli Yessa | 6.25 |
+| PT014 | Enrique Munien | 1.25 |
+| PT017 | Cosmos Mkhize | 3.25 |
+| PT025 | Sinethemba Kweshube | 6.25 |
+| PT030 | Sifiso Ndlela | 7.75 |
+| PT033 | David Mtshali | 1.25 |
+| PT038 | Nhlanhla "Lucky" Ndlovu | 5.50 |
+
+**To do:** check attendance register for week 4-8 May for these staff. If hours are there, payroll engine OT detection is broken (decision #9: OT after 40h / 45h). If hours are missing, register data entry skipped them.
+
+### Issue 2 — Loan deductions not applied
+Excel deducted loans from 13 employees totalling ~R1,800. App applied loans to only 3, and amounts don't match Excel. App-missed loan deductions:
+
+| PT Code | Name | Excel L- (R) |
+|---|---|---|
+| PT003 | Sipho Mthembu | 30 |
+| PT006 | Nkululeko Miya | 200 |
+| PT011 | Lindokuhle Khanyile | 100 |
+| PT015 | Cherylette Rengan | 100 |
+| PT018 | Thabiso Msindo | 150 |
+| PT019 | Ayanda Mhlongo | 20 |
+| PT023 | Faith Nxele | 200 |
+| PT026 | Philani Mkhize | 200 |
+| PT031 | Xolani | 100 |
+| PT032 | Zandile Mchunu | 100 |
+| PT034 | Mlindeni Lamula | 200 |
+| PT036 | Philani Rasta | 100 |
+
+App also has its own loans not in Excel: Junior R100, Enrique R75 (Excel had R100). Root cause likely the `loans` table is not populated — Excel loan ledger never migrated into the app.
+
+**To do:** (a) confirm whether loans table is populated for these employees, (b) decide whether the historic Excel loans should be back-loaded or written off, (c) once decided, recalculate the 4-8 May run.
+
+### Issue 3 — 45-hour sales staff: hourly-rate divisor mismatch
+**Conflict between locked decisions #9 and what Excel actually does.** Decision #9 says "OT only kicks in after 40 hours total for the week (45 for sales staff)" — app implements rate = weekly_wage ÷ 45 for sales staff. Excel divides by 40 for everyone.
+
+Impact for 4-8 May (sales staff who worked their normal hours):
+
+| PT Code | Name | Wage | App rate (÷45) | Excel rate (÷40) | App paid | Excel paid |
+|---|---|---|---|---|---|---|
+| PT008 | Marlyn Naidoo | 1451.13 | R32.25/h | R36.28/h | 1284.98 | 1436.62 |
+| PT012 | Nicolette David | 1250.00 | R27.78/h | R31.25/h | 1106.88 | 1237.50 |
+| PT023 | Faith Nxele | 1210.00 | R26.89/h | R30.25/h | 1071.46 | 1010.00 |
+| PT024 | Gugu Cele | 1210.00 | R26.89/h | R30.25/h | 1071.46 | 1197.90 |
+| PT028 | Randhir Singh | 1820.00 | R40.44/h | R45.50/h | 1611.61 | 0 (absent) |
+| PT032 | Zandile Mchunu | 1300.00 | R28.89/h | R32.50/h | 1151.15 | 1057.30 |
+
+**Two problems:**
+1. **NMW breach** — Nicolette R27.78, Faith/Gugu R26.89, Zandile R28.89 are ALL below national minimum wage R30.23/hr (March 2026, per CLAUDE.md). This is a legal exposure.
+2. **Pay drop vs Excel** — sales staff used to Excel amounts will see their take-home drop ~11%.
+
+**Decision needed from Annika before fixing:**
+- **Option A:** Keep app's wage÷45 logic and raise sales wages so wage÷45 ≥ NMW (e.g. Nicolette wage needs to be ≥ R1,360 for compliance).
+- **Option B:** Change rate logic to wage÷40 for everyone, and the 41st-45th hours are paid as additional hours at ordinary rate (no premium until >45h).
+- **Option C:** Change rate logic so sales staff get wage÷40 for first 40h and wage÷40 for hrs 41-45 (still ordinary), OT premium >45h. This matches Excel behaviour and the spirit of decision #9.
+
+### Issue 4 — Specific one-offs to verify
+- **Tumelo Lebofa (PT021):** App paid R464.19 for 15.5h. Excel paid R0. Was he at work? Attendance register vs reality.
+- **Randhir Singh (PT028):** App paid R1,611.61 for 40.25h. Excel paid R0 (absent). Same question.
+- **Lungiswa Mpambane (PT039):** In app, not in Excel. Confirm she's a real employee and Excel just hadn't been updated. Already on parked list — anomaly noted.
+- **Aaron (PT001):** Hours diff 37.50 (app) vs 37.25 (Excel). App overpaid R13.71. Trivial, but indicates rounding inconsistency.
+
+### Issue 5 — Hours rounding inconsistency
+App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (0.25h). Decide on a single rule and apply in the register. Recommended: 15-min rounding matches the BCEA late-rule grace bands (decision #4).
+
+### What to do when resuming
+1. **Do NOT auto-recalculate the 4-8 May run yet.** Decisions #9 (sales rate divisor) and the loan back-load question both need Annika's call. Recalculating would lock in whichever direction is chosen.
+2. Open this section, work top-down: Issue 1 (OT data) → Issue 2 (loans table state) → Issue 3 (sales staff decision) → Issues 4-5 (one-offs + rounding).
+3. Once decisions are made, use the existing **Recalculate** button on the Payroll page (it deletes old run + payslips and regenerates). Already built per 7 May session notes.
+4. After fix, run a parity test against the V13 spreadsheet for one more week before considering Excel retired.
+
+### Files involved
+- Payroll engine: `src/lib/payroll-engine.ts`
+- Payroll API: `src/app/api/payroll/run/route.ts`, `src/app/api/payroll/recalculate/route.ts`
+- Loans table: schema in `supabase/migrations/00002_create_core_tables.sql`
+- Attendance: register page `src/app/(dashboard)/register/`
+
+---
 
 ## Status — 11 May 2026 (session complete)
 
@@ -177,7 +276,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 - [ ] V12 parity testing (parallel run with old spreadsheet)
 - [ ] Custom domain (admin.pullens.co.za) — non-blocking
 - [ ] Clean up test pages (/test, /test2, /test3) and screenshot PNGs from repo
-- [ ] Worktree cleanup — `payroll-workflow-redesign` branch can be deleted
+- [x] Worktree cleanup — `payroll-workflow-redesign` branch deleted 14 May 2026 (orphan dir, ref, reflog, config block, remote-tracking ref all removed)
 - [ ] Delete duplicate Vercel project `pullens-admin-i4dp`
 - [ ] Lungiswa Mpambane anomaly — verify attendance entered for correct week dates (Mon 5 May - Fri 9 May)
 
