@@ -116,12 +116,17 @@ export async function POST(request: Request) {
     const lastDayOfMonth = new Date(wsDate.getFullYear(), wsDate.getMonth() + 1, 0);
     const isLastWeekOfMonth = lastDayOfMonth >= wsDate && lastDayOfMonth <= weDate;
 
+    // Local-date ISO helper — avoids UTC shift in SAST (UTC+2) when calling toISOString()
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
     // 8. Rollover lifecycle cleanup before recalculating.
-    // Reset rollovers this run consumed -> they become unapplied again
+    // Reset rollovers this run consumed -> they become unapplied again (scoped to this employee)
     const { error: resetError } = await supabase
       .from('friday_ot_rollovers')
       .update({ applied_to_run_id: null, applied_at: null })
-      .eq('applied_to_run_id', run.id);
+      .eq('applied_to_run_id', run.id)
+      .eq('employee_id', employee_id);
     if (resetError) {
       return NextResponse.json(
         { error: 'Failed to reset consumed rollovers', details: resetError.message },
@@ -129,11 +134,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Delete rollovers this run produced (the recalc will produce fresh ones)
+    // Delete rollovers this run produced (the recalc will produce fresh ones) — scoped to this employee
     const { error: deleteRolloverError } = await supabase
       .from('friday_ot_rollovers')
       .delete()
-      .eq('produced_by_run_id', run.id);
+      .eq('produced_by_run_id', run.id)
+      .eq('employee_id', employee_id);
     if (deleteRolloverError) {
       return NextResponse.json(
         { error: 'Failed to delete produced rollovers', details: deleteRolloverError.message },
@@ -145,7 +151,7 @@ export async function POST(request: Request) {
     // week_start is Monday; Mon - 3 days = the previous Friday.
     const prevFriday = new Date(wsDate);
     prevFriday.setDate(wsDate.getDate() - 3);
-    const prevFridayISO = prevFriday.toISOString().split('T')[0];
+    const prevFridayISO = toISODate(prevFriday);
 
     const { data: rolloverRow } = await supabase
       .from('friday_ot_rollovers')
@@ -211,7 +217,7 @@ export async function POST(request: Request) {
     if (result.next_week_friday_rollover_minutes > 0) {
       const fridayDate = new Date(wsDate);
       fridayDate.setDate(wsDate.getDate() + 4);
-      const fridayISO = fridayDate.toISOString().split('T')[0];
+      const fridayISO = toISODate(fridayDate);
 
       const { error: upsertRolloverError } = await supabase
         .from('friday_ot_rollovers')

@@ -278,7 +278,10 @@ export async function POST(request: Request) {
     const weekStartDate = new Date(week_start + 'T00:00:00');
     const prevFriday = new Date(weekStartDate);
     prevFriday.setDate(weekStartDate.getDate() - 3);
-    const prevFridayISO = prevFriday.toISOString().split('T')[0];
+    // Local-date ISO helper — avoids UTC shift in SAST (UTC+2) when calling toISOString()
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const prevFridayISO = toISODate(prevFriday);
 
     const { data: rollovers } = await supabase
       .from('friday_ot_rollovers')
@@ -387,7 +390,7 @@ export async function POST(request: Request) {
     // The Friday that produced the rollover is week_start + 4 days.
     const fridayDate = new Date(weekStartDate);
     fridayDate.setDate(weekStartDate.getDate() + 4);
-    const fridayISO = fridayDate.toISOString().split('T')[0];
+    const fridayISO = toISODate(fridayDate);
 
     const newRollovers = results
       .filter((r) => r.next_week_friday_rollover_minutes > 0)
