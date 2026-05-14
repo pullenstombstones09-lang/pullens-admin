@@ -111,10 +111,15 @@ export async function POST(request: Request) {
     }
 
     // 7. Detect if last week of month (for garnishee)
+    // Uses last-Friday-of-month, matching run/route.ts exactly.
+    // Last-day-of-month is wrong when the month ends on Sat/Sun (e.g. 31 May 2026 = Sun →
+    // last day falls outside Mon–Fri week, but last Friday 29 May IS in this week).
     const wsDate = new Date(week_start + 'T00:00:00');
     const weDate = new Date(week_end + 'T00:00:00');
     const lastDayOfMonth = new Date(wsDate.getFullYear(), wsDate.getMonth() + 1, 0);
-    const isLastWeekOfMonth = lastDayOfMonth >= wsDate && lastDayOfMonth <= weDate;
+    const lastFriday = new Date(lastDayOfMonth);
+    while (lastFriday.getDay() !== 5) lastFriday.setDate(lastFriday.getDate() - 1);
+    const isLastWeekOfMonth = lastFriday >= wsDate && lastFriday <= weDate;
 
     // Local-date ISO helper — avoids UTC shift in SAST (UTC+2) when calling toISOString()
     const pad = (n: number) => String(n).padStart(2, '0');

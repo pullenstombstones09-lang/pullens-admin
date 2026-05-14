@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Fetch attendance for the week (include Saturday for 45hr staff)
+    // 2. Fetch attendance for the week (include Saturday for 44hr staff)
     // Calculate the Saturday after week_end
     const weForSat = new Date(week_end + 'T00:00:00');
     const satAfterWeekEnd = new Date(weForSat);
@@ -251,7 +251,7 @@ export async function POST(request: Request) {
     for (const att of (allAttendance ?? []) as Attendance[]) {
       // Skip Saturday records for 40hr staff (Saturday is separate cash payroll for them)
       const attDay = new Date(att.date + 'T00:00:00').getDay();
-      if (attDay === 6 && (empHoursMap.get(att.employee_id) || 40) < 45) {
+      if (attDay === 6 && (empHoursMap.get(att.employee_id) || 40) < 44) {
         continue;
       }
       const existing = attendanceMap.get(att.employee_id) ?? [];
