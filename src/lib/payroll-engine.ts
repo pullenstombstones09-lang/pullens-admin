@@ -56,6 +56,35 @@ export interface PayrollBreakdown {
   }[];
 }
 
+/**
+ * The "normal end of working day" in minutes-from-midnight.
+ * Returns null for days an employee does not normally work
+ * (Sundays for everyone; Saturdays for 40h factory staff).
+ */
+export function normalEndMinutesForDay(
+  jsDayOfWeek: number,  // 0=Sun, 1=Mon, ..., 6=Sat
+  weeklyHours: number   // 40 (factory) or 44 (sales)
+): number | null {
+  if (jsDayOfWeek >= 1 && jsDayOfWeek <= 4) return 17 * 60;  // Mon-Thu 17:00
+  if (jsDayOfWeek === 5) return 16 * 60;                      // Fri 16:00
+  if (jsDayOfWeek === 6 && weeklyHours === 44) return 13 * 60; // Sat 13:00 (sales only)
+  return null;
+}
+
+/**
+ * Credit hours for a leave/sick/PH day (counts toward weekly threshold).
+ * Mon-Thu = 9h, Fri = 8h, Sat = 4h (sales only), Sun = 0.
+ */
+export function dailyQuotaHoursFor(
+  jsDayOfWeek: number,
+  weeklyHours: number
+): number {
+  if (jsDayOfWeek >= 1 && jsDayOfWeek <= 4) return 9;
+  if (jsDayOfWeek === 5) return 8;
+  if (jsDayOfWeek === 6 && weeklyHours === 44) return 4;
+  return 0;
+}
+
 // Late-coming rules (updated May 2026)
 // 08:00-08:05: on time (5-minute grace)
 // 08:06-08:15: dock 30 min
