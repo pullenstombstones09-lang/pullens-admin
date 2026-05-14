@@ -273,6 +273,24 @@ export async function POST(request: Request) {
       loanMap.set(loan.employee_id, existing);
     }
 
+    // 5c. Fetch unapplied Friday OT rollovers from the prior Friday.
+    // week_start is Monday; Mon - 3 days = previous Friday.
+    const weekStartDate = new Date(week_start + 'T00:00:00');
+    const prevFriday = new Date(weekStartDate);
+    prevFriday.setDate(weekStartDate.getDate() - 3);
+    const prevFridayISO = prevFriday.toISOString().split('T')[0];
+
+    const { data: rollovers } = await supabase
+      .from('friday_ot_rollovers')
+      .select('id, employee_id, rollover_minutes')
+      .eq('source_friday', prevFridayISO)
+      .is('applied_to_run_id', null);
+
+    const rolloverByEmp = new Map<string, { id: string; minutes: number }>();
+    for (const r of rollovers ?? []) {
+      rolloverByEmp.set(r.employee_id, { id: r.id, minutes: r.rollover_minutes });
+    }
+
     // 6. Run payroll calculation for each employee
     // Garnishee deducts in the week containing the LAST FRIDAY of the month
     const wsDate = new Date(week_start + 'T00:00:00');
@@ -295,7 +313,7 @@ export async function POST(request: Request) {
         activeLoans: loanMap.get(emp.id) ?? [],
         pettyShortfall: pettyMap.get(emp.id) ?? 0,
         isLastWeekOfMonth,
-        prevWeekFridayRolloverMinutes: 0,
+        prevWeekFridayRolloverMinutes: rolloverByEmp.get(emp.id)?.minutes ?? 0,
       };
 
       const result = calculatePayroll(input);
@@ -374,6 +392,36 @@ export async function POST(request: Request) {
 
     if (slipError) {
       return NextResponse.json({ error: slipError.message }, { status: 500 });
+    }
+
+    // 8b. Stamp consumed prior-week rollovers as applied to this run.
+    const consumedIds = Array.from(rolloverByEmp.values()).map((r) => r.id);
+    if (consumedIds.length > 0) {
+      await supabase
+        .from('friday_ot_rollovers')
+        .update({ applied_to_run_id: runId, applied_at: new Date().toISOString() })
+        .in('id', consumedIds);
+    }
+
+    // 8c. Write new rollover rows for employees whose Friday went past 16:00.
+    // The Friday that produced the rollover is week_start + 4 days.
+    const fridayDate = new Date(weekStartDate);
+    fridayDate.setDate(weekStartDate.getDate() + 4);
+    const fridayISO = fridayDate.toISOString().split('T')[0];
+
+    const newRollovers = results
+      .filter((r) => r.next_week_friday_rollover_minutes > 0)
+      .map((r) => ({
+        employee_id: r.employee_id,
+        source_friday: fridayISO,
+        rollover_minutes: r.next_week_friday_rollover_minutes,
+        produced_by_run_id: runId,
+      }));
+
+    if (newRollovers.length > 0) {
+      await supabase.from('friday_ot_rollovers').upsert(newRollovers, {
+        onConflict: 'employee_id,source_friday',
+      });
     }
 
     // 9. If draftOnly, stop here — review page will handle finalization
