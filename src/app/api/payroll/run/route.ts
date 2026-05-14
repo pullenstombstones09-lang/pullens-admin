@@ -322,32 +322,6 @@ export async function POST(request: Request) {
       totalNet += result.net;
     }
 
-    // 6b. Handle Friday OT rollover — store as approved OT requests for next week
-    const fridayOtEntries: { employee_id: string; date: string; hours: number }[] = [];
-    for (const result of results) {
-      for (const ot of result.friday_ot_rollover) {
-        fridayOtEntries.push({
-          employee_id: ot.employee_id,
-          date: ot.date,
-          hours: Math.round((ot.minutes / 60) * 100) / 100,
-        });
-      }
-    }
-
-    if (fridayOtEntries.length > 0) {
-      for (const entry of fridayOtEntries) {
-        await supabase
-          .from('overtime_requests')
-          .upsert({
-            employee_id: entry.employee_id,
-            date: entry.date,
-            hours: entry.hours,
-            rate_multiplier: 1.5,
-            status: 'approved',
-          }, { onConflict: 'employee_id,date' });
-      }
-    }
-
     // 7. Create payroll_run row
     const { data: runData, error: runError } = await supabase
       .from('payroll_runs')
@@ -397,10 +371,16 @@ export async function POST(request: Request) {
     // 8b. Stamp consumed prior-week rollovers as applied to this run.
     const consumedIds = Array.from(rolloverByEmp.values()).map((r) => r.id);
     if (consumedIds.length > 0) {
-      await supabase
+      const { error: stampError } = await supabase
         .from('friday_ot_rollovers')
         .update({ applied_to_run_id: runId, applied_at: new Date().toISOString() })
         .in('id', consumedIds);
+      if (stampError) {
+        return NextResponse.json(
+          { error: 'Failed to stamp rollovers as applied', details: stampError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // 8c. Write new rollover rows for employees whose Friday went past 16:00.
@@ -419,9 +399,15 @@ export async function POST(request: Request) {
       }));
 
     if (newRollovers.length > 0) {
-      await supabase.from('friday_ot_rollovers').upsert(newRollovers, {
-        onConflict: 'employee_id,source_friday',
-      });
+      const { error: upsertError } = await supabase
+        .from('friday_ot_rollovers')
+        .upsert(newRollovers, { onConflict: 'employee_id,source_friday' });
+      if (upsertError) {
+        return NextResponse.json(
+          { error: 'Failed to write friday rollovers', details: upsertError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // 9. If draftOnly, stop here — review page will handle finalization
