@@ -109,6 +109,17 @@ export interface OvertimeRequest {
   created_at: string;
 }
 
+export interface FridayOtRollover {
+  id: string;
+  employee_id: string;
+  source_friday: string;          // ISO date
+  rollover_minutes: number;
+  applied_to_run_id: string | null;
+  applied_at: string | null;
+  produced_by_run_id: string | null;
+  created_at: string;
+}
+
 export interface Loan {
   id: string;
   employee_id: string;
