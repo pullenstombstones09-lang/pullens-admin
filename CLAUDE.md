@@ -51,6 +51,10 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 12. Royal blue (#1E40AF) primary + gold (#C4A35A) accent — no charcoal
 13. Payroll runs from ONE place only — the Payroll page. Review page is for editing/previewing only.
 14. One standard payslip PDF design used everywhere (Print All, Signing, Individual preview)
+15. OT is auto-derived from attendance (Mon-Thu past 17:00, Fri past 16:00, Sat past 13:00 for sales). The `overtime_requests` approval flow is retained as a table but unused by the engine. (14 May 2026)
+16. Sales staff normal week = Mon-Thu 9h + Fri 8h + Sat 9-1 (4h) = 44h ordinary, paid `weekly_wage / 44`. PT008, PT012, PT023, PT024, PT028, PT032. (14 May 2026)
+17. NMW enforcement: engine throws on `weekly_wage / weekly_hours < R30.23`; DB constraint `chk_nmw` mirrors this. Min wage at /44 = R1330.12. (14 May 2026)
+18. Friday past 16:00 = OT for NEXT week, persisted in `friday_ot_rollovers` table with explicit `applied_to_run_id` + `produced_by_run_id` lineage. (14 May 2026)
 
 ## Key Infrastructure
 
@@ -66,7 +70,20 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 | Local env | `.env.local` has all real keys |
 | Duplicate Vercel project | `pullens-admin-i4dp` exists — can be deleted, just wastes build minutes |
 
-## 🔴 URGENT FIX SPEC — 4-8 May Payroll Discrepancies (added 14 May 2026)
+## ✅ RESOLVED 14 May 2026 — 4-8 May Payroll Discrepancies (Issues 1, 3, 5)
+
+Issues 1 + 3 + 5 below were resolved by the payroll-engine-v2 rewrite shipped 14 May 2026 (commit `b7d32d1`). The new engine auto-derives OT from attendance, removes the never-used overtime_requests approval gate, treats sales staff as 44h ordinary (Mon-Sat) with /44 hourly rate, raises Nicolette/Faith/Gugu/Zandile to R1340 for NMW compliance, and persists Friday-past-16:00 rollover via the new `friday_ot_rollovers` table. The 4-8 May payroll run was NOT recalculated — it stays as-is per Annika's instruction "ignore the past, fix it going forward".
+
+**Still open from the URGENT FIX SPEC:**
+- **Issue 2 (loans table not populated)** — separate spec needed. The 13 Excel loan deductions for the week were never applied because the `loans` table is empty. Decision needed: back-load historic loans or write off.
+- **Issue 4 (one-off anomalies)** — Tumelo/Randhir absent in Excel but paid in app; Aaron R13.71 rounding diff; Lungiswa parked. Verify with bookkeeping.
+
+Spec: `docs/superpowers/specs/2026-05-14-payroll-engine-ot-and-sales-rate-design.md`
+Plan: `docs/superpowers/plans/2026-05-14-payroll-engine-ot-and-sales-rate-plan.md`
+
+---
+
+## 🔴 LEGACY — 4-8 May Payroll Discrepancies (added 14 May 2026, superseded by engine v2)
 
 **Source of truth for comparison:** `C:\Users\Annika\Downloads\V12_ALLANDALE NEW 4 - 8 MAY.xlsm` (Excel) vs payroll_run `4e62b415-3cc9-44c7-81c9-f44708124c7a` in Supabase (app, status=generated, run_at 2026-05-11). App paid total net **R51,291.71** vs Excel's ~R47,500. The 38 payslips diverge in three systemic ways plus several one-offs. **App was NOT recalculated or modified — payslips remain as generated 11 May.**
 
@@ -151,6 +168,55 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Payroll API: `src/app/api/payroll/run/route.ts`, `src/app/api/payroll/recalculate/route.ts`
 - Loans table: schema in `supabase/migrations/00002_create_core_tables.sql`
 - Attendance: register page `src/app/(dashboard)/register/`
+
+---
+
+## Status — 14 May 2026 (session complete)
+
+### SESSION WORK (14 May) — payroll engine v2
+
+Branch `payroll-engine-v2` merged into `main` at commit `b7d32d1`, pushed to GitHub. Vercel auto-deploys.
+
+**Engine rewrite** (`src/lib/payroll-engine.ts`):
+- Replaced approval-gated OT (via `overtime_requests` table, never used) with attendance-derived OT.
+- Mon-Thu past 17:00, Fri past 16:00 → candidate OT for the week.
+- Sales staff Sat past 13:00 → candidate OT (Sat 9-1 is ordinary).
+- OT premium 1.5× triggers only when weekly total ≥ threshold (40 factory / 44 sales). Below threshold, past-end hours pay ordinary.
+- Friday past 16:00 → rolled to next week via new `friday_ot_rollovers` table.
+- NMW guard throws if `weekly_wage / weekly_hours < R30.23`.
+- Removed: `splitFridayHours`, `DEFAULT_DAILY_HOURS_*`, `calculateHoursWorked`.
+- New helpers: `normalEndMinutesForDay`, `dailyQuotaHoursFor`, `toMinutes`.
+- 19 unit tests added (vitest), all passing.
+
+**Sales staff change:**
+- `weekly_hours` 45 → 44 for PT008, PT012, PT023, PT024, PT028, PT032.
+- Wages uplifted to R1340 for the four under-NMW staff: Nicolette (PT012), Faith (PT023), Gugu (PT024), Zandile (PT032).
+- Normal sales week now = Mon-Thu 9h + Fri 8h + Sat 9-1 (4h) = 44h ordinary, paid /44 hourly. NMW math: R1340/44 = R30.45 (passes R30.23).
+- Saturday register entries are now part of the weekly run for sales (not saturday_cash).
+
+**Run + recalculate routes:**
+- Both routes load prior week's unapplied rollovers from `friday_ot_rollovers`, pass to engine, then stamp consumed rollovers as applied and upsert any newly produced.
+- Recalculate scopes reset/delete to current employee_id (don't corrupt sibling rollover state).
+- `isLastWeekOfMonth` now uses last-Friday-of-month consistently in both routes.
+- Saturday attendance filter for the weekly engine: factory (< 44h) → routed to saturday_cash; sales (44h) → kept in weekly engine.
+
+**SQL migrations applied to Pullens Supabase 14 May 2026:**
+- 00007_ot_engine_v2.sql — schema (rollover table, new chk_nmw constraint per weekly_hours).
+- 00008_sales_wage_uplift.sql — wages R1340 for 4 staff, audit_log entry per staff.
+- Note: filename `00006` was already taken by `00006_id_document_url.sql` (added in a prior session), so 00007 + 00008 are the next slots, not 00006 + 00007 as the original plan stated.
+
+**Infrastructure cleanup:**
+- Orphan worktree `.claude/worktrees/payroll-workflow-redesign` deleted (full project copy from 11 May, was breaking `git status`). Branch ref, reflog, and `[branch ...]` config block removed.
+- Git remote URL stripped of stale `annika-dev@` prefix — now `https://github.com/pullenstombstones09-lang/pullens-admin.git`.
+
+**Commit chain on main:** `04a13d2` spec → `2e05a01` plan + cleanup → `28dc39d` vitest → `7d2d6f9` vitest fix → `7b2dc1d` mig 00007 → `9ceeaf8` type → `ccfce09` helpers → `d89cef2` engine rewrite → `af5cef6` run rollover → `9f18915` route fixes → `23aaea8` recalc rollover → `8472932` employee_id scoping + timezone → `e0e97b2` mig 00008 → `b7d32d1` Saturday filter + garnishee.
+
+### TODO (next session / before Monday 25 May)
+- [ ] Issue 2 — loans back-fill spec + implementation.
+- [ ] Issue 4 — one-off anomalies (Tumelo, Randhir, Lungiswa, Aaron rounding).
+- [ ] Smoke test Monday morning: hit Recalculate on the 4-8 May run; verify 8 factory staff now show OT; verify Nicolette/Faith/Gugu/Zandile wage shows R1340 on staff profile.
+- [ ] Untracked files cleanup (`.claude/settings.local.json`, stray OHS docx, `scripts/seed-test-week.mjs`, `test-results/`).
+- [ ] Add `passWithNoTests` TODO comment to `vitest.config.ts:8` (remove flag once tests are routinely present).
 
 ---
 
