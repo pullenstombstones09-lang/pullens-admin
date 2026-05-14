@@ -116,7 +116,48 @@ export async function POST(request: Request) {
     const lastDayOfMonth = new Date(wsDate.getFullYear(), wsDate.getMonth() + 1, 0);
     const isLastWeekOfMonth = lastDayOfMonth >= wsDate && lastDayOfMonth <= weDate;
 
-    // 8. Recalculate payroll
+    // 8. Rollover lifecycle cleanup before recalculating.
+    // Reset rollovers this run consumed -> they become unapplied again
+    const { error: resetError } = await supabase
+      .from('friday_ot_rollovers')
+      .update({ applied_to_run_id: null, applied_at: null })
+      .eq('applied_to_run_id', run.id);
+    if (resetError) {
+      return NextResponse.json(
+        { error: 'Failed to reset consumed rollovers', details: resetError.message },
+        { status: 500 }
+      );
+    }
+
+    // Delete rollovers this run produced (the recalc will produce fresh ones)
+    const { error: deleteRolloverError } = await supabase
+      .from('friday_ot_rollovers')
+      .delete()
+      .eq('produced_by_run_id', run.id);
+    if (deleteRolloverError) {
+      return NextResponse.json(
+        { error: 'Failed to delete produced rollovers', details: deleteRolloverError.message },
+        { status: 500 }
+      );
+    }
+
+    // Fetch the unapplied rollover from the prior Friday for this employee.
+    // week_start is Monday; Mon - 3 days = the previous Friday.
+    const prevFriday = new Date(wsDate);
+    prevFriday.setDate(wsDate.getDate() - 3);
+    const prevFridayISO = prevFriday.toISOString().split('T')[0];
+
+    const { data: rolloverRow } = await supabase
+      .from('friday_ot_rollovers')
+      .select('id, rollover_minutes')
+      .eq('employee_id', employee_id)
+      .eq('source_friday', prevFridayISO)
+      .is('applied_to_run_id', null)
+      .maybeSingle();
+
+    const prevWeekFridayRolloverMinutes = rolloverRow?.rollover_minutes ?? 0;
+
+    // Recalculate payroll
     const input: PayrollInput = {
       employee: employee as Employee,
       attendance: (attendance ?? []) as Attendance[],
@@ -124,7 +165,7 @@ export async function POST(request: Request) {
       activeLoans: (activeLoans ?? []) as Loan[],
       pettyShortfall,
       isLastWeekOfMonth,
-      prevWeekFridayRolloverMinutes: 0,
+      prevWeekFridayRolloverMinutes,
     };
 
     const result = calculatePayroll(input);
@@ -150,6 +191,45 @@ export async function POST(request: Request) {
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // 9b. Re-stamp the consumed rollover as applied to this run.
+    if (rolloverRow) {
+      const { error: stampError } = await supabase
+        .from('friday_ot_rollovers')
+        .update({ applied_to_run_id: run.id, applied_at: new Date().toISOString() })
+        .eq('id', rolloverRow.id);
+      if (stampError) {
+        return NextResponse.json(
+          { error: 'Failed to stamp rollover as applied', details: stampError.message },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 9c. Write the new produced rollover if the engine generated one.
+    if (result.next_week_friday_rollover_minutes > 0) {
+      const fridayDate = new Date(wsDate);
+      fridayDate.setDate(wsDate.getDate() + 4);
+      const fridayISO = fridayDate.toISOString().split('T')[0];
+
+      const { error: upsertRolloverError } = await supabase
+        .from('friday_ot_rollovers')
+        .upsert(
+          {
+            employee_id,
+            source_friday: fridayISO,
+            rollover_minutes: result.next_week_friday_rollover_minutes,
+            produced_by_run_id: run.id,
+          },
+          { onConflict: 'employee_id,source_friday' }
+        );
+      if (upsertRolloverError) {
+        return NextResponse.json(
+          { error: 'Failed to write produced rollover', details: upsertRolloverError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // 10. Recalculate run totals (sum all payslips for this run)
