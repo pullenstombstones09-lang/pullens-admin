@@ -10,6 +10,7 @@ export interface PayrollInput {
   activeLoans: Loan[];             // loans with status = 'active'
   pettyShortfall: number;          // auto-generated from petty cash cutoff
   isLastWeekOfMonth: boolean;      // garnishee only deducted in last pay week
+  prevWeekFridayRolloverMinutes: number;  // rollover from prior week's Friday past 16:00
 }
 
 export interface PayrollResult {
@@ -33,6 +34,7 @@ export interface PayrollResult {
   net: number;
   breakdown: PayrollBreakdown;
   friday_ot_rollover: { date: string; minutes: number; employee_id: string }[];
+  next_week_friday_rollover_minutes: number;
 }
 
 export interface PayrollBreakdown {
@@ -106,163 +108,134 @@ export function calculateLateMinutes(timeIn: string | null, manualOverride?: num
   return totalMinutes - eightOClock;
 }
 
-// Working hours per day (excluding breaks)
-// Mon-Thu: 08:00-17:00 minus 45min breaks = 8.25 hours
-// Fri: 08:00-16:00 minus 45min breaks = 7.25 hours (but we use 8hrs for calculation)
-// Actually spec says 40hrs/week for 5 days = 8hrs/day average
-// The 0.25 comes from the break structure. Let's match V12:
-// Default 8.25 hrs/day if present, 40 hrs/week cap for ordinary
-const DEFAULT_DAILY_HOURS_40 = 8.25; // 40hr staff: ~8.25hrs/day over Mon-Fri
-const DEFAULT_DAILY_HOURS_45 = 9;    // 45hr staff: 9hrs/day over 5 days
-
 export function calculatePayroll(input: PayrollInput): PayrollResult {
-  const { employee, attendance, overtimeRequests, activeLoans, pettyShortfall } = input;
-  const dailyHours = (employee.weekly_hours || 40) >= 45 ? DEFAULT_DAILY_HOURS_45 : DEFAULT_DAILY_HOURS_40;
-  const fridayOtRollover: { date: string; minutes: number; employee_id: string }[] = [];
+  const { employee, attendance, activeLoans, pettyShortfall, prevWeekFridayRolloverMinutes } = input;
 
-  // Step 1: hourly rate (admin/sales staff work 45hrs, factory 40hrs)
-  const weeklyHours = employee.weekly_hours || 40;
-  const hourlyRate = employee.weekly_wage / weeklyHours;
+  // 1. Threshold + hourly rate
+  const threshold = employee.weekly_hours === 44 ? 44 : 40;
+  const hourlyRate = employee.weekly_wage / threshold;
 
-  // Step 2: ordinary hours from attendance (cap at 40)
-  let ordinaryHours = 0;
+  // 2. NMW guard — fail loudly rather than pay below R30.23/hr
+  if (employee.weekly_wage > 0 && hourlyRate < 30.23) {
+    throw new Error(
+      `NMW breach for ${employee.pt_code} ${employee.full_name}: ` +
+      `R${hourlyRate.toFixed(2)}/hr (weekly_wage ${employee.weekly_wage} / ${threshold}h) < R30.23 NMW. ` +
+      `Fix employee.weekly_wage before running payroll.`
+    );
+  }
+
+  // 3. Walk attendance days
+  let ordinaryClockMinutes = 0;
+  let candidateOtMinutes = 0;
+  let nextWeekRolloverMinutes = 0;
   const dailyBreakdown: PayrollBreakdown['daily_attendance'] = [];
+  let totalLateMinutes = 0;
 
-  if (attendance.length === 0) {
-    // No attendance records = default weekly hours
-    ordinaryHours = weeklyHours;
-  } else {
-    for (const day of attendance) {
-      let hoursWorked = 0;
+  for (const day of attendance) {
+    const jsDay = new Date(day.date + 'T00:00:00').getDay();
+    const normalEnd = normalEndMinutesForDay(jsDay, threshold);
 
-      if (day.status === 'present' || day.status === 'late') {
-        if (day.time_in && day.time_out) {
-          const { ordinaryMinutes, fridayOtMinutes } = splitFridayHours(
-            day.time_in,
-            day.time_out,
-            day.date
-          );
-          hoursWorked = round2(ordinaryMinutes / 60);
-          if (fridayOtMinutes > 0) {
-            fridayOtRollover.push({
-              date: day.date,
-              minutes: fridayOtMinutes,
-              employee_id: employee.id,
-            });
-          }
-        } else {
-          hoursWorked = dailyHours;
-        }
-      }
-      // leave, sick, ph count as paid hours (ordinary)
-      else if (day.status === 'leave' || day.status === 'sick' || day.status === 'ph') {
-        hoursWorked = dailyHours;
-      }
-      // absent, short_time = 0
+    if (day.status === 'leave' || day.status === 'sick' || day.status === 'ph') {
+      const credit = dailyQuotaHoursFor(jsDay, threshold);
+      ordinaryClockMinutes += credit * 60;
+      dailyBreakdown.push({ date: day.date, status: day.status, hours_worked: credit, late_minutes: 0 });
+      continue;
+    }
 
+    if (day.status === 'absent' || !day.time_in || !day.time_out) {
+      dailyBreakdown.push({ date: day.date, status: day.status, hours_worked: 0, late_minutes: day.late_minutes });
+      totalLateMinutes += day.late_minutes;
+      continue;
+    }
+
+    if (normalEnd === null) {
+      dailyBreakdown.push({ date: day.date, status: day.status, hours_worked: 0, late_minutes: 0 });
+      continue;
+    }
+
+    totalLateMinutes += day.late_minutes;
+
+    const inMin = toMinutes(day.time_in);
+    const outMin = toMinutes(day.time_out);
+
+    if (jsDay === 5) {
+      // Friday: past 16:00 goes to next-week rollover, not this-week OT
+      const ordinaryEnd = Math.min(outMin, normalEnd);
+      const dayOrdinary = Math.max(0, ordinaryEnd - inMin);
+      ordinaryClockMinutes += dayOrdinary;
+      nextWeekRolloverMinutes += Math.max(0, outMin - normalEnd);
       dailyBreakdown.push({
-        date: day.date,
-        status: day.status,
-        hours_worked: hoursWorked,
+        date: day.date, status: day.status,
+        hours_worked: round2(dayOrdinary / 60), late_minutes: day.late_minutes,
+      });
+    } else {
+      // Mon-Thu and Saturday (44h sales): past normal end is candidate OT
+      const ordinaryEnd = Math.min(outMin, normalEnd);
+      const dayOrdinary = Math.max(0, ordinaryEnd - inMin);
+      ordinaryClockMinutes += dayOrdinary;
+      const dayOt = Math.max(0, outMin - normalEnd);
+      candidateOtMinutes += dayOt;
+      dailyBreakdown.push({
+        date: day.date, status: day.status,
+        hours_worked: round2((dayOrdinary + dayOt) / 60),
         late_minutes: day.late_minutes,
       });
-
-      ordinaryHours += hoursWorked;
     }
   }
 
-  // Cap ordinary hours at weekly limit (40 or 45)
-  ordinaryHours = Math.min(ordinaryHours, weeklyHours);
+  // 4. Add prior week's rollover to candidate OT
+  candidateOtMinutes += prevWeekFridayRolloverMinutes;
 
-  // Step 3: late deduction
-  const totalLateMinutes = attendance.reduce((sum, d) => sum + d.late_minutes, 0);
-  const lateDeduction = round2((totalLateMinutes / 60) * hourlyRate);
+  const ordinaryClockHours = round2(ordinaryClockMinutes / 60);
+  const candidateOtHours = round2(candidateOtMinutes / 60);
+  const weeklyWorked = round2(ordinaryClockHours + candidateOtHours);
 
-  // Step 4: overtime — OT only kicks in after 40 (or 45) hours in the week
-  // Any approved OT hours are added to total. If total exceeds weekly limit,
-  // the excess is paid at OT rate. Hours under the limit are ordinary rate.
-  let otHours = 0;
-  let otAmount = 0;
+  // 5. Threshold rule
+  let ordinaryHoursPaid: number;
+  let otHoursPaid: number;
+  let otAmount: number;
   const otEntries: PayrollBreakdown['ot_entries'] = [];
 
-  // Collect all approved OT hours
-  let totalOtRequestHours = 0;
-  for (const ot of overtimeRequests) {
-    if (ot.status !== 'approved') continue;
-    totalOtRequestHours += ot.hours;
-  }
-
-  // Total hours = ordinary + OT request hours
-  const totalHoursWorked = ordinaryHours + totalOtRequestHours;
-
-  if (totalHoursWorked > weeklyHours) {
-    // Only hours above the weekly limit are OT
-    const actualOtHours = round2(totalHoursWorked - weeklyHours);
-    // The rest fills up ordinary hours to the cap
-    ordinaryHours = weeklyHours;
-
-    // Distribute OT across requests proportionally
-    for (const ot of overtimeRequests) {
-      if (ot.status !== 'approved') continue;
-      const proportion = totalOtRequestHours > 0 ? ot.hours / totalOtRequestHours : 0;
-      const thisOtHours = round2(actualOtHours * proportion);
-      const thisOrdinaryHours = round2(ot.hours - thisOtHours); // absorbed into ordinary
-      const amount = round2(thisOtHours * hourlyRate * ot.rate_multiplier);
-      if (thisOtHours > 0) {
-        otHours += thisOtHours;
-        otAmount += amount;
-        otEntries.push({
-          date: ot.date,
-          hours: thisOtHours,
-          multiplier: ot.rate_multiplier,
-          amount,
-        });
-      }
+  if (weeklyWorked >= threshold) {
+    ordinaryHoursPaid = Math.min(ordinaryClockHours, threshold);
+    otHoursPaid = candidateOtHours;
+    otAmount = round2(otHoursPaid * hourlyRate * 1.5);
+    if (otHoursPaid > 0) {
+      otEntries.push({ date: 'derived', hours: otHoursPaid, multiplier: 1.5, amount: otAmount });
     }
   } else {
-    // Total under weekly limit — all hours are ordinary, no OT
-    ordinaryHours = round2(totalHoursWorked);
+    ordinaryHoursPaid = weeklyWorked;
+    otHoursPaid = 0;
+    otAmount = 0;
   }
 
-  // Step 5: gross
-  const grossBasic = round2(hourlyRate * ordinaryHours);
+  // 6. Gross / UIF / PAYE
+  const lateDeduction = round2((totalLateMinutes / 60) * hourlyRate);
+  const grossBasic = round2(hourlyRate * ordinaryHoursPaid);
   const gross = round2(grossBasic + otAmount - lateDeduction);
 
-  // Step 6: UIF (1% employee, 1% employer, capped)
   // UIF earnings ceiling: R17,712/month = R4,428/week
-  // Max UIF deduction per week: R4,428 × 0.01 = R44.28
   const uifBase = Math.min(gross, 4428);
   const uifEmployee = round2(uifBase * 0.01);
   const uifEmployer = round2(uifBase * 0.01);
-
-  // Step 7: PAYE (rare at Pullens wage levels)
-  // Weekly threshold for 2026: roughly R1,731/week (R90,000/year ÷ 52)
-  // Most Pullens staff are well below this
   const paye = calculateWeeklyPAYE(gross);
 
-  // Step 8: Loan deductions
+  // 7. Loans
   let loanDeduction = 0;
   const loanEntries: PayrollBreakdown['loan_entries'] = [];
-
   for (const loan of activeLoans) {
     const deductAmount = Math.min(loan.weekly_deduction, loan.outstanding);
     if (deductAmount > 0) {
       loanDeduction += deductAmount;
       loanEntries.push({
-        loan_id: loan.id,
-        amount: deductAmount,
-        purpose: loan.purpose,
-        auto_from_petty: loan.auto_generated_from_petty,
+        loan_id: loan.id, amount: deductAmount,
+        purpose: loan.purpose, auto_from_petty: loan.auto_generated_from_petty,
       });
     }
   }
   loanDeduction = round2(loanDeduction);
 
-  // Step 9: Garnishee — only deducted in the last pay week of the month
-  // (Marlyn and Junior have monthly garnishee orders, not weekly)
   const garnishee = input.isLastWeekOfMonth ? employee.garnishee : 0;
-
-  // Step 10: Net
   const net = round2(gross - uifEmployee - paye - loanDeduction - garnishee - pettyShortfall);
 
   return {
@@ -271,8 +244,8 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     full_name: employee.full_name,
     weekly_wage: employee.weekly_wage,
     hourly_rate: round2(hourlyRate),
-    ordinary_hours: round2(ordinaryHours),
-    ot_hours: round2(otHours),
+    ordinary_hours: round2(ordinaryHoursPaid),
+    ot_hours: round2(otHoursPaid),
     ot_amount: round2(otAmount),
     late_minutes: totalLateMinutes,
     late_deduction: lateDeduction,
@@ -284,55 +257,18 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     garnishee,
     petty_shortfall: pettyShortfall,
     net,
-    breakdown: {
-      daily_attendance: dailyBreakdown,
-      ot_entries: otEntries,
-      loan_entries: loanEntries,
-    },
-    friday_ot_rollover: fridayOtRollover,
+    breakdown: { daily_attendance: dailyBreakdown, ot_entries: otEntries, loan_entries: loanEntries },
+    friday_ot_rollover: nextWeekRolloverMinutes > 0
+      ? [{ date: 'next-week', minutes: nextWeekRolloverMinutes, employee_id: employee.id }]
+      : [],
+    next_week_friday_rollover_minutes: nextWeekRolloverMinutes,
   };
 }
 
-// Friday 16:00 cutoff — hours after 16:00 on Friday are OT for next week
-export function splitFridayHours(
-  timeIn: string,
-  timeOut: string,
-  date: string
-): { ordinaryMinutes: number; fridayOtMinutes: number } {
-  const dayOfWeek = new Date(date).getDay(); // 0=Sun, 5=Fri
-  if (dayOfWeek !== 5) {
-    // Not Friday — all hours are ordinary (minus breaks)
-    const [inH, inM] = timeIn.split(':').map(Number);
-    const [outH, outM] = timeOut.split(':').map(Number);
-    const totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
-    return { ordinaryMinutes: Math.max(0, totalMinutes - 45), fridayOtMinutes: 0 };
-  }
-
-  const [inH, inM] = timeIn.split(':').map(Number);
-  const [outH, outM] = timeOut.split(':').map(Number);
-  const fourPm = 16 * 60; // 960
-  const inMinutes = inH * 60 + inM;
-  const outMinutes = outH * 60 + outM;
-
-  if (outMinutes <= fourPm) {
-    // Finished before or at 16:00 — all ordinary
-    const totalMinutes = outMinutes - inMinutes;
-    return { ordinaryMinutes: Math.max(0, totalMinutes - 45), fridayOtMinutes: 0 };
-  }
-
-  // Split at 16:00
-  const ordinaryMinutes = Math.max(0, (fourPm - inMinutes) - 45); // minus breaks
-  const fridayOtMinutes = outMinutes - fourPm; // no break deduction for OT portion
-  return { ordinaryMinutes, fridayOtMinutes };
-}
-
-function calculateHoursWorked(timeIn: string, timeOut: string): number {
-  const [inH, inM] = timeIn.split(':').map(Number);
-  const [outH, outM] = timeOut.split(':').map(Number);
-  const totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
-  // Subtract 45 min breaks (30 lunch + 15 tea)
-  const worked = Math.max(0, totalMinutes - 45);
-  return round2(worked / 60);
+// Helper — clock string "HH:MM" or "HH:MM:SS" to minutes-from-midnight
+function toMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
 }
 
 // SARS 2026 PAYE weekly calculation (simplified)
@@ -409,6 +345,7 @@ export function calculateSaturdayPayroll(input: SaturdayPayrollInput): PayrollRe
     petty_shortfall: 0,
     net,
     friday_ot_rollover: [],
+    next_week_friday_rollover_minutes: 0,
     breakdown: {
       daily_attendance: [{
         date: new Date().toISOString().split('T')[0],

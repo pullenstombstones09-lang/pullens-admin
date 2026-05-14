@@ -149,6 +149,7 @@ export function PayslipViewer({ employeeId, employeeName, onClose }: PayslipView
             loan_entries: [],
           },
           friday_ot_rollover: [],
+          next_week_friday_rollover_minutes: 0,
         },
         payslips[selectedIndex + 1]?.net
       )

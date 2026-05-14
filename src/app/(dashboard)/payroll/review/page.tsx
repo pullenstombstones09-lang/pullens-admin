@@ -201,6 +201,7 @@ export default function PayrollReviewPage() {
           activeLoans: empLoans,
           pettyShortfall: 0,
           isLastWeekOfMonth: isLWOM,
+          prevWeekFridayRolloverMinutes: 0,
         };
 
         let payroll: PayrollResult | null = null;
@@ -248,6 +249,7 @@ export default function PayrollReviewPage() {
         activeLoans: row.loans,
         pettyShortfall: 0,
         isLastWeekOfMonth: isLastWeekOfMonth(weekMonday),
+        prevWeekFridayRolloverMinutes: 0,
       });
     } catch {
       return null;

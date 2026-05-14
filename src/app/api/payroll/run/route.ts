@@ -295,6 +295,7 @@ export async function POST(request: Request) {
         activeLoans: loanMap.get(emp.id) ?? [],
         pettyShortfall: pettyMap.get(emp.id) ?? 0,
         isLastWeekOfMonth,
+        prevWeekFridayRolloverMinutes: 0,
       };
 
       const result = calculatePayroll(input);

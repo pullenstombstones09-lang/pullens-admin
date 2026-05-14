@@ -124,6 +124,7 @@ export async function POST(request: Request) {
       activeLoans: (activeLoans ?? []) as Loan[],
       pettyShortfall,
       isLastWeekOfMonth,
+      prevWeekFridayRolloverMinutes: 0,
     };
 
     const result = calculatePayroll(input);
