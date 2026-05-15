@@ -171,6 +171,39 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
+## Status — 15 May 2026 (in progress, paused mid-session)
+
+### SESSION WORK (15 May) — FRL + Friday OT clerk permission
+
+Spec: `docs/superpowers/specs/2026-05-15-frl-and-friday-ot-permission-design.md`
+Plan: `docs/superpowers/plans/2026-05-15-frl-and-friday-ot-permission-plan.md`
+
+**Done (commits on `main`):**
+- `d1311ad` — Migration 00009 + TS union: `family` added to `attendance_status` enum (5 files, exhaustiveness fixes)
+- `6772fd8` — Visual fix: family uses teal in weekly-view + attendance-tab (avoid leave/family colour collision)
+- `f1d7c53` — Engine pays family days at full daily credit (9h Mon-Thu / 8h Fri / 4h Sat sales). 20/20 vitest pass
+- `af07cd3` — `src/lib/leave-balance.ts` helpers (`computeFamilyBalance`, `dateRangeDays`, `FRL_ANNUAL_LIMIT`). 10/10 vitest pass
+- `16418d5` — `src/app/api/leave/route.ts` — POST + DELETE with balance decrement, FRL precheck, 409 on exhausted
+- `4da740f` — Leave-tab refactored to use `/api/leave`; family balance now computed on the fly via `computeFamilyBalance`
+- `346fe47` — Register: `attendance_clerk` can edit `time_out` only on most-recent prior Friday. Other fields disabled. Amber banner explains the lock.
+- `492c1f6` — Register: `Family Resp.` status option added with teal palette. WeekGrid family rendering as teal `FAM`. Sick correctly purple in WeekGrid (was blue before, fixed). Summary strip groups family with leave/sick.
+
+**STILL TODO (resume here next session):**
+- Task 8: `src/app/api/register/route.ts` POST — detect new family rows, FRL precheck, atomic insert leave + decrement
+- Task 9: Inline FRL-exhausted alert on register status cell
+- Task 11: `git push origin main` (commits are local only)
+- **MIGRATION:** Annika must run in Supabase SQL Editor before live testing: `ALTER TYPE attendance_status ADD VALUE IF NOT EXISTS 'family';`
+
+**Open risk (from spec §6.1):** `friday_ot_rollovers` has no row for `source_friday=2026-05-08` because last week's payroll ran under engine v1. Marlyn editing `time_out` today lands in `attendance` but does not flow through this week's payroll on its own. Owner-acknowledged; handled out-of-band.
+
+### Locked Decisions (additions)
+
+19. Attendance clerk role can edit `time_out` only on the most-recent prior Friday. All other fields on that day stay disabled. (15 May 2026)
+20. Family Responsibility Leave: 3 days per 12-month cycle (BCEA s27). FRL balance computed on-the-fly from the `leave` table (`computeFamilyBalance` in `src/lib/leave-balance.ts`); the `leave_balances.family_remaining` column is a stale cache used only by the register API for fast precheck. Owner-only override allowed via API param `override=true`. (15 May 2026)
+21. Leave balance decrement: all leave create/delete now goes through `/api/leave`, which decrements/restores `annual_remaining`/`sick_remaining`/`family_remaining` atomically with the leave row insert. The leave-tab and the register POST share this code path. (15 May 2026)
+
+---
+
 ## Status — 14 May 2026 (session complete)
 
 ### SESSION WORK (14 May) — payroll engine v2
