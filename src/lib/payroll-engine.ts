@@ -135,7 +135,7 @@ export function calculatePayroll(input: PayrollInput): PayrollResult {
     const jsDay = new Date(day.date + 'T00:00:00').getDay();
     const normalEnd = normalEndMinutesForDay(jsDay, threshold);
 
-    if (day.status === 'leave' || day.status === 'sick' || day.status === 'ph') {
+    if (day.status === 'leave' || day.status === 'sick' || day.status === 'ph' || day.status === 'family') {
       const credit = dailyQuotaHoursFor(jsDay, threshold);
       ordinaryClockMinutes += credit * 60;
       dailyBreakdown.push({ date: day.date, status: day.status, hours_worked: credit, late_minutes: 0 });

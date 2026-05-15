@@ -276,3 +276,33 @@ describe('calculatePayroll — leave / late / NMW guard', () => {
     expect(() => calculatePayroll(defaultInput({ employee: emp }))).toThrow(/NMW breach/);
   });
 });
+
+describe('family responsibility leave is paid', () => {
+  it('credits 9h for a family day on Mon-Thu (40h staff)', () => {
+    const emp = makeEmployee({ weekly_wage: 1209.20, weekly_hours: 40 });
+    const attendance: Attendance[] = [
+      { id: 'a1', employee_id: emp.id, date: '2026-05-11', status: 'family', time_in: null, time_out: null, late_minutes: 0, reason: 'Sick child', captured_by: null, captured_at: '' },
+      // Tue-Fri present full days so weekly threshold (40h) is hit
+      { id: 'a2', employee_id: emp.id, date: '2026-05-12', status: 'present', time_in: '08:00', time_out: '17:00', late_minutes: 0, reason: null, captured_by: null, captured_at: '' },
+      { id: 'a3', employee_id: emp.id, date: '2026-05-13', status: 'present', time_in: '08:00', time_out: '17:00', late_minutes: 0, reason: null, captured_by: null, captured_at: '' },
+      { id: 'a4', employee_id: emp.id, date: '2026-05-14', status: 'present', time_in: '08:00', time_out: '17:00', late_minutes: 0, reason: null, captured_by: null, captured_at: '' },
+      { id: 'a5', employee_id: emp.id, date: '2026-05-15', status: 'present', time_in: '08:00', time_out: '16:00', late_minutes: 0, reason: null, captured_by: null, captured_at: '' },
+    ];
+    const input: PayrollInput = {
+      employee: emp,
+      attendance,
+      overtimeRequests: [],
+      activeLoans: [],
+      pettyShortfall: 0,
+      isLastWeekOfMonth: false,
+      prevWeekFridayRolloverMinutes: 0,
+    };
+    const result = calculatePayroll(input);
+    // 9 (Mon family) + 9+9+9 (Tue-Thu) + 8 (Fri) = 44h capped at 40h ordinary
+    expect(result.ordinary_hours).toBe(40);
+    // Family day breakdown line should appear with 9 hours
+    const monBreakdown = result.breakdown.daily_attendance.find(d => d.date === '2026-05-11');
+    expect(monBreakdown?.status).toBe('family');
+    expect(monBreakdown?.hours_worked).toBe(9);
+  });
+});
