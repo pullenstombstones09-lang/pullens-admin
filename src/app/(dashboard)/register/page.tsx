@@ -82,6 +82,19 @@ function toDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function getPrevFridayISO(today: Date = new Date()): string {
+  // Most-recent prior Friday = Monday of this week - 3 days
+  const t = new Date(today);
+  t.setHours(0, 0, 0, 0);
+  const dow = t.getDay(); // 0=Sun .. 6=Sat
+  const daysSinceMonday = (dow + 6) % 7; // Mon=0, Tue=1, ... Sun=6
+  const monday = new Date(t);
+  monday.setDate(t.getDate() - daysSinceMonday);
+  const prevFri = new Date(monday);
+  prevFri.setDate(monday.getDate() - 3);
+  return toDateString(prevFri);
+}
+
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-ZA', {
@@ -411,6 +424,9 @@ export default function RegisterPage() {
   } | null>(null);
 
   const isOwner = user?.role === 'owner';
+  const isClerk = user?.role === 'attendance_clerk';
+  const prevFridayISO = getPrevFridayISO();
+  const isPrevFridayForClerk = isClerk && selectedDate === prevFridayISO;
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
   // Edit window: today + yesterday for staff, owner can always edit
   const today = new Date();
@@ -809,10 +825,16 @@ export default function RegisterPage() {
               type="date"
               value={selectedDate}
               max={toDateString(new Date())}
-              min={user?.role !== 'owner' ? (() => {
-                const mon = startOfWeek(new Date(), { weekStartsOn: 1 })
-                return toDateString(mon)
-              })() : undefined}
+              min={
+                user?.role === 'owner'
+                  ? undefined
+                  : isClerk
+                    ? prevFridayISO
+                    : (() => {
+                        const mon = startOfWeek(new Date(), { weekStartsOn: 1 });
+                        return toDateString(mon);
+                      })()
+              }
               onChange={(e) => {
                 const picked = new Date(e.target.value + 'T00:00:00')
                 const today = new Date()
@@ -821,12 +843,21 @@ export default function RegisterPage() {
                   toast('error', 'Cannot capture register for a future date')
                   return
                 }
-                // Non-admin: only current week
-                if (user?.role !== 'owner') {
-                  const mon = startOfWeek(today, { weekStartsOn: 1 })
+                // Clerk: allow prev Friday OR any day in current week
+                if (isClerk) {
+                  const monThisWeek = startOfWeek(today, { weekStartsOn: 1 });
+                  const isPrevFri = e.target.value === prevFridayISO;
+                  const isCurrentWeek = picked >= monThisWeek;
+                  if (!isPrevFri && !isCurrentWeek) {
+                    toast('error', 'You can only edit the previous Friday or days in the current week');
+                    return;
+                  }
+                } else if (user?.role !== 'owner') {
+                  // Other non-owner roles: current week only
+                  const mon = startOfWeek(today, { weekStartsOn: 1 });
                   if (picked < mon) {
-                    toast('error', 'You can only capture register for the current week')
-                    return
+                    toast('error', 'You can only capture register for the current week');
+                    return;
                   }
                 }
                 // Admin going far back: confirm
@@ -863,6 +894,15 @@ export default function RegisterPage() {
           </div>
         </div>
       </Card>}
+
+      {activeTab === 'day' && isPrevFridayForClerk && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-3 flex items-center gap-3">
+          <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-900">
+            <strong>Previous Friday — Time Out only.</strong> All other fields are locked. Edit them on the day they occurred.
+          </p>
+        </div>
+      )}
 
       {/* Week grid view — read-only at-a-glance, tap cell to edit in day view */}
       {activeTab === 'week' && (
@@ -1051,7 +1091,7 @@ export default function RegisterPage() {
                       <td className="px-3 py-2">
                         <select
                           value={row.status}
-                          disabled={!canEdit || editLocked}
+                          disabled={!canEdit || editLocked || isPrevFridayForClerk}
                           onChange={(e) =>
                             updateRow(idx, { status: e.target.value as AttendanceStatus })
                           }
@@ -1077,7 +1117,7 @@ export default function RegisterPage() {
                         ) : (
                           <TimePicker
                             value={row.time_in || ''}
-                            disabled={!canEdit || editLocked}
+                            disabled={!canEdit || editLocked || isPrevFridayForClerk}
                             onChange={(val) => updateRow(idx, { time_in: val })}
                           />
                         )}
@@ -1104,7 +1144,7 @@ export default function RegisterPage() {
                               type="number"
                               min={0}
                               value={row.late_minutes}
-                              disabled={!canEdit || editLocked}
+                              disabled={!canEdit || editLocked || isPrevFridayForClerk}
                               onChange={(e) =>
                                 updateRow(idx, {
                                   late_minutes: parseInt(e.target.value) || 0,
@@ -1154,7 +1194,7 @@ export default function RegisterPage() {
                         <input
                           type="text"
                           value={row.reason}
-                          disabled={!canEdit || editLocked}
+                          disabled={!canEdit || editLocked || isPrevFridayForClerk}
                           placeholder={
                             row.status === 'absent' || row.status === 'late'
                               ? 'Reason required'
