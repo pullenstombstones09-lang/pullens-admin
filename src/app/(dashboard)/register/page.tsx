@@ -49,6 +49,7 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
   { value: 'absent', label: 'Absent' },
   { value: 'leave', label: 'Leave' },
   { value: 'sick', label: 'Sick' },
+  { value: 'family', label: 'Family Resp.' },
   { value: 'ph', label: 'Public Holiday' },
   { value: 'short_time', label: 'Short Time' },
 ];
@@ -59,9 +60,9 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
   absent: 'bg-red-50 text-red-700 border-red-300',
   leave: 'bg-blue-50 text-blue-700 border-blue-300',
   sick: 'bg-purple-50 text-purple-700 border-purple-300',
+  family: 'bg-teal-50 text-teal-700 border-teal-300',
   ph: 'bg-indigo-50 text-indigo-700 border-indigo-300',
   short_time: 'bg-gray-100 text-gray-600 border-gray-300',
-  family: 'bg-blue-50 text-blue-700 border-blue-300',
 };
 
 const BADGE_COLORS: Record<AttendanceStatus, 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'grey' | 'yellow'> = {
@@ -70,9 +71,9 @@ const BADGE_COLORS: Record<AttendanceStatus, 'green' | 'amber' | 'red' | 'blue' 
   absent: 'red',
   leave: 'blue',
   sick: 'purple',
+  family: 'blue',
   ph: 'blue',
   short_time: 'grey',
-  family: 'blue',
 };
 
 function toDateString(d: Date): string {
@@ -358,14 +359,16 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
                 )
               }
 
-              // Leave/Sick — blue
-              if (s === 'leave' || s === 'sick') {
+              // Leave/Sick/Family — coloured badges
+              if (s === 'leave' || s === 'sick' || s === 'family') {
+                const bg = s === 'sick' ? 'bg-purple-500 hover:bg-purple-600' : s === 'family' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-blue-500 hover:bg-blue-600';
+                const label = s === 'sick' ? 'SICK' : s === 'family' ? 'FAM' : 'LEAVE';
                 return (
                   <button key={d} onClick={cellClick}
-                    className="h-14 rounded-lg bg-blue-500 flex items-center justify-center hover:bg-blue-600 transition-all cursor-pointer">
-                    <span className="text-[10px] font-bold text-white">{s === 'sick' ? 'SICK' : 'LEAVE'}</span>
+                    className={`h-14 rounded-lg ${bg} flex items-center justify-center transition-all cursor-pointer`}>
+                    <span className="text-[10px] font-bold text-white">{label}</span>
                   </button>
-                )
+                );
               }
 
               // PH
@@ -590,7 +593,7 @@ export default function RegisterPage() {
       const row = { ...next[idx], ...patch };
 
       // When status changes to non-working, clear times
-      if (patch.status && ['absent', 'sick', 'leave', 'short_time'].includes(patch.status)) {
+      if (patch.status && ['absent', 'sick', 'leave', 'family', 'short_time'].includes(patch.status)) {
         row.time_in = '';
         row.time_out = '';
         row.late_minutes = 0;
@@ -684,7 +687,7 @@ export default function RegisterPage() {
 
     const previousRows = JSON.parse(JSON.stringify(rows));
 
-    const noTimeStatuses: AttendanceStatus[] = ['absent', 'leave', 'sick', 'ph', 'short_time'];
+    const noTimeStatuses: AttendanceStatus[] = ['absent', 'leave', 'sick', 'family', 'ph', 'short_time'];
     const records = rows.map((row) => {
       const clearTimes = noTimeStatuses.includes(row.status);
       return {
@@ -734,7 +737,7 @@ export default function RegisterPage() {
     present: rows.filter((r) => r.status === 'present').length,
     late: rows.filter((r) => r.status === 'late').length,
     absent: rows.filter((r) => r.status === 'absent').length,
-    leave: rows.filter((r) => r.status === 'leave' || r.status === 'sick').length,
+    leave: rows.filter((r) => r.status === 'leave' || r.status === 'sick' || r.status === 'family').length,
     other: rows.filter((r) => r.status === 'ph' || r.status === 'short_time').length,
   };
 
@@ -1112,7 +1115,7 @@ export default function RegisterPage() {
 
                       {/* Time In */}
                       <td className="px-3 py-2">
-                        {['absent', 'leave', 'sick', 'ph', 'short_time'].includes(row.status) ? (
+                        {['absent', 'leave', 'sick', 'family', 'ph', 'short_time'].includes(row.status) ? (
                           <span className="text-gray-300">&mdash;</span>
                         ) : (
                           <TimePicker
@@ -1125,7 +1128,7 @@ export default function RegisterPage() {
 
                       {/* Time Out */}
                       <td className="px-3 py-2">
-                        {['absent', 'leave', 'sick', 'ph', 'short_time'].includes(row.status) ? (
+                        {['absent', 'leave', 'sick', 'family', 'ph', 'short_time'].includes(row.status) ? (
                           <span className="text-gray-300">&mdash;</span>
                         ) : (
                           <TimePicker
