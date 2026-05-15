@@ -23,7 +23,7 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
   sick: 'bg-purple-400',
   ph: 'bg-sky-300',
   short_time: 'bg-stone-300',
-  family: 'bg-blue-400',
+  family: 'bg-teal-500',
 };
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
