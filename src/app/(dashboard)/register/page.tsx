@@ -61,6 +61,7 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
   sick: 'bg-purple-50 text-purple-700 border-purple-300',
   ph: 'bg-indigo-50 text-indigo-700 border-indigo-300',
   short_time: 'bg-gray-100 text-gray-600 border-gray-300',
+  family: 'bg-blue-50 text-blue-700 border-blue-300',
 };
 
 const BADGE_COLORS: Record<AttendanceStatus, 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'grey' | 'yellow'> = {
@@ -71,6 +72,7 @@ const BADGE_COLORS: Record<AttendanceStatus, 'green' | 'amber' | 'red' | 'blue' 
   sick: 'purple',
   ph: 'blue',
   short_time: 'grey',
+  family: 'blue',
 };
 
 function toDateString(d: Date): string {

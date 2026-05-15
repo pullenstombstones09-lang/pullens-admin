@@ -23,6 +23,7 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
   sick: 'bg-purple-400',
   ph: 'bg-sky-300',
   short_time: 'bg-stone-300',
+  family: 'bg-blue-400',
 };
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
@@ -33,6 +34,7 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
   sick: 'Sick',
   ph: 'Public Holiday',
   short_time: 'Short Time',
+  family: 'Family Responsibility',
 };
 
 export default function AttendanceTab({ employeeId }: AttendanceTabProps) {

@@ -36,6 +36,7 @@ const STATUS_CELL_COLORS: Record<AttendanceStatus, string> = {
   sick: 'bg-purple-400 text-white',
   ph: 'bg-indigo-400 text-white',
   short_time: 'bg-gray-400 text-white',
+  family: 'bg-blue-400 text-white',
 };
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
@@ -46,6 +47,7 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
   sick: 'S',
   ph: 'PH',
   short_time: 'ST',
+  family: 'FR',
 };
 
 function getWeekDates(baseDate: Date): string[] {

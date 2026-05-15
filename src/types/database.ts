@@ -9,7 +9,7 @@ export type UserRole =
   | 'signer';
 
 export type EmployeeStatus = 'active' | 'inactive' | 'terminated' | 'suspended';
-export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'sick' | 'ph' | 'short_time';
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'sick' | 'ph' | 'short_time' | 'family';
 export type LoanStatus = 'active' | 'closed';
 export type WarningCategory = 'A' | 'B' | 'C';
 export type WarningLevel = 'verbal' | 'written' | 'final';
