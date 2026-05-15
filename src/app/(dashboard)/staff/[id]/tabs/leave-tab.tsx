@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { formatDate } from '@/lib/utils';
+import { computeFamilyBalance, FRL_ANNUAL_LIMIT } from '@/lib/leave-balance';
 import type { Leave, LeaveBalance, LeaveType } from '@/types/database';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,71 +91,39 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       confirmLabel: 'Delete',
       onConfirm: async () => {
         setConfirmModal(null);
-        const { error } = await supabase.from('leave').delete().eq('id', id);
-        if (error) {
+        const res = await fetch(`/api/leave?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) {
           toast('error', 'Failed to delete leave record');
         } else {
           toast('success', 'Leave record deleted');
-          setLeaves((prev) => prev.filter((l) => l.id !== id));
+          fetchLeave();
         }
       },
     });
   };
 
-  /** Count non-Sunday days between two date strings (inclusive) */
-  function getDatesInRange(from: string, to: string): string[] {
-    const dates: string[] = [];
-    const current = new Date(from);
-    const end = new Date(to);
-    while (current <= end) {
-      if (current.getDay() !== 0) {
-        dates.push(current.toISOString().split('T')[0]);
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  }
-
   const handleSaveLeave = async () => {
     setSavingLeave(true);
 
-    const dates = getDatesInRange(leaveForm.from_date, leaveForm.to_date);
-    const days = dates.length;
-
-    const { data, error } = await supabase
-      .from('leave')
-      .insert({
+    const res = await fetch('/api/leave', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         employee_id: employeeId,
-        leave_type: leaveForm.type as LeaveType,
+        leave_type: leaveForm.type,
         from_date: leaveForm.from_date,
         to_date: leaveForm.to_date,
-        days,
         reason: leaveForm.reason || null,
         approved_by: user?.name ?? null,
-        approved_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+        source: 'leave-tab',
+      }),
+    });
 
-    if (error || !data) {
-      toast('error', 'Failed to record leave');
+    const payload = await res.json();
+    if (!res.ok) {
+      toast('error', payload.error || 'Failed to record leave');
       setSavingLeave(false);
       return;
-    }
-
-    // Create attendance records for leave days (skip Sundays)
-    if (dates.length > 0) {
-      await supabase.from('attendance').upsert(
-        dates.map((d) => ({
-          employee_id: employeeId,
-          date: d,
-          status: leaveForm.type === 'sick' ? 'sick' : 'leave',
-          time_in: null,
-          time_out: null,
-          late_minutes: 0,
-        })),
-        { onConflict: 'employee_id,date' }
-      );
     }
 
     setSavingLeave(false);
@@ -163,17 +132,7 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
     fetchLeave();
 
     showUndo('Leave recorded', async () => {
-      await supabase.from('leave').delete().eq('id', data.id);
-      if (dates.length > 0) {
-        for (const d of dates) {
-          await supabase
-            .from('attendance')
-            .delete()
-            .eq('employee_id', employeeId)
-            .eq('date', d)
-            .in('status', ['leave', 'sick']);
-        }
-      }
+      await fetch(`/api/leave?id=${payload.leave.id}`, { method: 'DELETE' });
       fetchLeave();
     });
   };
@@ -192,6 +151,8 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       </div>
     );
   }
+
+  const computedFamilyRemaining = computeFamilyBalance(leaves, new Date());
 
   return (
     <div className="space-y-5">
@@ -241,14 +202,14 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
         <Card padding="md">
           <div className="text-center">
             <p className="text-2xl font-bold text-[var(--foreground)]">
-              {balance?.family_remaining ?? 0}
-              <span className="text-sm font-normal text-stone-400">/3</span>
+              {computedFamilyRemaining}
+              <span className="text-sm font-normal text-stone-400">/{FRL_ANNUAL_LIMIT}</span>
             </p>
             <p className="text-xs text-stone-500 mt-1">Family</p>
             <div className="mt-2 h-1.5 rounded-full bg-stone-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-blue-400 transition-all"
-                style={{ width: `${((balance?.family_remaining ?? 0) / 3) * 100}%` }}
+                style={{ width: `${(computedFamilyRemaining / FRL_ANNUAL_LIMIT) * 100}%` }}
               />
             </div>
           </div>
