@@ -40,6 +40,8 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
   const [editingDeduction, setEditingDeduction] = useState<string | null>(null);
   const [deductionValue, setDeductionValue] = useState('');
+  const [editingOutstanding, setEditingOutstanding] = useState<string | null>(null);
+  const [outstandingValue, setOutstandingValue] = useState('');
 
   const [confirmModal, setConfirmModal] = useState<{
     title: string
@@ -160,6 +162,34 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
     setEditingDeduction(null);
   };
 
+  const handleEditOutstanding = (loan: Loan) => {
+    setEditingOutstanding(loan.id);
+    setOutstandingValue(String(loan.outstanding));
+  };
+
+  const handleSaveOutstanding = async (loanId: string) => {
+    const val = Number(outstandingValue);
+    if (isNaN(val) || val < 0) {
+      toast('error', 'Enter a valid amount');
+      return;
+    }
+    const newStatus = (val <= 0 ? 'closed' : 'active') as Loan['status'];
+    const { error } = await supabase
+      .from('loans')
+      .update({ outstanding: val, status: newStatus })
+      .eq('id', loanId);
+
+    if (error) {
+      toast('error', 'Failed to update: ' + error.message);
+    } else {
+      setLoans(prev =>
+        prev.map(l => (l.id === loanId ? { ...l, outstanding: val, status: newStatus } : l))
+      );
+      toast('success', val <= 0 ? 'Loan paid off — closed' : `Balance updated to ${formatCurrency(val)}`);
+    }
+    setEditingOutstanding(null);
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -218,9 +248,38 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-lg font-bold text-[var(--foreground)]">
-                              {formatCurrency(loan.outstanding)}
-                            </p>
+                            {editingOutstanding === loan.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-stone-400 text-sm">R</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="50"
+                                  value={outstandingValue}
+                                  onChange={(e) => setOutstandingValue(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveOutstanding(loan.id); if (e.key === 'Escape') setEditingOutstanding(null); }}
+                                  className="w-28 h-9 rounded border border-stone-300 px-2 text-lg font-bold text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
+                                  autoFocus
+                                />
+                                <button onClick={() => handleSaveOutstanding(loan.id)} className="p-1 rounded hover:bg-emerald-50 text-emerald-600 min-w-[32px] min-h-[32px] flex items-center justify-center">
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => setEditingOutstanding(null)} className="p-1 rounded hover:bg-stone-100 text-stone-400 min-w-[32px] min-h-[32px] flex items-center justify-center">
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleEditOutstanding(loan)}
+                                className="flex items-center gap-1.5 group"
+                                title="Edit outstanding balance"
+                              >
+                                <p className="text-lg font-bold text-[var(--foreground)]">
+                                  {formatCurrency(loan.outstanding)}
+                                </p>
+                                <Pencil className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            )}
                             <Badge color="amber">Outstanding</Badge>
                           </div>
                           <p className="text-xs text-stone-500">

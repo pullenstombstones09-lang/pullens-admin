@@ -75,7 +75,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 Issues 1 + 3 + 5 below were resolved by the payroll-engine-v2 rewrite shipped 14 May 2026 (commit `b7d32d1`). The new engine auto-derives OT from attendance, removes the never-used overtime_requests approval gate, treats sales staff as 44h ordinary (Mon-Sat) with /44 hourly rate, raises Nicolette/Faith/Gugu/Zandile to R1340 for NMW compliance, and persists Friday-past-16:00 rollover via the new `friday_ot_rollovers` table. The 4-8 May payroll run was NOT recalculated — it stays as-is per Annika's instruction "ignore the past, fix it going forward".
 
 **Still open from the URGENT FIX SPEC:**
-- **Issue 2 (loans table not populated)** — separate spec needed. The 13 Excel loan deductions for the week were never applied because the `loans` table is empty. Decision needed: back-load historic loans or write off.
+- **Issue 2 — MISDIAGNOSED, now RESOLVED 16 May 2026.** The note "loans table is empty, back-load or write off" was wrong. The real bug: the engine deducted loans from pay but the finalize step never wrote the repayment back, so balances never moved and loans never closed. Fixed — see "Status — 16 May 2026". No back-load or write-off needed.
 - **Issue 4 (one-off anomalies)** — Tumelo/Randhir absent in Excel but paid in app; Aaron R13.71 rounding diff; Lungiswa parked. Verify with bookkeeping.
 
 Spec: `docs/superpowers/specs/2026-05-14-payroll-engine-ot-and-sales-rate-design.md`
@@ -168,6 +168,25 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Payroll API: `src/app/api/payroll/run/route.ts`, `src/app/api/payroll/recalculate/route.ts`
 - Loans table: schema in `supabase/migrations/00002_create_core_tables.sql`
 - Attendance: register page `src/app/(dashboard)/register/`
+
+---
+
+## Status — 16 May 2026 (session complete)
+
+### SESSION WORK (16 May) — loan repayment ledger fix
+
+**Root cause (systematic debugging):** the payroll engine correctly *calculated* loan deductions and subtracted them from net pay, but no code anywhere wrote the repayment back. `loan_deductions` table had 0 rows; `loans.outstanding` was never decremented; loans never closed. Result: the same loan amount deducted every week forever, repayment history permanently empty. The CLAUDE.md "Issue 2: loans table empty → back-load/write-off" framing was a misdiagnosis — verified against the live DB (only 4 loans existed: 1 manual + 3 petty, one a duplicate).
+
+**Fix (surgical — engine, payslips, schema all untouched, no migration):**
+- `src/lib/loan-repayment.ts` (new) — pure `computeLoanRepayments()` reproducing the engine's exact loan formula (`min(weekly_deduction, outstanding)`, round2, close at ≤0). `src/lib/loan-repayment.test.ts` — 7 vitest cases, all pass.
+- `src/app/api/payroll/generate-payslips/route.ts` — finalize step now writes `loan_deductions` rows, decrements `loans.outstanding`, sets `status='closed'` at R0. **Idempotent**: unwinds anything this `payroll_run_id` recorded before re-applying, so re-finalize / recalculate cannot double-charge.
+- `src/app/(dashboard)/staff/[id]/tabs/loans-tab.tsx` — outstanding balance is now click-to-edit inline (mirrors the existing weekly-deduction edit); setting it to 0 auto-closes the loan.
+
+**Behaviour:** loan repayment is recorded at the **Generate Payslips** (finalize) step only — single source of truth, V12 behaviour. Saturday cash run intentionally excluded (loans are weekly). The old 4-8 May `generated` run was NOT retroactively touched ("fix it going forward").
+
+**Verification:** 37/37 vitest pass (7 new + 20 payroll-engine unchanged = no regression); `tsc --noEmit` clean project-wide.
+
+**Known leftover (user can self-fix via new edit field):** duplicate R25 airtime petty-cash loan for one employee — set one to 0 to close it. Petty→loan conversion still has no dedup key (could re-create duplicates); not fixed this session (out of scope).
 
 ---
 
