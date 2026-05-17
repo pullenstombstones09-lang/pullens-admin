@@ -48,10 +48,15 @@ export default function CashInModal({ onClose, onSaved }: CashInModalProps) {
       notes: notes.trim() || null,
     };
 
-    const { error } = await supabase.from("petty_cash_ins").insert(row);
+    const res = await fetch('/api/petty-cash/ins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row),
+    });
+    const payload = await res.json();
 
-    if (error) {
-      toast("error", "Failed to save: " + error.message);
+    if (!res.ok) {
+      toast("error", "Failed to save: " + (payload.error || res.statusText));
     } else {
       toast("success", `${formatCurrency(Number(amount))} added to tin`);
       onSaved();

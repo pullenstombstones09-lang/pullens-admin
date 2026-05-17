@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
+import { hasPermission } from "@/lib/permissions";
+import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ import {
   ArrowLeftRight,
   TrendingUp,
   TrendingDown,
+  Trash2,
 } from "lucide-react";
 import CashInModal from "./cash-in-modal";
 import SlipReturnModal from "./slip-return-modal";
@@ -393,17 +396,14 @@ export default function PettyCashPage() {
       .eq("status", "active")
       .order("full_name");
 
-    // Fetch petty cash outs
-    const { data: outs } = await supabase
-      .from("petty_cash_outs")
-      .select("*")
-      .order("date", { ascending: false });
-
-    // Fetch petty cash ins
-    const { data: ins } = await supabase
-      .from("petty_cash_ins")
-      .select("*")
-      .order("date", { ascending: false });
+    // Fetch petty cash outs + ins through API (service role bypasses RLS).
+    // Direct browser reads return [] under anon — see commits 0f9cb07 / [this fix].
+    const [outsRes, insRes] = await Promise.all([
+      fetch('/api/petty-cash/outs').then(r => r.ok ? r.json() : { outs: [] }),
+      fetch('/api/petty-cash/ins').then(r => r.ok ? r.json() : { ins: [] }),
+    ]);
+    const outs = outsRes.outs as PettyCashOut[] | undefined;
+    const ins = insRes.ins as PettyCashIn[] | undefined;
 
     const { data: countSetting } = await supabase
       .from("settings")
@@ -484,10 +484,15 @@ export default function PettyCashPage() {
       status: "open" as PettyCashOutStatus,
     };
 
-    const { error } = await supabase.from("petty_cash_outs").insert(row);
+    const res = await fetch('/api/petty-cash/outs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row),
+    });
+    const payload = await res.json();
 
-    if (error) {
-      toast("error", "Failed to save: " + error.message);
+    if (!res.ok) {
+      toast("error", "Failed to save: " + (payload.error || res.statusText));
     } else {
       toast("success", `${formatCurrency(Number(amount))} given — awaiting slip`);
       setAmount("");
@@ -497,6 +502,21 @@ export default function PettyCashPage() {
       await fetchData();
     }
     setSubmitting(false);
+  }
+
+  const canDeletePetty = user && hasPermission(user.role, 'delete_petty_cash');
+  const [confirmDelete, setConfirmDelete] = useState<(PettyCashOut & { employee_name?: string }) | null>(null);
+
+  async function deleteOut(id: string) {
+    const res = await fetch(`/api/petty-cash/outs?id=${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      toast('error', payload.error || 'Failed to delete');
+    } else {
+      toast('success', 'Entry removed');
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    }
+    setConfirmDelete(null);
   }
 
   // Filter logic for history
@@ -897,12 +917,13 @@ export default function PettyCashPage() {
                     <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Category</th>
                     <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Amount</th>
                     <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                    {canDeletePetty && <th className="w-12 px-3 py-3" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredTransactions.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                      <td colSpan={canDeletePetty ? 6 : 5} className="px-5 py-8 text-center text-gray-400">
                         No transactions found
                       </td>
                     </tr>
@@ -934,6 +955,17 @@ export default function PettyCashPage() {
                           {STATUS_BADGE[t.status].label}
                         </Badge>
                       </td>
+                      {canDeletePetty && (
+                        <td className="px-3 py-3.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmDelete(t); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Delete entry"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -973,6 +1005,18 @@ export default function PettyCashPage() {
           }}
         />
       )}
+
+      <ConfirmationModal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && deleteOut(confirmDelete.id)}
+        title="Delete petty cash entry"
+        description={confirmDelete
+          ? `Permanently delete ${formatCurrency(confirmDelete.amount)} to ${confirmDelete.employee_name || 'recipient'} on ${formatDate(confirmDelete.date)}? This also clears any attached slip. Cannot be undone.`
+          : ''}
+        variant="danger"
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

@@ -32,6 +32,8 @@ export const PERMISSIONS = {
   // Loans
   view_loans: ['owner', 'supervisor', 'bookkeeper'],
   create_loan: ['owner', 'supervisor', 'bookkeeper'],
+  edit_loan: ['owner', 'bookkeeper'],
+  delete_loan: ['owner'],
 
   // Warnings & disciplinary
   view_warnings: ['owner', 'supervisor'],
@@ -44,6 +46,7 @@ export const PERMISSIONS = {
   view_petty_cash: ['owner', 'supervisor', 'bookkeeper', 'cash_clerk'],
   cash_out: ['owner', 'supervisor', 'bookkeeper', 'cash_clerk'],
   cash_in: ['owner', 'supervisor', 'cash_clerk'],
+  delete_petty_cash: ['owner'],
 
   // Leave
   view_leave: ['owner', 'supervisor', 'attendance_clerk'],
