@@ -190,14 +190,14 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
-## Status — 15 May 2026 (in progress, paused mid-session)
+## Status — 15 May 2026 (session complete — closed 17 May)
 
-### SESSION WORK (15 May) — FRL + Friday OT clerk permission
+### SESSION WORK (15 May + 17 May closeout) — FRL + Friday OT clerk permission
 
 Spec: `docs/superpowers/specs/2026-05-15-frl-and-friday-ot-permission-design.md`
 Plan: `docs/superpowers/plans/2026-05-15-frl-and-friday-ot-permission-plan.md`
 
-**Done (commits on `main`):**
+**All tasks shipped (commits on `main`, pushed):**
 - `d1311ad` — Migration 00009 + TS union: `family` added to `attendance_status` enum (5 files, exhaustiveness fixes)
 - `6772fd8` — Visual fix: family uses teal in weekly-view + attendance-tab (avoid leave/family colour collision)
 - `f1d7c53` — Engine pays family days at full daily credit (9h Mon-Thu / 8h Fri / 4h Sat sales). 20/20 vitest pass
@@ -206,14 +206,16 @@ Plan: `docs/superpowers/plans/2026-05-15-frl-and-friday-ot-permission-plan.md`
 - `4da740f` — Leave-tab refactored to use `/api/leave`; family balance now computed on the fly via `computeFamilyBalance`
 - `346fe47` — Register: `attendance_clerk` can edit `time_out` only on most-recent prior Friday. Other fields disabled. Amber banner explains the lock.
 - `492c1f6` — Register: `Family Resp.` status option added with teal palette. WeekGrid family rendering as teal `FAM`. Sick correctly purple in WeekGrid (was blue before, fixed). Summary strip groups family with leave/sick.
-
-**STILL TODO (resume here next session):**
-- Task 8: `src/app/api/register/route.ts` POST — detect new family rows, FRL precheck, atomic insert leave + decrement
-- Task 9: Inline FRL-exhausted alert on register status cell
-- Task 11: `git push origin main` (commits are local only)
-- **MIGRATION:** Annika must run in Supabase SQL Editor before live testing: `ALTER TYPE attendance_status ADD VALUE IF NOT EXISTS 'family';`
+- `f1aaf43` (17 May) — **Task 8**: `/api/register` POST detects new family rows, FRL precheck via `computeFamilyBalance`, 409 on exhaustion with employee name, then inserts leave row + decrements `family_remaining`. GET now also returns `family_balances`. **Task 9**: register page merges `family_remaining` into each row and shows an inline red warning *"No FRL left — owner override required"* under the status select when `status='family' && family_remaining <= 0`. 37/37 vitest pass, tsc clean.
+- **Migration 00009 applied to Pullens Supabase via SQL Editor (17 May, annikas82 dashboard login).** Verified: `attendance?status=eq.family` returns HTTP 200 (enum value accepted).
 
 **Open risk (from spec §6.1):** `friday_ot_rollovers` has no row for `source_friday=2026-05-08` because last week's payroll ran under engine v1. Marlyn editing `time_out` today lands in `attendance` but does not flow through this week's payroll on its own. Owner-acknowledged; handled out-of-band.
+
+**Phase 2 (deferred from spec §6):**
+- Owner override flag in register POST (currently `/api/leave` accepts `override=true` but register UI has no path to send it)
+- Server-side enforcement of clerk Friday `time_out`-only lock (UI-only today)
+- Sidebar alert badge for "X has 0 FRL remaining"
+- Reverse logic when a family attendance row is changed/deleted (leave row + decrement remain — owner cleans up via leave tab)
 
 ### Locked Decisions (additions)
 
