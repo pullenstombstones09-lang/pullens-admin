@@ -58,33 +58,24 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
   const { showUndo } = useUndo();
 
   const fetchLoans = async () => {
-    const { data: loanData } = await supabase
-      .from('loans')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .order('date_advanced', { ascending: false });
-
-    const allLoans = (loanData ?? []) as Loan[];
-
-    const loanIds = allLoans.map((l) => l.id);
-    let deductions: LoanDeduction[] = [];
-    if (loanIds.length > 0) {
-      const { data: dedData } = await supabase
-        .from('loan_deductions')
-        .select('*')
-        .in('loan_id', loanIds)
-        .order('deducted_at', { ascending: true });
-      deductions = (dedData ?? []) as LoanDeduction[];
+    const res = await fetch(`/api/loans?employee_id=${employeeId}`);
+    if (!res.ok) {
+      setLoans([]);
+      return;
     }
+    const { loans: loanData, deductions: dedData } = await res.json() as {
+      loans: Loan[];
+      deductions: LoanDeduction[];
+    };
 
     const dedByLoan = new Map<string, LoanDeduction[]>();
-    deductions.forEach((d) => {
+    (dedData ?? []).forEach((d) => {
       const arr = dedByLoan.get(d.loan_id) ?? [];
       arr.push(d);
       dedByLoan.set(d.loan_id, arr);
     });
 
-    const enriched: LoanWithDeductions[] = allLoans.map((l) => ({
+    const enriched: LoanWithDeductions[] = (loanData ?? []).map((l) => ({
       ...l,
       deductions: dedByLoan.get(l.id) ?? [],
     }));
@@ -125,9 +116,8 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
       confirmLabel: 'Delete',
       onConfirm: async () => {
         setConfirmModal(null);
-        await supabase.from('loan_deductions').delete().eq('loan_id', id);
-        const { error } = await supabase.from('loans').delete().eq('id', id);
-        if (error) {
+        const res = await fetch(`/api/loans?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) {
           toast('error', 'Failed to delete loan');
         } else {
           toast('success', 'Loan deleted');
@@ -148,13 +138,15 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
       toast('error', 'Enter a valid amount');
       return;
     }
-    const { error } = await supabase
-      .from('loans')
-      .update({ weekly_deduction: val })
-      .eq('id', loanId);
+    const res = await fetch(`/api/loans?id=${loanId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weekly_deduction: val }),
+    });
+    const payload = await res.json();
 
-    if (error) {
-      toast('error', 'Failed to update: ' + error.message);
+    if (!res.ok) {
+      toast('error', 'Failed to update: ' + (payload.error || res.statusText));
     } else {
       setLoans(prev => prev.map(l => l.id === loanId ? { ...l, weekly_deduction: val } : l));
       toast('success', `Deduction updated to ${formatCurrency(val)}/week`);
@@ -174,13 +166,15 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
       return;
     }
     const newStatus = (val <= 0 ? 'closed' : 'active') as Loan['status'];
-    const { error } = await supabase
-      .from('loans')
-      .update({ outstanding: val, status: newStatus })
-      .eq('id', loanId);
+    const res = await fetch(`/api/loans?id=${loanId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outstanding: val }),
+    });
+    const payload = await res.json();
 
-    if (error) {
-      toast('error', 'Failed to update: ' + error.message);
+    if (!res.ok) {
+      toast('error', 'Failed to update: ' + (payload.error || res.statusText));
     } else {
       setLoans(prev =>
         prev.map(l => (l.id === loanId ? { ...l, outstanding: val, status: newStatus } : l))
@@ -463,27 +457,29 @@ export default function LoansTab({ employeeId }: LoansTabProps) {
             disabled={!newLoan.amount || !newLoan.weekly_deduction || savingLoan}
             onClick={async () => {
               setSavingLoan(true);
-              const amount = parseFloat(newLoan.amount);
-              const { data, error } = await supabase.from('loans').insert({
-                employee_id: employeeId,
-                amount,
-                outstanding: amount,
-                weekly_deduction: parseFloat(newLoan.weekly_deduction),
-                purpose: newLoan.purpose || null,
-                date_advanced: new Date().toISOString().split('T')[0],
-                status: 'active',
-                auto_generated_from_petty: newLoan.from_petty,
-              }).select().single();
-
+              const res = await fetch('/api/loans', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  employee_id: employeeId,
+                  amount: parseFloat(newLoan.amount),
+                  weekly_deduction: parseFloat(newLoan.weekly_deduction),
+                  purpose: newLoan.purpose,
+                  from_petty: newLoan.from_petty,
+                }),
+              });
+              const payload = await res.json();
               setSavingLoan(false);
-              if (!error && data) {
+              if (res.ok && payload.loan) {
                 setShowNewLoan(false);
                 setNewLoan({ amount: '', purpose: '', weekly_deduction: '', from_petty: false });
                 fetchLoans();
                 showUndo('Loan added', async () => {
-                  await supabase.from('loans').delete().eq('id', data.id);
+                  await fetch(`/api/loans?id=${payload.loan.id}`, { method: 'DELETE' });
                   fetchLoans();
                 });
+              } else {
+                toast('error', payload.error || 'Failed to add loan');
               }
             }}
             className="w-full h-11 rounded-lg bg-[#1E40AF] text-white font-semibold text-sm hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

@@ -494,13 +494,14 @@ export default function EmployeeProfilePage({
       const today = new Date().toISOString().slice(0, 10);
       const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 
-      const [empRes, warnRes, loanRes, leaveBalRes, leaveRes] = await Promise.all([
+      const [empRes, warnRes, loanSummaryRes, leaveBalRes, leaveRes] = await Promise.all([
         supabase.from('employees').select('*').eq('id', id).single(),
         supabase.from('warnings').select('level, status').eq('employee_id', id).eq('status', 'active'),
-        supabase.from('loans').select('outstanding, status').eq('employee_id', id).eq('status', 'active'),
+        fetch(`/api/loans?employee_id=${id}&summary=true`).then(r => r.ok ? r.json() : { count: 0 }),
         supabase.from('leave_balances').select('*').eq('employee_id', id).single(),
         supabase.from('leave').select('from_date, to_date').eq('employee_id', id).lte('from_date', today).gte('to_date', today),
       ]);
+      const loanRes = { data: Array.from({ length: loanSummaryRes.count ?? 0 }, () => ({ outstanding: 0, status: 'active' })) };
 
       const emp = empRes.data as Employee | null;
       if (!emp) {
