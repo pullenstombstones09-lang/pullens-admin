@@ -171,40 +171,41 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
-## Status — 17 May 2026 (session complete)
+## Status — 17 May 2026 (session complete, head at `8b0341d`)
 
-### SESSION WORK (17 May) — FRL closeout + staff list hydration fix
+### Account context
+Terminal is back on annikas2022@gmail.com (reverted from annikas82). `.env.local` keys remain valid. **Both Supabase MCP servers are bound to the annikas2022 Claude.ai login and see the YeboPro org only — they cannot reach the Pullens project** (`eznppvewksorfoedgzpa` lives in the annikas82-owned Pullens org). Direct service-role REST works for SELECT/INSERT/UPDATE/DELETE but not for DDL. **Consequence: future DDL migrations must go through Supabase SQL Editor logged in as annikas82.** GitHub push uses the `pullenstombstones09-lang` token (switched via `gh auth switch` once mid-session when the helper defaulted to yebokhaya).
 
-**Account context check:** terminal is back on annikas2022@gmail.com (user reverted from annikas82). All keys in `.env.local` are still valid (annikas2022-era keys never rotated). Supabase MCP servers are bound to the annikas2022 Claude.ai login and only see the YeboPro org — they CANNOT reach the Pullens project (eznppvewksorfoedgzpa) which lives in the annikas82-owned Pullens org. Direct service-role REST works fine for SELECT/INSERT/UPDATE but cannot run DDL. **Workflow consequence: DDL migrations on Pullens must go through the Supabase SQL Editor logged in as annikas82.**
+### What shipped (commits on main, pushed)
+1. **Migration 00009** — `ALTER TYPE attendance_status ADD VALUE 'family'`. Applied via SQL Editor (annikas82). Verified live: `attendance?status=eq.family` → HTTP 200.
+2. `f1aaf43` — **FRL closeout (Tasks 8+9 from 15 May plan).** `/api/register` POST detects new family rows, FRL precheck via `computeFamilyBalance`, 409 with employee name on exhaustion, then inserts the leave row and decrements `family_remaining`. GET returns `family_balances`. Register page merges per-employee `family_remaining` and shows inline red warning under the status select when `family && family_remaining <= 0`.
+3. `324be7d` — **Staff list hydration error.** Nested `<button>` inside `<button>` on each card (the inner "View payslip" icon button). Outer card wrapper is now `<div role="button">` with Enter/Space keyboard handler.
+4. `6233ac1` — **`/api/alerts` perf + `themeColor` deprecation.** All 14 Supabase reads now fire via `Promise.all` (only the unsigned-payslip follow-up stays serial because it needs `latestRun.id`). Measured **2.6-3.8s → ~280ms hot (~10× faster).** Also moved `themeColor` from `metadata` to `viewport` export in `src/app/layout.tsx`.
+5. `0f9cb07` — **Loans tab empty bug.** `loans-tab.tsx` + the loan badge in `staff/[id]/page.tsx` were the last components reading directly from Supabase via the anon key. **All tables in this project are RLS-locked from anon** (PIN auth doesn't create a Supabase session); the rest of the app routes through `/api/*` with service role. Fixed by creating `src/app/api/loans/route.ts` (GET list / GET summary / POST / PATCH / DELETE) and refactoring both consumers.
+6. `90fd7d7` — **Same RLS bug on petty cash + delete UI.** History, daily, balance were silently empty under anon (writes worked because of an INSERT-only policy). Created `src/app/api/petty-cash/outs/route.ts` and `src/app/api/petty-cash/ins/route.ts` (GET/POST/DELETE). Refactored `petty-cash/page.tsx` fetch + give-cash + `cash-in-modal.tsx` to use them. Added a red **trash icon in each history row** with a `ConfirmationModal` before destruction; the DELETE also cleans dependent `petty_cash_slips` rows. New permissions: `delete_petty_cash` (owner), `edit_loan` (owner + bookkeeper), `delete_loan` (owner).
 
-**Done (commits on main, pushed):**
-- Migration 00009 (`ALTER TYPE attendance_status ADD VALUE 'family'`) applied via SQL Editor (annikas82 login). Verified: `attendance?status=eq.family` → HTTP 200.
-- `f1aaf43` — Tasks 8 + 9 from the 15 May plan. `/api/register` POST detects new family rows, FRL precheck via `computeFamilyBalance`, 409 with employee name on exhaustion, then inserts leave + decrements `family_remaining`. GET returns `family_balances`. Register page merges per-employee `family_remaining` and shows inline red warning under the status select when `family && family_remaining <= 0`. 37/37 vitest pass, tsc clean.
-- `7153775` — CLAUDE.md: closed out the 15 May FRL session (Tasks 8+9 shipped).
-- `324be7d` — `src/app/(dashboard)/staff/page.tsx`: fixed hydration error (`<button>` inside `<button>`) on the staff list cards. Outer card wrapper is now `<div role="button">` with Enter/Space keyboard handler; inner "View payslip" button nests legally.
-- `6233ac1` — `/api/alerts` parallelized. All 14 Supabase reads now fire via `Promise.all` (only the unsigned-payslip lookup remains serial because it depends on `latestRun.id`). **Measured: 2.6-3.8s → ~280ms hot (~10× faster).** Also moved `themeColor` from `metadata` to the new `viewport` export in `src/app/layout.tsx`, clearing the Next 16 deprecation warning across all dashboard pages.
-- `0f9cb07` — **Loans tab was empty on every employee profile.** Root cause: `loans-tab.tsx` and the loan-chip query in `staff/[id]/page.tsx` were the only components still using the browser Supabase client (anon key) for reads. Every table in this project is RLS-locked from anon (PIN auth doesn't create a Supabase session); the rest of the app routes through `/api/*` with service role. Fixed by creating `src/app/api/loans/route.ts` (GET list / GET summary / POST / PATCH / DELETE) and refactoring loans-tab + the profile badge to use it. Smoke-verified: PT002 Junior shows R500/R300 loan, PT013 Alli shows count=2 (the duplicate R25s).
-- `90fd7d7` — **Same RLS bug on petty cash**: history list, daily totals, and balance were silently empty under anon (writes worked because INSERT-only policy). Created `src/app/api/petty-cash/outs/route.ts` and `src/app/api/petty-cash/ins/route.ts` (GET/POST/DELETE); refactored petty-cash page + cash-in-modal to use them. Added a **Trash icon in each history row** (owner-only) with a `ConfirmationModal` before destruction; DELETE also cleans dependent `petty_cash_slips` rows. New permissions in `src/lib/permissions.ts`: `delete_petty_cash` (owner), `edit_loan` (owner + bookkeeper), `delete_loan` (owner).
+### Final-pass verification (end of session)
+- `git rev-list --left-right --count HEAD...origin/main` → **0 0** (in sync).
+- `tsc --noEmit` → clean.
+- `vitest run` → **37/37 pass** (loan-repayment 7, leave-balance 10, payroll-engine 20).
+- Live Supabase active loans (service role): Junior R500/**R300** outstanding / R100 weekly · Enrique R75/R75/R75 · Alli R25/R25/R25 (×2 duplicates).
+- `loan_deductions` rowcount → **0**. The 16 May loan-repayment fix has not yet exercised against the live DB. Will fire on next finalize.
 
-### Action for next session
-- Open PT013 Alli Yessa's profile → Loans tab → set one of the two R25 outstanding amounts to 0 (inline click-edit) to close the duplicate.
-- Finalize this week's payroll (11-15 May) → verify `loan_deductions` rows appear and `loans.outstanding` decrements for Junior (R100), Enrique (R75), and Alli (R25). That's the first real exercise of the 16 May loan-repayment fix.
+### Tomorrow's actions
+1. **Delete duplicate loan** — PT013 Alli Yessa → profile → Loans tab → click one outstanding R25 → set to 0 → confirm. Closes the surviving duplicate.
+2. **Run 11-15 May payroll, finalize.** First real exercise of the 16 May loan-repayment fix. Expect `loan_deductions` rows for Junior (R100), Enrique (R75), Alli (R25), and the matching `loans.outstanding` decrements. Enrique + Alli should auto-close at R0.
+3. **Smoke the new petty cash trash** — Petty Cash → History → trash a test row → confirm modal → verify it's gone and any slip is cleaned.
+4. **Optional** — recalculate the 4-8 May run only if Annika wants the past corrected (the 14 May guidance was "ignore the past, fix it going forward", so default = leave it).
 
-**Loans verification (live state, 17 May):**
-- Loan repayment fix from 16 May is shipped + tested, but **never exercised against the live DB yet**: `loan_deductions` count is still 0. Reason: the only payroll run in the DB is the 4-8 May one, generated 11 May before the fix.
-- 4 active loans currently:
-  - PT? `59b19dcc…` — R500 amount / R300 outstanding / R100 weekly (already progressing — someone has manually decremented this, likely via the new inline edit field)
-  - PT? `f1a6791d…` — R75 / R75 / R75 (one-week loan)
-  - PT? `8ff02ef0…` — R25 / R25 / R25 — **duplicate row #1** (still uncleaned per 16 May leftover)
-  - PT? `8ff02ef0…` — R25 / R25 / R25 — **duplicate row #2**
-- **Action when next payroll runs:** finalize this week's payroll, then verify a row appears in `loan_deductions` and `loans.outstanding` decrements for the three R100 / R75 / R25 employees. That'll be the first real exercise of the 16 May fix.
+### Resolved this session
+- ~~`/api/alerts` slow~~ → `Promise.all` parallelization (`6233ac1`).
+- ~~`themeColor` Next 16 deprecation~~ → `viewport` export (`6233ac1`).
+- ~~Loans tab empty~~ → service-role API (`0f9cb07`).
+- ~~Petty cash history empty / no delete UI~~ → service-role API + trash button (`90fd7d7`).
+- ~~Staff list hydration warning~~ → unnested buttons (`324be7d`).
 
-### Known issues resolved this session
-- ~~`/api/alerts` slow~~ → fixed via `Promise.all` parallelization (`6233ac1`).
-- ~~`themeColor` Next 16 deprecation~~ → moved to `viewport` export (`6233ac1`).
-
-### Remaining minor concern (not fixed)
-- `AlertBadge` mounts twice (desktop + mobile sidebar render `SidebarContent` independently). After the perf fix this is harmless (2 × 280ms/min = trivial), so deferred. If ever a real concern, dedupe via shared context or conditional mount of the mobile sidebar.
+### Deferred (harmless)
+- `AlertBadge` mounts twice (desktop + mobile sidebar render `SidebarContent` independently). After the perf fix this is 2 × 280ms/min — trivial. Dedupe via shared context or conditional mount if it ever matters.
 
 ---
 
