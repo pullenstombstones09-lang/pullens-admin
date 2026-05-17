@@ -43,21 +43,93 @@ export async function GET() {
     const alerts: AlertItem[] = [];
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
+    const dayOfWeek = now.getDay(); // 0=Sun (used by Tue+ and Wed-only branches)
+    const twentyDaysAgo = new Date(now);
+    twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
 
-    // Fetch employees for name lookups
-    const { data: employees } = await supabase
-      .from('employees')
-      .select('id, full_name, id_number, start_date, status')
-      .eq('status', 'active');
+    // Fan out every read in parallel. Previously these awaited sequentially
+    // and turned the endpoint into a 2.6-3.8s blocker for the sidebar badge.
+    const latestRunPromise = dayOfWeek >= 2
+      ? supabase
+          .from('payroll_runs')
+          .select('id')
+          .eq('status', 'paid')
+          .order('week_end', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null });
 
-    const empMap = new Map(
-      (employees || []).map((e) => [e.id, e])
-    );
+    const [
+      empRes,
+      medRes,
+      warnRes,
+      latestRunRes,
+      paidLoansRes,
+      contractRes,
+      licenceRes,
+      allDocsRes,
+      lateRes,
+      cashInRes,
+      cashOutRes,
+      tinRes,
+      holidayRes,
+      pettyOutsRes,
+    ] = await Promise.all([
+      supabase
+        .from('employees')
+        .select('id, full_name, id_number, start_date, status')
+        .eq('status', 'active'),
+      supabase.from('medical_certs').select('id, employee_id, to_date'),
+      supabase
+        .from('warnings')
+        .select('id, employee_id, level, expiry_date, status')
+        .eq('status', 'active')
+        .not('expiry_date', 'is', null),
+      latestRunPromise,
+      supabase
+        .from('loans')
+        .select('id, employee_id, updated_at')
+        .eq('status', 'closed')
+        .eq('outstanding', 0)
+        .order('updated_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('employee_documents')
+        .select('id, employee_id, expiry_date')
+        .eq('doc_type', 'contract')
+        .not('expiry_date', 'is', null),
+      supabase
+        .from('employee_documents')
+        .select('id, employee_id, doc_type, expiry_date')
+        .in('doc_type', ['drivers', 'prdp'])
+        .not('expiry_date', 'is', null),
+      supabase.from('employee_documents').select('employee_id, doc_type'),
+      supabase
+        .from('attendance')
+        .select('employee_id')
+        .eq('status', 'late')
+        .gte('date', twentyDaysAgo.toISOString().split('T')[0]),
+      supabase.from('petty_cash_ins').select('amount'),
+      supabase.from('petty_cash_outs').select('amount'),
+      supabase
+        .from('settings')
+        .select('value, updated_at')
+        .eq('key', 'last_tin_count')
+        .maybeSingle(),
+      supabase.from('public_holidays').select('date, name'),
+      dayOfWeek === 3
+        ? supabase
+            .from('petty_cash_outs')
+            .select('id, recipient_employee_id, recipient_name_freetext, amount, status')
+            .in('status', ['open', 'partial'])
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const employees = empRes.data;
+    const empMap = new Map((employees || []).map((e) => [e.id, e]));
 
     // ─── 1 & 2: Medical certificates expiring / expired ───
-    const { data: medCerts } = await supabase
-      .from('medical_certs')
-      .select('id, employee_id, to_date');
+    const medCerts = medRes.data;
 
     for (const cert of medCerts || []) {
       const days = daysUntil(cert.to_date);
@@ -92,11 +164,7 @@ export async function GET() {
     }
 
     // ─── 3, 4, 5: Warnings expiring ───
-    const { data: warnings } = await supabase
-      .from('warnings')
-      .select('id, employee_id, level, expiry_date, status')
-      .eq('status', 'active')
-      .not('expiry_date', 'is', null);
+    const warnings = warnRes.data;
 
     for (const w of warnings || []) {
       if (!w.expiry_date) continue;
@@ -190,17 +258,8 @@ export async function GET() {
     }
 
     // ─── 7: Payslip unsigned (Tuesday after payroll) ───
-    const dayOfWeek = now.getDay(); // 0=Sun
     if (dayOfWeek >= 2) {
-      // Tuesday or later — check for unsigned payslips from the latest run
-      const { data: latestRun } = await supabase
-        .from('payroll_runs')
-        .select('id')
-        .eq('status', 'paid')
-        .order('week_end', { ascending: false })
-        .limit(1)
-        .single();
-
+      const latestRun = latestRunRes.data;
       if (latestRun) {
         const { data: unsignedSlips } = await supabase
           .from('payslips')
@@ -227,13 +286,7 @@ export async function GET() {
     }
 
     // ─── 8: Loan paid off ───
-    const { data: paidLoans } = await supabase
-      .from('loans')
-      .select('id, employee_id, updated_at')
-      .eq('status', 'closed')
-      .eq('outstanding', 0)
-      .order('updated_at', { ascending: false })
-      .limit(20);
+    const paidLoans = paidLoansRes.data;
 
     for (const loan of paidLoans || []) {
       const emp = empMap.get(loan.employee_id);
@@ -290,11 +343,7 @@ export async function GET() {
     }
 
     // ─── 10: Contract expiring (fixed-term, via employee_documents) ───
-    const { data: contracts } = await supabase
-      .from('employee_documents')
-      .select('id, employee_id, expiry_date')
-      .eq('doc_type', 'contract')
-      .not('expiry_date', 'is', null);
+    const contracts = contractRes.data;
 
     for (const doc of contracts || []) {
       if (!doc.expiry_date) continue;
@@ -354,11 +403,7 @@ export async function GET() {
     }
 
     // ─── 11: Driver's licence / PrDP expiring (30 days) ───
-    const { data: licenceDocs } = await supabase
-      .from('employee_documents')
-      .select('id, employee_id, doc_type, expiry_date')
-      .in('doc_type', ['drivers', 'prdp'])
-      .not('expiry_date', 'is', null);
+    const licenceDocs = licenceRes.data;
 
     for (const doc of licenceDocs || []) {
       if (!doc.expiry_date) continue;
@@ -386,9 +431,7 @@ export async function GET() {
 
     // ─── 12: Document missing (ID / contract / EIF / banking) ───
     const requiredDocTypes = ['id_copy', 'contract', 'eif', 'bank'];
-    const { data: allDocs } = await supabase
-      .from('employee_documents')
-      .select('employee_id, doc_type');
+    const allDocs = allDocsRes.data;
 
     const docsByEmployee = new Map<string, Set<string>>();
     for (const d of allDocs || []) {
@@ -417,13 +460,7 @@ export async function GET() {
     }
 
     // ─── 13: Late-pattern flag (5+ lates in 20 days) ───
-    const twentyDaysAgo = new Date(now);
-    twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
-    const { data: lateRecords } = await supabase
-      .from('attendance')
-      .select('employee_id')
-      .eq('status', 'late')
-      .gte('date', twentyDaysAgo.toISOString().split('T')[0]);
+    const lateRecords = lateRes.data;
 
     const lateCounts = new Map<string, number>();
     for (const r of lateRecords || []) {
@@ -449,11 +486,7 @@ export async function GET() {
 
     // ─── 14: Petty cash shortfall pending (Wednesday preview) ───
     if (dayOfWeek === 3) {
-      // Wednesday
-      const { data: openOuts } = await supabase
-        .from('petty_cash_outs')
-        .select('id, recipient_employee_id, recipient_name_freetext, amount, status')
-        .in('status', ['open', 'partial']);
+      const openOuts = pettyOutsRes.data;
 
       for (const out of openOuts || []) {
         const empName = out.recipient_employee_id
@@ -475,23 +508,15 @@ export async function GET() {
 
     // ─── 15: Tin variance (3+ days) ───
     // Compare expected tin balance vs actual (simplified: sum ins - sum outs)
-    const { data: cashIns } = await supabase
-      .from('petty_cash_ins')
-      .select('amount');
-    const { data: cashOuts } = await supabase
-      .from('petty_cash_outs')
-      .select('amount');
+    const cashIns = cashInRes.data;
+    const cashOuts = cashOutRes.data;
 
     const totalIn = (cashIns || []).reduce((s, r) => s + r.amount, 0);
     const totalOut = (cashOuts || []).reduce((s, r) => s + r.amount, 0);
     const expectedBalance = totalIn - totalOut;
 
     // We check settings for last_tin_count; if variance exists 3+ days, flag it
-    const { data: tinSetting } = await supabase
-      .from('settings')
-      .select('value, updated_at')
-      .eq('key', 'last_tin_count')
-      .single();
+    const tinSetting = tinRes.data;
 
     if (tinSetting) {
       const actualBalance = typeof tinSetting.value === 'number' ? tinSetting.value : 0;
@@ -516,9 +541,7 @@ export async function GET() {
     }
 
     // ─── 16: Public holiday in 7 days ───
-    const { data: holidays } = await supabase
-      .from('public_holidays')
-      .select('date, name');
+    const holidays = holidayRes.data;
 
     for (const h of holidays || []) {
       const days = daysUntil(h.date);
