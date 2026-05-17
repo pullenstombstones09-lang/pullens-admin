@@ -171,6 +171,34 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
+## Status — 17 May 2026 (session complete)
+
+### SESSION WORK (17 May) — FRL closeout + staff list hydration fix
+
+**Account context check:** terminal is back on annikas2022@gmail.com (user reverted from annikas82). All keys in `.env.local` are still valid (annikas2022-era keys never rotated). Supabase MCP servers are bound to the annikas2022 Claude.ai login and only see the YeboPro org — they CANNOT reach the Pullens project (eznppvewksorfoedgzpa) which lives in the annikas82-owned Pullens org. Direct service-role REST works fine for SELECT/INSERT/UPDATE but cannot run DDL. **Workflow consequence: DDL migrations on Pullens must go through the Supabase SQL Editor logged in as annikas82.**
+
+**Done (commits on main, pushed):**
+- Migration 00009 (`ALTER TYPE attendance_status ADD VALUE 'family'`) applied via SQL Editor (annikas82 login). Verified: `attendance?status=eq.family` → HTTP 200.
+- `f1aaf43` — Tasks 8 + 9 from the 15 May plan. `/api/register` POST detects new family rows, FRL precheck via `computeFamilyBalance`, 409 with employee name on exhaustion, then inserts leave + decrements `family_remaining`. GET returns `family_balances`. Register page merges per-employee `family_remaining` and shows inline red warning under the status select when `family && family_remaining <= 0`. 37/37 vitest pass, tsc clean.
+- `7153775` — CLAUDE.md: closed out the 15 May FRL session (Tasks 8+9 shipped).
+- `324be7d` — `src/app/(dashboard)/staff/page.tsx`: fixed hydration error (`<button>` inside `<button>`) on the staff list cards. Outer card wrapper is now `<div role="button">` with Enter/Space keyboard handler; inner "View payslip" button nests legally.
+
+**Loans verification (live state, 17 May):**
+- Loan repayment fix from 16 May is shipped + tested, but **never exercised against the live DB yet**: `loan_deductions` count is still 0. Reason: the only payroll run in the DB is the 4-8 May one, generated 11 May before the fix.
+- 4 active loans currently:
+  - PT? `59b19dcc…` — R500 amount / R300 outstanding / R100 weekly (already progressing — someone has manually decremented this, likely via the new inline edit field)
+  - PT? `f1a6791d…` — R75 / R75 / R75 (one-week loan)
+  - PT? `8ff02ef0…` — R25 / R25 / R25 — **duplicate row #1** (still uncleaned per 16 May leftover)
+  - PT? `8ff02ef0…` — R25 / R25 / R25 — **duplicate row #2**
+- **Action when next payroll runs:** finalize this week's payroll, then verify a row appears in `loan_deductions` and `loans.outstanding` decrements for the three R100 / R75 / R25 employees. That'll be the first real exercise of the 16 May fix.
+
+### New known issues (raised by dev-server log, 17 May)
+
+1. **`/api/alerts` polling loop** — opening any dashboard page triggers `/api/alerts` ~20× in succession at 2.6-3.8s each. Likely a `useEffect` dep issue or unbounded interval somewhere. Not breaking but wastes Supabase row reads and makes the sidebar alert badge feel sluggish. **Investigate when next on dashboard work.**
+2. **Next.js 16 deprecation: `themeColor`** — warnings on `/staff`, `/staff/[id]`, `/login`. The metadata `themeColor` field must move to the new `viewport` export. Not breaking, but will be in a future Next version. Five-minute fix.
+
+---
+
 ## Status — 16 May 2026 (session complete)
 
 ### SESSION WORK (16 May) — loan repayment ledger fix
