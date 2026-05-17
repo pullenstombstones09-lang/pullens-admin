@@ -639,10 +639,18 @@ export default function StaffListPage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((emp) => (
-              <button
+              <div
                 key={emp.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => router.push(`/staff/${emp.id}`)}
-                className="text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] rounded-xl"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(`/staff/${emp.id}`);
+                  }
+                }}
+                className="text-left w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] rounded-xl"
               >
                 <Card padding="md" className="cursor-pointer">
                   <div className="flex items-center gap-3">
@@ -709,7 +717,7 @@ export default function StaffListPage() {
                     <ChevronRight className="h-4 w-4 text-stone-300 shrink-0" />
                   </div>
                 </Card>
-              </button>
+              </div>
             ))}
           </div>
         )}
