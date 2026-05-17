@@ -183,6 +183,11 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - `7153775` — CLAUDE.md: closed out the 15 May FRL session (Tasks 8+9 shipped).
 - `324be7d` — `src/app/(dashboard)/staff/page.tsx`: fixed hydration error (`<button>` inside `<button>`) on the staff list cards. Outer card wrapper is now `<div role="button">` with Enter/Space keyboard handler; inner "View payslip" button nests legally.
 - `6233ac1` — `/api/alerts` parallelized. All 14 Supabase reads now fire via `Promise.all` (only the unsigned-payslip lookup remains serial because it depends on `latestRun.id`). **Measured: 2.6-3.8s → ~280ms hot (~10× faster).** Also moved `themeColor` from `metadata` to the new `viewport` export in `src/app/layout.tsx`, clearing the Next 16 deprecation warning across all dashboard pages.
+- `0f9cb07` — **Loans tab was empty on every employee profile.** Root cause: `loans-tab.tsx` and the loan-chip query in `staff/[id]/page.tsx` were the only components still using the browser Supabase client (anon key) for reads. Every table in this project is RLS-locked from anon (PIN auth doesn't create a Supabase session); the rest of the app routes through `/api/*` with service role. Fixed by creating `src/app/api/loans/route.ts` (GET list / GET summary / POST / PATCH / DELETE) and refactoring loans-tab + the profile badge to use it. Smoke-verified: PT002 Junior shows R500/R300 loan, PT013 Alli shows count=2 (the duplicate R25s).
+
+### Action for next session
+- Open PT013 Alli Yessa's profile → Loans tab → set one of the two R25 outstanding amounts to 0 (inline click-edit) to close the duplicate.
+- Finalize this week's payroll (11-15 May) → verify `loan_deductions` rows appear and `loans.outstanding` decrements for Junior (R100), Enrique (R75), and Alli (R25). That's the first real exercise of the 16 May loan-repayment fix.
 
 **Loans verification (live state, 17 May):**
 - Loan repayment fix from 16 May is shipped + tested, but **never exercised against the live DB yet**: `loan_deductions` count is still 0. Reason: the only payroll run in the DB is the 4-8 May one, generated 11 May before the fix.
