@@ -41,6 +41,7 @@ interface RegisterRow {
   ot_minutes: number;
   reason: string;
   existing_id: string | null; // attendance record id if already saved
+  family_remaining: number;
 }
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
@@ -456,6 +457,11 @@ export default function RegisterPage() {
       late_minutes: number;
       reason: string | null;
     }>;
+    const familyBalances = (data.family_balances ?? []) as Array<{
+      employee_id: string;
+      family_remaining: number;
+    }>;
+    const familyByEmp = new Map(familyBalances.map((b) => [b.employee_id, b.family_remaining]));
 
     const attMap = new Map(attendance.map((a) => [a.employee_id, a]));
 
@@ -526,6 +532,7 @@ export default function RegisterPage() {
           })(),
           reason: existing.reason ?? '',
           existing_id: existing.id,
+          family_remaining: familyByEmp.get(emp.id) ?? 3,
         };
       }
       return {
@@ -542,6 +549,7 @@ export default function RegisterPage() {
         ot_minutes: 0,
         reason: '',
         existing_id: null,
+        family_remaining: familyByEmp.get(emp.id) ?? 3,
       };
     });
 
@@ -1111,6 +1119,11 @@ export default function RegisterPage() {
                             </option>
                           ))}
                         </select>
+                        {row.status === 'family' && row.family_remaining <= 0 && (
+                          <div className="mt-1 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                            No FRL left — owner override required
+                          </div>
+                        )}
                       </td>
 
                       {/* Time In */}

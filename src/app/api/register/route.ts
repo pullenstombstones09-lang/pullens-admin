@@ -1,17 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
+import { computeFamilyBalance } from '@/lib/leave-balance';
 
-export async function GET(request: NextRequest) {
-  const date = request.nextUrl.searchParams.get('date');
-  const showInactive = request.nextUrl.searchParams.get('showInactive') === 'true';
-
-  if (!date) {
-    return Response.json({ error: 'date required' }, { status: 400 });
-  }
-
+async function getSupabase() {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
@@ -21,6 +15,17 @@ export async function GET(request: NextRequest) {
       },
     }
   );
+}
+
+export async function GET(request: NextRequest) {
+  const date = request.nextUrl.searchParams.get('date');
+  const showInactive = request.nextUrl.searchParams.get('showInactive') === 'true';
+
+  if (!date) {
+    return Response.json({ error: 'date required' }, { status: 400 });
+  }
+
+  const supabase = await getSupabase();
 
   const empQuery = supabase
     .from('employees')
@@ -31,32 +36,82 @@ export async function GET(request: NextRequest) {
     empQuery.eq('status', 'active');
   }
 
-  const [empResult, attResult] = await Promise.all([
+  const [empResult, attResult, balResult] = await Promise.all([
     empQuery,
     supabase.from('attendance').select('*').eq('date', date),
+    supabase.from('leave_balances').select('employee_id, family_remaining'),
   ]);
 
   return Response.json({
     employees: empResult.data ?? [],
     attendance: attResult.data ?? [],
+    family_balances: balResult.data ?? [],
   });
 }
 
 export async function POST(request: NextRequest) {
   const { records, date } = await request.json();
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
+  const supabase = await getSupabase();
 
+  // 1. Read existing attendance for this date to detect status TRANSITIONS into 'family'.
+  //    Only newly-family rows trigger leave creation + balance decrement; rows already
+  //    saved as family on a previous save must not double-count.
+  const employeeIds = records.map((r: { employee_id: string }) => r.employee_id);
+  const { data: existing } = await supabase
+    .from('attendance')
+    .select('employee_id, status')
+    .eq('date', date)
+    .in('employee_id', employeeIds);
+
+  const existingStatusByEmp = new Map<string, string>();
+  for (const e of existing ?? []) {
+    existingStatusByEmp.set(e.employee_id, e.status);
+  }
+
+  const newFamilyEmployeeIds: string[] = records
+    .filter((r: { status: string; employee_id: string }) =>
+      r.status === 'family' && existingStatusByEmp.get(r.employee_id) !== 'family'
+    )
+    .map((r: { employee_id: string }) => r.employee_id);
+
+  // 2. FRL precheck — compute on-the-fly from leave history. Reject the whole save if any
+  //    employee would go negative. No partial state.
+  if (newFamilyEmployeeIds.length > 0) {
+    const [leavesResult, empsResult] = await Promise.all([
+      supabase
+        .from('leave')
+        .select('employee_id, leave_type, from_date, to_date, days')
+        .in('employee_id', newFamilyEmployeeIds),
+      supabase
+        .from('employees')
+        .select('id, full_name')
+        .in('id', newFamilyEmployeeIds),
+    ]);
+
+    const nameById = new Map(
+      (empsResult.data ?? []).map((e: { id: string; full_name: string }) => [e.id, e.full_name])
+    );
+
+    for (const empId of newFamilyEmployeeIds) {
+      const empLeaves = (leavesResult.data ?? []).filter(
+        (l: { employee_id: string }) => l.employee_id === empId
+      );
+      const remaining = computeFamilyBalance(empLeaves, new Date());
+      if (remaining < 1) {
+        return Response.json(
+          {
+            error: `${nameById.get(empId) ?? empId} has no family responsibility leave remaining for this cycle.`,
+            code: 'FRL_EXHAUSTED',
+            employee_id: empId,
+          },
+          { status: 409 }
+        );
+      }
+    }
+  }
+
+  // 3. Upsert attendance (existing behaviour, unchanged shape).
   const { error } = await supabase
     .from('attendance')
     .upsert(records, { onConflict: 'employee_id,date' });
@@ -65,23 +120,38 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
+  // 4. For each new family day: insert a leave row + decrement family_remaining.
+  for (const empId of newFamilyEmployeeIds) {
+    await supabase.from('leave').insert({
+      employee_id: empId,
+      leave_type: 'family',
+      from_date: date,
+      to_date: date,
+      days: 1,
+      reason: 'Recorded from register',
+      approved_by: null,
+      approved_at: new Date().toISOString(),
+    });
+
+    const { data: bal } = await supabase
+      .from('leave_balances')
+      .select('family_remaining')
+      .eq('employee_id', empId)
+      .single();
+    const current = bal?.family_remaining ?? 0;
+    await supabase
+      .from('leave_balances')
+      .update({ family_remaining: Math.max(0, current - 1) })
+      .eq('employee_id', empId);
+  }
+
   return Response.json({ success: true });
 }
 
 export async function PATCH(request: NextRequest) {
   const { employeeId, status } = await request.json();
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
+  const supabase = await getSupabase();
 
   const { error } = await supabase
     .from('employees')
@@ -98,17 +168,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const { attendanceId } = await request.json();
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
+  const supabase = await getSupabase();
 
   const { error } = await supabase
     .from('attendance')
