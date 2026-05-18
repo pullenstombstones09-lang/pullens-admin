@@ -1,0 +1,62 @@
+[
+  {
+    "employee_id": "f1a6791d-b5cf-4711-bad1-bb9944ac4604",
+    "date_advanced": "2026-03-17",
+    "amount": 800.00,
+    "weekly_deduction": 100.00,
+    "outstanding": 400.00,
+    "purpose": "Personal loan - back-loaded from WhatsApp ledger 27/04/2026 (R400 repaid by 24/04). PT014 Enrique Munien.",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  },
+  {
+    "employee_id": "73e63cf6-85b9-4906-aa73-45a659b2f1ad",
+    "date_advanced": "2026-03-24",
+    "amount": 800.00,
+    "weekly_deduction": 100.00,
+    "outstanding": 700.00,
+    "purpose": "Personal loan (noted 'Annika') - back-loaded from WhatsApp ledger 27/04/2026 (R100 repaid by 24/04). PT015 Cherylette Rengan.",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  },
+  {
+    "employee_id": "eb9c23f2-0477-4cc6-8c68-2b4c9cabb22a",
+    "date_advanced": "2026-04-24",
+    "amount": 380.00,
+    "weekly_deduction": 100.00,
+    "outstanding": 380.00,
+    "purpose": "Multi-advance ledger residual - back-loaded from WhatsApp ledger 27/04/2026 (slip-not-given notes). PT005 Musa Tibana.",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  },
+  {
+    "employee_id": "03a29f93-f699-4243-8d1d-eaf92bba3af5",
+    "date_advanced": "2026-02-23",
+    "amount": 1000.00,
+    "weekly_deduction": 100.00,
+    "outstanding": 100.00,
+    "purpose": "From Payments 8314/8318 - back-loaded from WhatsApp ledger 27/04/2026 (R900 repaid by 24/04). PT032 Zandile Mchunu.",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  },
+  {
+    "employee_id": "5ca2a84b-61ba-42f0-8160-1151146e84b3",
+    "date_advanced": "2026-02-27",
+    "amount": 3250.00,
+    "weekly_deduction": 200.00,
+    "outstanding": 1850.00,
+    "purpose": "Warning-related loan - back-loaded from WhatsApp ledger 27/04/2026 (R1400 repaid by 24/04). PT026 Philani Mkhize (Polisher).",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  },
+  {
+    "employee_id": "74a30f57-ef30-4fa7-b056-e2b2244d3b44",
+    "date_advanced": "2026-02-02",
+    "amount": 2700.00,
+    "weekly_deduction": 200.00,
+    "outstanding": 1300.00,
+    "purpose": "Allandale advance + labour adjustments - back-loaded from WhatsApp ledger 27/04/2026 (R1400 net repaid by 24/04). PT034 Mlindeni Joel Lamula.",
+    "auto_generated_from_petty": false,
+    "status": "active"
+  }
+]

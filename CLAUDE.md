@@ -171,6 +171,46 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
+## Status — 18 May 2026 (loan ledger back-load, no commit yet)
+
+### SESSION WORK (18 May) — WhatsApp loan ledger back-load
+
+**Context:** 22 WhatsApp photos in `Loans/` were the source-of-truth handwritten loan ledger as of 27 Apr 2026. Annika confirmed the unmatched names belong to Granite Gallery (not Pullens) and should be skipped here. Goal: clear the historical Excel-era "Issue 2" (loans table empty per 14 May CLAUDE.md note) by back-loading only the Pullens employees we can confidently match, then let the 16 May loan-repayment fix carry them forward.
+
+**Closed (DB UPDATE) — 2× Alli Yessa R25 test loans set to status=closed, outstanding=0:**
+- `319430c1...` (07/05, original test from petty cash flow)
+- `50672be5...` (11/05, duplicate from re-firing — no dedup key yet)
+
+**Inserted (DB INSERT) — 6 new active loans, payload stored at `scripts/loan-backload-inserts.json` for audit:**
+
+| PT | Employee | Amount | Outstanding | Weekly | Source date | Loan ID (prefix) |
+|---|---|---|---|---|---|---|
+| PT005 | Musa Tibana | R380 | R380 | R100 | 2026-04-24 | `09ee7357` |
+| PT014 | Enrique Munien (2nd loan) | R800 | R400 | R100 | 2026-03-17 | `775e10f6` |
+| PT015 | Cherylette Rengan | R800 | R700 | R100 | 2026-03-24 | `a42fea8e` |
+| PT026 | Philani Mkhize (Polisher) | R3250 | R1850 | R200 | 2026-02-27 | `28960c40` |
+| PT032 | Zandile Mchunu | R1000 | R100 | R100 | 2026-02-23 | `95f54984` |
+| PT034 | Mlindeni Joel Lamula (Allandale) | R2700 | R1300 | R200 | 2026-02-02 | `10daa034` |
+
+**Skipped — 16 Granite Gallery / contractor names** (per Annika's call): Phumlani, Khulekani, Thokozani, Innocent, Mncedi, Spha, Razak, Albert, Umar, Yusuf, Juma, Molefe, Thobe, Reuben, Shaffie, and Ali Yessa's old paid-off entries. These belong in Granite Gallery's admin DB when that project is seeded.
+
+**Live state after back-load (8 active loans, R5,105 total outstanding):**
+- PT002 Junior Sithole — R300 (R100/wk) — pre-existing manual emergency advance
+- PT005 Musa Tibana — R380 (R100/wk) — back-loaded
+- PT014 Enrique Munien — R400 + R75 (R100/wk + R75/wk) — back-loaded + pre-existing petty
+- PT015 Cherylette Rengan — R700 (R100/wk) — back-loaded
+- PT026 Philani Mkhize — R1850 (R200/wk) — back-loaded
+- PT032 Zandile Mchunu — R100 (R100/wk) — back-loaded, closes on next finalize
+- PT034 Mlindeni Joel Lamula — R1300 (R200/wk) — back-loaded
+
+**Next action:** running the 11-15 May payroll and clicking Generate Payslips will be the first real exercise of the 16 May loan-repayment fix. Expect 8 `loan_deductions` rows and matching `loans.outstanding` decrements; Zandile and Enrique-petty should auto-close at R0. Marlyn-Friday-OT-rollover risk from 15 May still applies (no row in `friday_ot_rollovers` for source_friday=2026-05-08).
+
+**Note on petty-cash duplicate prevention:** the auto-generate-loan-from-petty flow still has no dedup key. Annika's 11/05 re-fire created the second Alli R25. Address before next petty-cash transfer (out of scope this session).
+
+**No commit yet** — payload JSON files under `scripts/` are also still untracked. Stage and commit together when ready.
+
+---
+
 ## Status — 17 May 2026 (session complete, head at `8b0341d`)
 
 ### Account context
