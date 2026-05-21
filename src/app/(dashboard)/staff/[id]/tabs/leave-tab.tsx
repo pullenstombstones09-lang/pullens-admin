@@ -58,7 +58,10 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
   // Record leave panel
   const [showRecordLeave, setShowRecordLeave] = useState(false);
   const [leaveForm, setLeaveForm] = useState(EMPTY_FORM);
+  const [certFile, setCertFile] = useState<File | null>(null);
   const [savingLeave, setSavingLeave] = useState(false);
+
+  const certEligible = leaveForm.type === 'sick' || leaveForm.type === 'family';
 
   const fetchLeave = useCallback(async () => {
     const [balRes, leaveRes] = await Promise.all([
@@ -105,19 +108,33 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
   const handleSaveLeave = async () => {
     setSavingLeave(true);
 
-    const res = await fetch('/api/leave', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        employee_id: employeeId,
-        leave_type: leaveForm.type,
-        from_date: leaveForm.from_date,
-        to_date: leaveForm.to_date,
-        reason: leaveForm.reason || null,
-        approved_by: user?.name ?? null,
-        source: 'leave-tab',
-      }),
-    });
+    let res: Response;
+    if (certEligible && certFile) {
+      const fd = new FormData();
+      fd.append('employee_id', employeeId);
+      fd.append('leave_type', leaveForm.type);
+      fd.append('from_date', leaveForm.from_date);
+      fd.append('to_date', leaveForm.to_date);
+      if (leaveForm.reason) fd.append('reason', leaveForm.reason);
+      if (user?.name) fd.append('approved_by', user.name);
+      fd.append('source', 'leave-tab');
+      fd.append('cert', certFile);
+      res = await fetch('/api/leave', { method: 'POST', body: fd });
+    } else {
+      res = await fetch('/api/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: employeeId,
+          leave_type: leaveForm.type,
+          from_date: leaveForm.from_date,
+          to_date: leaveForm.to_date,
+          reason: leaveForm.reason || null,
+          approved_by: user?.name ?? null,
+          source: 'leave-tab',
+        }),
+      });
+    }
 
     const payload = await res.json();
     if (!res.ok) {
@@ -126,9 +143,14 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       return;
     }
 
+    if (payload.cert_upload_failed) {
+      toast('error', 'Leave saved but certificate upload failed — try re-uploading.');
+    }
+
     setSavingLeave(false);
     setShowRecordLeave(false);
     setLeaveForm(EMPTY_FORM);
+    setCertFile(null);
     fetchLeave();
 
     showUndo('Leave recorded', async () => {
@@ -284,13 +306,17 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
       )}
 
       {/* Record Leave slide panel */}
-      <SlidePanel open={showRecordLeave} onClose={() => setShowRecordLeave(false)} title="Record Leave">
+      <SlidePanel open={showRecordLeave} onClose={() => { setShowRecordLeave(false); setCertFile(null); }} title="Record Leave">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
             <select
               value={leaveForm.type}
-              onChange={(e) => setLeaveForm((prev) => ({ ...prev, type: e.target.value }))}
+              onChange={(e) => {
+                const next = e.target.value;
+                setLeaveForm((prev) => ({ ...prev, type: next }));
+                if (next !== 'sick' && next !== 'family') setCertFile(null);
+              }}
               className="w-full h-11 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[#3B82F6]/40 focus:outline-none"
             >
               <option value="annual">Annual Leave</option>
@@ -331,6 +357,27 @@ export default function LeaveTab({ employeeId }: LeaveTabProps) {
               placeholder="Optional reason"
             />
           </div>
+
+          {certEligible && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {leaveForm.type === 'sick' ? 'Medical Certificate' : 'Supporting Document'}
+                <span className="text-stone-400 font-normal"> (optional)</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                onChange={(e) => setCertFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-stone-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-[#1E40AF] file:font-medium hover:file:bg-blue-100 file:cursor-pointer"
+              />
+              {certFile && (
+                <p className="text-xs text-stone-500 mt-1 truncate">
+                  {certFile.name} ({(certFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+          )}
 
           <button
             disabled={!leaveForm.from_date || !leaveForm.to_date || savingLeave}

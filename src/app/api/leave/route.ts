@@ -20,32 +20,49 @@ async function getSupabase() {
 
 /**
  * POST /api/leave
- * Body: { employee_id, leave_type, from_date, to_date, reason?, approved_by?, override?, source? }
+ * Accepts JSON or multipart/form-data with the same field names plus an optional `cert` file
+ * (sick/family certificate photo or PDF).
  * Inserts a leave row, creates attendance rows for each day (excluding Sundays),
  * and decrements the matching _remaining column on leave_balances.
  * Returns 409 if family balance would go negative and override is not true.
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const {
-    employee_id,
-    leave_type,
-    from_date,
-    to_date,
-    reason,
-    approved_by,
-    override,
-    source, // optional, e.g. 'register' or 'leave-tab' (audit only)
-  } = body as {
-    employee_id: string;
-    leave_type: LeaveType;
-    from_date: string;
-    to_date: string;
-    reason?: string;
-    approved_by?: string;
-    override?: boolean;
-    source?: string;
-  };
+  const contentType = request.headers.get('content-type') || '';
+  let employee_id: string;
+  let leave_type: LeaveType;
+  let from_date: string;
+  let to_date: string;
+  let reason: string | undefined;
+  let approved_by: string | undefined;
+  let override: boolean | undefined;
+  let source: string | undefined;
+  let certFile: File | null = null;
+
+  if (contentType.includes('multipart/form-data')) {
+    const form = await request.formData();
+    employee_id = (form.get('employee_id') as string) || '';
+    leave_type = (form.get('leave_type') as LeaveType) || ('annual' as LeaveType);
+    from_date = (form.get('from_date') as string) || '';
+    to_date = (form.get('to_date') as string) || '';
+    reason = (form.get('reason') as string) || undefined;
+    approved_by = (form.get('approved_by') as string) || undefined;
+    override = form.get('override') === 'true';
+    source = (form.get('source') as string) || undefined;
+    const f = form.get('cert');
+    if (f instanceof File && f.size > 0) certFile = f;
+  } else {
+    const body = await request.json();
+    ({ employee_id, leave_type, from_date, to_date, reason, approved_by, override, source } = body as {
+      employee_id: string;
+      leave_type: LeaveType;
+      from_date: string;
+      to_date: string;
+      reason?: string;
+      approved_by?: string;
+      override?: boolean;
+      source?: string;
+    });
+  }
 
   if (!employee_id || !leave_type || !from_date || !to_date) {
     return Response.json({ error: 'employee_id, leave_type, from_date, to_date are required' }, { status: 400 });
@@ -92,6 +109,33 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: leaveError?.message || 'Failed to insert leave' }, { status: 500 });
   }
 
+  // Optional certificate upload (sick/family). Failure here does not fail the request —
+  // the leave row is already saved; we return a flag so the UI can surface the upload issue.
+  let cert_upload_failed = false;
+  if (certFile) {
+    const ext = (certFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `leave-certs/${leaveRow.id}.${ext}`;
+    const arrayBuffer = await certFile.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(path, buffer, { upsert: true, contentType: certFile.type || 'application/octet-stream' });
+    if (uploadError) {
+      console.error('Leave cert upload error:', uploadError);
+      cert_upload_failed = true;
+    } else {
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+      const cert_url = `${urlData.publicUrl}?t=${Date.now()}`;
+      const { data: updated } = await supabase
+        .from('leave')
+        .update({ medical_cert_url: cert_url })
+        .eq('id', leaveRow.id)
+        .select()
+        .single();
+      if (updated) Object.assign(leaveRow, updated);
+    }
+  }
+
   // Create attendance rows (excluding Sundays)
   const attendanceRows: Array<{ employee_id: string; date: string; status: string; time_in: null; time_out: null; late_minutes: number; reason: string | null }> = [];
   const cur = new Date(from_date + 'T00:00:00');
@@ -136,7 +180,7 @@ export async function POST(request: NextRequest) {
       .eq('employee_id', employee_id);
   }
 
-  return Response.json({ leave: leaveRow, days });
+  return Response.json({ leave: leaveRow, days, cert_upload_failed });
 }
 
 /**
