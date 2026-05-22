@@ -193,7 +193,7 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Ladysmith (1): PT039 Lungiswa Mpambane (confirmed PT039 via direct DB query — was missing from `seed-employees.ts`)
 - Durban (0): planned earlier, no staff actually based there
 
-**Shipped (on `main`, pushed in this commit):**
+**Shipped — commit `702f8c1` on `main`, pushed to GitHub. Vercel auto-deploying. Same push also delivered the two 21 May commits (`5d11092` NMW uplift, `a4996ec` leave-cert) that had been sitting locally.**
 - Migrations 00010 + 00011 — applied to live Pullens Supabase via SQL Editor (annikas82 login)
 - `src/lib/biometric-derive.ts` — pure `deriveAttendance()` from events → time_in/time_out. Sorts by ISO time, treats events <5min apart as double-scans (time_in only). 12/12 vitest pass.
 - `src/app/api/biometric/event/route.ts` — Basic-auth webhook. Filters `majorEventType=5,subEventType=75` (face match). Dedupes by `(device_id, device_serial)`. Looks up employee by `biometric_id`. Re-derives attendance for `(employee, event_date)` after each event. **Never overwrites manual entries** — if `time_in_source='manual'`, biometric doesn't touch `time_in` (same for out).
@@ -216,7 +216,7 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Apply Gugu Thursday 14-May sick once cert photo available.
 - Get Lucky's specific half-day-day; correct attendance.
 - Loan ledger reconciliation (Aaron, Thabiso, Sipho Dion gaps).
-- Push the 2 unpushed commits from 21 May (`a4996ec`, `5d11092`) — they'll go in this commit's push if not already up.
+- ~~Push the 2 unpushed commits~~ — done as part of 22 May push.
 
 ---
 
