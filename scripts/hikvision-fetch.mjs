@@ -199,7 +199,7 @@ async function fetchUsers() {
     const infoList = cond.UserInfo || [];
     all.push(...infoList);
     position += infoList.length;
-    if (cond.responseStatusStrg === 'NO MATCH' || infoList.length < pageSize) break;
+    if (cond.responseStatusStrg === 'NO MATCH' || cond.responseStatusStrg === 'OK' || infoList.length === 0) break;
   }
 
   return all;
