@@ -190,7 +190,7 @@ export default function PayrollReviewPage() {
         const attArray: Attendance[] = [];
         for (const [date, record] of empAtt) {
           const dayOfWeek = new Date(date + 'T00:00:00').getDay();
-          if (dayOfWeek === 6 && (emp.weekly_hours || 40) < 45) continue;
+          if (dayOfWeek === 6 && (emp.weekly_hours || 40) < 44) continue;
           attArray.push(record);
         }
 
@@ -237,7 +237,7 @@ export default function PayrollReviewPage() {
     const attArray: Attendance[] = [];
     for (const [date, record] of row.attendance) {
       const dayOfWeek = new Date(date + 'T00:00:00').getDay();
-      if (dayOfWeek === 6 && (row.employee.weekly_hours || 40) < 45) continue;
+      if (dayOfWeek === 6 && (row.employee.weekly_hours || 40) < 44) continue;
       attArray.push(record);
     }
 
@@ -447,7 +447,7 @@ export default function PayrollReviewPage() {
     if (row.payroll.net < 0) return true;
     if (row.payroll.ordinary_hours === 0) return true;
     // Missing attendance days
-    const expectedDays = (row.employee.weekly_hours || 40) >= 45 ? 6 : 5;
+    const expectedDays = (row.employee.weekly_hours || 40) >= 44 ? 6 : 5;
     if (row.attendance.size < expectedDays) return true;
     return false;
   }
@@ -455,7 +455,7 @@ export default function PayrollReviewPage() {
   // ── Render helpers ─────────────────────────────────────────────────────
 
   function renderDayCell(row: EmployeePayRow, date: string, dayIdx: number) {
-    const is45hr = (row.employee.weekly_hours || 40) >= 45;
+    const is45hr = (row.employee.weekly_hours || 40) >= 44;
     const isSat = dayIdx === 5;
 
     // Saturday greyed out for 40hr staff
@@ -896,7 +896,7 @@ export default function PayrollReviewPage() {
                 if (row.payroll.net < 0) reasons.push('Negative net pay');
                 if (row.payroll.ordinary_hours === 0) reasons.push('Zero hours');
               }
-              const expectedDays = (row.employee.weekly_hours || 40) >= 45 ? 6 : 5;
+              const expectedDays = (row.employee.weekly_hours || 40) >= 44 ? 6 : 5;
               if (row.attendance.size < expectedDays) {
                 reasons.push(`Missing attendance (${row.attendance.size}/${expectedDays} days)`);
               }

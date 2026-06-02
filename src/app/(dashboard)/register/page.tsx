@@ -119,10 +119,10 @@ function getDefaultTimes(dateStr: string, weeklyHours: number): {
 } {
   const day = new Date(dateStr + 'T00:00:00').getDay();
 
-  // Saturday: only 45hr staff work
+  // Saturday: only sales staff work (44h, 09:00-13:00)
   if (day === 6) {
-    if (weeklyHours >= 45) {
-      return { status: 'present', time_in: '08:00', time_out: '13:00' };
+    if (weeklyHours >= 44) {
+      return { status: 'present', time_in: '09:00', time_out: '13:00' };
     }
     return { status: 'absent', time_in: '', time_out: '' };
   }
@@ -210,7 +210,7 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
     let total = 0
     for (const emp of employees) {
       const isSatDay = dayIdx === 5
-      const is45hr = (emp.weekly_hours || 40) >= 45
+      const is45hr = (emp.weekly_hours || 40) >= 44
       if (isSatDay && !is45hr) continue // skip 40hr staff on Saturday
       total++
       if (data.get(emp.id)?.get(d)) captured++
@@ -251,7 +251,7 @@ function WeekGrid({ weekStart, onSelectDay, onSelectEmployee, readOnly = false }
 
       {/* Employee rows */}
       {employees.map(emp => {
-        const is45hr = (emp.weekly_hours || 40) >= 45
+        const is45hr = (emp.weekly_hours || 40) >= 44
         const empDays = is45hr ? days : days.slice(0, 5) // 40hr = Mon-Fri only
         const weekComplete = empDays.every(d => data.get(emp.id)?.get(d))
         return (
