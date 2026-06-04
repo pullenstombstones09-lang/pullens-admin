@@ -18,7 +18,6 @@ import { PayslipViewer } from '@/components/ui/payslip-viewer';
 import type { Employee, AttendanceStatus } from '@/types/database';
 import {
   Save,
-  Clock,
   Users,
   Download,
 } from 'lucide-react';
@@ -82,19 +81,6 @@ function toDateString(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-function getPrevFridayISO(today: Date = new Date()): string {
-  // Most-recent prior Friday = Monday of this week - 3 days
-  const t = new Date(today);
-  t.setHours(0, 0, 0, 0);
-  const dow = t.getDay(); // 0=Sun .. 6=Sat
-  const daysSinceMonday = (dow + 6) % 7; // Mon=0, Tue=1, ... Sun=6
-  const monday = new Date(t);
-  monday.setDate(t.getDate() - daysSinceMonday);
-  const prevFri = new Date(monday);
-  prevFri.setDate(monday.getDate() - 3);
-  return toDateString(prevFri);
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -429,8 +415,6 @@ export default function RegisterPage() {
 
   const isOwner = user?.role === 'owner';
   const isClerk = user?.role === 'attendance_clerk';
-  const prevFridayISO = getPrevFridayISO();
-  const isPrevFridayForClerk = isClerk && selectedDate === prevFridayISO;
   const canEdit = user ? hasPermission(user.role, 'edit_register') : false;
   // Edit window: today + yesterday for staff, owner can always edit
   const today = new Date();
@@ -637,12 +621,14 @@ export default function RegisterPage() {
 
       row.late_deduction = computeLateDeduction(row.late_minutes, row.weekly_wage);
 
-      // Auto-detect overtime from time_out (after 17:00)
+      // Auto-detect overtime from time_out — day-aware cutoff
+      // Mon-Thu 17:00, Fri 16:00, Sat 13:00
       if (row.time_out && (row.status === 'present' || row.status === 'late')) {
         const [h, m] = row.time_out.split(':').map(Number);
         const totalMin = h * 60 + m;
-        const fivePM = 17 * 60;
-        row.ot_minutes = totalMin > fivePM ? totalMin - fivePM : 0;
+        const dow = new Date(selectedDate + 'T00:00:00').getDay(); // 0=Sun..6=Sat
+        const cutoff = dow === 6 ? 13 * 60 : dow === 5 ? 16 * 60 : 17 * 60;
+        row.ot_minutes = totalMin > cutoff ? totalMin - cutoff : 0;
       } else {
         row.ot_minutes = 0;
       }
@@ -837,14 +823,12 @@ export default function RegisterPage() {
               value={selectedDate}
               max={toDateString(new Date())}
               min={
-                user?.role === 'owner'
+                user?.role === 'owner' || isClerk
                   ? undefined
-                  : isClerk
-                    ? prevFridayISO
-                    : (() => {
-                        const mon = startOfWeek(new Date(), { weekStartsOn: 1 });
-                        return toDateString(mon);
-                      })()
+                  : (() => {
+                      const mon = startOfWeek(new Date(), { weekStartsOn: 1 });
+                      return toDateString(mon);
+                    })()
               }
               onChange={(e) => {
                 const picked = new Date(e.target.value + 'T00:00:00')
@@ -854,17 +838,8 @@ export default function RegisterPage() {
                   toast('error', 'Cannot capture register for a future date')
                   return
                 }
-                // Clerk: allow prev Friday OR any day in current week
-                if (isClerk) {
-                  const monThisWeek = startOfWeek(today, { weekStartsOn: 1 });
-                  const isPrevFri = e.target.value === prevFridayISO;
-                  const isCurrentWeek = picked >= monThisWeek;
-                  if (!isPrevFri && !isCurrentWeek) {
-                    toast('error', 'You can only edit the previous Friday or days in the current week');
-                    return;
-                  }
-                } else if (user?.role !== 'owner') {
-                  // Other non-owner roles: current week only
+                // Non-owner / non-clerk roles: current week only
+                if (user?.role !== 'owner' && !isClerk) {
                   const mon = startOfWeek(today, { weekStartsOn: 1 });
                   if (picked < mon) {
                     toast('error', 'You can only capture register for the current week');
@@ -905,15 +880,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </Card>}
-
-      {activeTab === 'day' && isPrevFridayForClerk && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-3 flex items-center gap-3">
-          <Clock className="h-5 w-5 text-amber-600 shrink-0" />
-          <p className="text-sm text-amber-900">
-            <strong>Previous Friday — Time Out only.</strong> All other fields are locked. Edit them on the day they occurred.
-          </p>
-        </div>
-      )}
 
       {/* Week grid view — read-only at-a-glance, tap cell to edit in day view */}
       {activeTab === 'week' && (
@@ -1102,7 +1068,7 @@ export default function RegisterPage() {
                       <td className="px-3 py-2">
                         <select
                           value={row.status}
-                          disabled={!canEdit || editLocked || isPrevFridayForClerk}
+                          disabled={!canEdit || editLocked}
                           onChange={(e) =>
                             updateRow(idx, { status: e.target.value as AttendanceStatus })
                           }
@@ -1133,7 +1099,7 @@ export default function RegisterPage() {
                         ) : (
                           <TimePicker
                             value={row.time_in || ''}
-                            disabled={!canEdit || editLocked || isPrevFridayForClerk}
+                            disabled={!canEdit || editLocked}
                             onChange={(val) => updateRow(idx, { time_in: val })}
                           />
                         )}
@@ -1160,7 +1126,7 @@ export default function RegisterPage() {
                               type="number"
                               min={0}
                               value={row.late_minutes}
-                              disabled={!canEdit || editLocked || isPrevFridayForClerk}
+                              disabled={!canEdit || editLocked}
                               onChange={(e) =>
                                 updateRow(idx, {
                                   late_minutes: parseInt(e.target.value) || 0,
@@ -1210,7 +1176,7 @@ export default function RegisterPage() {
                         <input
                           type="text"
                           value={row.reason}
-                          disabled={!canEdit || editLocked || isPrevFridayForClerk}
+                          disabled={!canEdit || editLocked}
                           placeholder={
                             row.status === 'absent' || row.status === 'late'
                               ? 'Reason required'
