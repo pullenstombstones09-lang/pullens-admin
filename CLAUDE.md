@@ -58,6 +58,10 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 19. Attendance flows from biometric (HikVision DS-K1T343MWX, push-only via `POST /api/biometric/event`) where possible; manual register entry is the fallback for off-Allandale staff and any day the device misses. The `attendance.time_in_source` / `time_out_source` columns track which channel filled each value, and the webhook never overwrites a manual entry. (22 May 2026)
 20. Each employee gets ONE `biometric_id` (text) stored on `employees`, joined against `event.employeeNoString`. Devices retain whatever numeric scheme they were enrolled with (9xxx) — we don't rewrite device codes when assigning a new PT code. When a person needs to be enrolled at a new site, use the same `biometric_id` on the new device. (22 May 2026)
 21. Sites: `allandale`, `pinetown`, `durban`, `church_street`, `ladysmith`. `employees.site` is a text+check column, not an enum, so it's extensible without ALTER TYPE. Used by the register UI to indicate manual-only rows, and by future routing if multiple devices share the same webhook. (22 May 2026)
+22. Attendance clerk has the same register edit rights as owner — any past date, all fields editable. The original "prev-Friday `time_out` only" lock from decision #19 (15 May) was removed 4 June 2026 because Cheryl needed to correct biometric anomalies from prior weeks; the staged workflow proved more restrictive than the bookkeeper-driven correction reality demanded. Bookkeeper/supervisor roles still restricted to the current week. (4 June 2026)
+23. Register save (`POST /api/register`) stamps `time_in_source` / `time_out_source = 'manual'` ONLY on fields whose values changed vs. the existing DB row. Passive re-saves preserve `biometric` source so future scans for the same day still flow in. This is what enforces decision #19's "webhook never overwrites manual" contract — previously the contract was honoured by the webhook but never set by the register. (4 June 2026)
+24. Day-view OT auto-detect in the register uses day-aware cutoffs (Mon-Thu 17:00, Fri 16:00, Sat 13:00) matching the WeekGrid and engine v2. Was previously hardcoded to 17:00 for every day, causing the day-view OT badge to under-count Friday OT by 60 min. Cosmetic only — engine ignored the cached field. (4 June 2026)
+25. End-of-employment is tiered: `resigned`, `absconded`, `dismissed`, `retrenched`, `retired`, `deceased`. `terminated` retained as a legacy umbrella for historic rows. Three context columns on `employees`: `termination_date` (DATE — last working day), `termination_reason` (TEXT free-text), `termination_doc_id` (UUID FK to `employee_documents`, ON DELETE SET NULL). Staff profile shows a red banner with the formatted date, reason, and click-to-download link to the source document when status is any end state. Per locked decision #19's spirit, the register's binary toggle now sets `inactive` (not `terminated`) since true terminations need date+reason+doc and go through the profile. Migration 00012. (4 June 2026)
 
 ## Key Infrastructure
 
@@ -173,6 +177,86 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Payroll API: `src/app/api/payroll/run/route.ts`, `src/app/api/payroll/recalculate/route.ts`
 - Loans table: schema in `supabase/migrations/00002_create_core_tables.sql`
 - Attendance: register page `src/app/(dashboard)/register/`
+
+---
+
+## Status — 4 June 2026 (register unlock + manual-source flag + tiered termination shipped; migration 00012 NOT YET applied to live DB)
+
+### SESSION WORK (4 June)
+
+**Register fixes — commits `0fd7ba4` + `1b4eb0b` on `main`, pushed.**
+- **Clerk unlock (`0fd7ba4`)**: removed the prev-Friday-only date / field lock for `attendance_clerk` so Cheryl can correct biometric anomalies from prior weeks. Same date range and field access as owner now. Also fixed Friday OT cutoff in the day-view auto-detect (was hardcoded 17:00 → now day-aware 17/16/13). Both were blockers for the live test Annika was about to start.
+- **Manual source flag (`1b4eb0b`)**: `POST /api/register` now compares each upserted row's `time_in` / `time_out` against the existing DB value and stamps `_source='manual'` only on the side that changed. Passive saves preserve `'biometric'`. This closes a real bug — the webhook had the "manual wins" check from day one (22 May, see decision #19) but no code ever set `'manual'`. Any historic manual fix was relying on the 24h staleness window of the webhook, not actual contract enforcement.
+
+**Documents tab UX — commit `6e12cd1` on `main`, pushed.**
+- Whole left side of each document card is now the click target (not just the small external-link icon).
+- Force download via Supabase Storage's `?download=<filename>` query — without it, browsers try to render .docx inline and silently fail. Verified `Content-Disposition: attachment` is returned.
+- Notes line bumped to `text-stone-600` and un-truncated so the descriptive line under "Other Document" is readable (matters for the resignation letter card which only has meaningful info in the notes).
+- Overview tab missing-doc banner: `EIF` relabelled to `Employee Information Form (EIF)` so the acronym is self-explanatory.
+
+**Termination feature — commit `d908755` on `main`, pushed. Migration 00012 NOT YET applied to live DB.**
+- Tiered `employee_status` enum: kept `active`/`inactive`/`suspended`/`terminated` (legacy umbrella), added `resigned`/`absconded`/`dismissed`/`retrenched`/`retired`/`deceased`. Three new columns on `employees`: `termination_date`, `termination_reason`, `termination_doc_id`.
+- Inline `<TerminationBanner>` in `staff/[id]/page.tsx` renders under the status chips when status is any end state. Shows formatted last working day, reason, and a clickable "View letter / notice" link that downloads the linked document. Doc URL fetched in the same `load()` pass.
+- Register `toggleEmployeeStatus` now sets `inactive` (not `terminated`) — true terminations require date+reason+doc and go through the profile.
+- TS types in `src/types/database.ts` updated to mirror schema.
+- Migration 00012 also retrofits PT023 Faith Nxele: `terminated` → `resigned`, last working day `2026-05-22`, reason "Personal reasons (immediate effect per letter dated 2026-05-24)", `termination_doc_id` linked to her uploaded resignation letter.
+
+**Faith Nxele (PT023) — out-of-band status flip applied 4 June via `scripts/faith-resignation.mjs`.**
+- Uploaded resignation letter to her Documents tab (file in storage at `documents/employees/cf598caa-2fff-4e97-914e-d2cbc32dadcd/other_resignation_1780569447368.docx`).
+- Inserted `employee_documents` row id `3e978014-e275-4c0b-b7a5-5495937503e1` with `doc_type='other'`, notes describing the resignation.
+- Set `employees.status='terminated'` directly (the migration will flip it to `resigned` with full context once applied).
+- Letter received via WhatsApp from Annika 4 June; text confirmed via PowerShell docx unpack: signed 24 May 2026, immediate effect, "personal reasons", will return uniform.
+- Script left at `scripts/faith-resignation.mjs` (untracked, gitignore-friendly — contains no secrets in itself but loads .env.local).
+
+### CARRIED OVER from 2 June (no progress 4 June)
+- Register parse for 18-29 May from the 4 WhatsApp photos still in `scripts/register-parse-18-29-may.json` awaiting Annika's decisions on the 6.00 PM-shorthand, 25-26 May anomalous early times, unmapped names (NIKKIE/VUMEKILE/etc.), and the LUNGI/FAITH on Allandale register question.
+- Biometric cross-check for 27/28/29 May vs photos still not executed.
+- Sat 23 May attendance still shows all 39 staff absent (auto-skeleton default); 6 sales staff need actual data once Annika confirms.
+- 11-15 May payroll loan-repayment fix (16 May) still hasn't fired against a live finalize — next finalize will be the first exercise.
+
+### TODO — next session
+1. **Apply migration 00012** to live Pullens Supabase via SQL Editor (annikas82 login). Verify Faith's row: status='resigned', termination_date='2026-05-22', termination_doc_id non-null.
+2. Refresh Faith's profile after migration — confirm red banner renders with "View letter / notice" link working.
+3. Resume the 18-29 May register parse decisions Annika committed to "tomorrow" on 2 June.
+4. Upload Cheryl + others' sick notes via the leave-cert multipart flow (21 May shipped, still untested in browser per the 21 May TODO list).
+5. Upload Enrique's FRL doc (same path).
+6. Run 18-22 May payroll once register is signed off.
+7. Consider giving Claude a Supabase Personal Access Token or DB URL so future DDL migrations don't need manual paste (blocker today — only Annika could apply 00012).
+
+---
+
+## Status — 2 June 2026 (sales-Sat 44h fix shipped; register parse for 18-29 May awaiting sign-off)
+
+### SESSION WORK (2 June)
+
+**Sales staff Saturday bug — fixed, deployed (`ff43c8b` on main, Vercel READY).**
+Engine v2 (14 May) changed sales staff `weekly_hours` to 44, but the register page + payroll review page were still gating sales-Sat rendering on `>= 45`. Result: 6 sales staff (PT008/012/023/024/028/032) were hidden on Saturday and could not be marked present, exactly what Annika hit when entering 18-22 May. Fixed all 8 occurrences across `src/app/(dashboard)/register/page.tsx` and `src/app/(dashboard)/payroll/review/page.tsx` — changed `>= 45` → `>= 44`, `< 45` → `< 44`, and updated the default Saturday IN time for sales staff from 08:00 to 09:00 (matches the locked Sat 9-1 window). `tsc --noEmit` clean. Sat 23 May still shows everyone as absent because that data was entered before the fix — needs manual correction for the 6 sales staff after Annika confirms attendance.
+
+**Register data state for 18-29 May (DISCOVERED on 2 June):**
+- **18-22 May + 25-26 May** are already in the DB but with SYSTEM DEFAULTS (everyone 08:00 → 17:00 Mon-Thu / 08:00 → 16:00 Fri). No OT captured, no status changes. Same OT-under-count pattern that cost R791 in the 11-15 May Excel diff.
+- **Sat 23 May** — all 39 staff marked absent (1 leave) by the auto-skeleton. The 6 sales staff were hidden by the `>= 45` bug.
+- **27, 28, 29 May** — partial biometric data (11 / 29 / 29 rows respectively). Remote staff (Pinetown PT024/028/029, Church St PT023/032, Ladysmith PT039) and unenrolled Allandale are missing entirely.
+
+**Register parse from 4 WhatsApp photos — saved, NOT yet applied.**
+Annika sent 4 register photos (`C:\Users\Annika\Desktop\Personal\School\WhatsApp Image 2026-06-02 at 16.36.42*.jpeg`) covering both weeks. Parsed and saved to `scripts/register-parse-18-29-may.json` — ~110 cell updates proposed (mostly OT `time_out` additions). Decisions Annika still needs to confirm tomorrow before write:
+1. **"6.00" PM-shorthand** — many Mon 25 OUT cells show "6.00" which I'm interpreting as 18:00 (PM). Annika: "will confirm the 6.00 question".
+2. **Tue 26 May "05:30 / 08:10" pattern** for Musa, Thabani, Xolani — pre-dawn shift then home? Or OCR misread? Same day Aaron/Ali/Cosmos/Tisso/David/Ayanda show 05:30 → 20:10 full long days.
+3. **Unmapped names on register** — NIKKIE, VUMEKILE/VUMANI, THANDANANI, ERIC, ARNOLD, UNDI. VUMEKILE and THANDANANI have real OT entries → decisions needed. Possibly Granite Gallery staff bleeding into Pullens register.
+4. **ALBERT row 14** — treating as PT018 Thabiso per 22 May device-mislabel note.
+5. **LUNGI / FAITH on Allandale register** — PT039 (Ladysmith) and PT023 (Church St) both appear on the Allandale page. Were they at Allandale that week?
+6. **Status changes flagged**: Thabani sick Mon 18 (cert), Ayanda sick Mon 18, Cheryl sick Wed/Thu/Fri 20-22 (no cert noted), Marlyn family Thu 21 / absent Fri 22, Sipho Cyprian absent Mon 25, Sibusiso absent Mon 25, Cheryl sick Wed 27, Thilen FRL Thu 28.
+
+**Rounding policy chosen for this parse:** 5-minute (e.g. 18:33 → 18:35, 19:22 → 19:20).
+
+**Biometric rule for 27-29 May:** do NOT override biometric rows. Cross-check photo vs biometric, flag delta ≥ 15 min. Cross-check not yet executed — pending sign-off.
+
+### TODO — tomorrow (3 June)
+1. **Confirm 6.00 = 18:00 PM-shorthand** (Annika's commitment).
+2. Answer the 5 other questions in `scripts/register-parse-18-29-may.json` `summary_for_annika.name_mappings_needing_decision`.
+3. Run biometric cross-check for 27/28/29 May, present delta report.
+4. Apply approved diffs to `attendance` via service-role REST (UPDATE existing rows; INSERT missing remote-staff rows for 27-29; SKIP biometric-source rows).
+5. Correct Sat 23 May for the 6 sales staff (Marlyn/Nicolette/Faith/Gugu/Randhir/Zandile) — need actual Sat 23 attendance from Annika (not in photos).
+6. Then run payroll for 18-22 May.
 
 ---
 
