@@ -544,7 +544,10 @@ export default function RegisterPage() {
   }, [selectedDate, showInactive]);
 
   async function toggleEmployeeStatus(employeeId: string, currentStatus: string) {
-    const newStatus = currentStatus === 'active' ? 'terminated' : 'active';
+    // 'inactive' = "off the register" without claiming a formal end-of-employment
+    // reason. True terminations (resigned/dismissed/etc.) are set via the staff
+    // profile and have a date + reason + linked document.
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     const res = await fetch('/api/register', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

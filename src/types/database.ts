@@ -8,7 +8,17 @@ export type UserRole =
   | 'cash_clerk'
   | 'signer';
 
-export type EmployeeStatus = 'active' | 'inactive' | 'terminated' | 'suspended';
+export type EmployeeStatus =
+  | 'active'
+  | 'inactive'
+  | 'suspended'
+  | 'terminated'   // legacy umbrella — prefer specific reason below for new terminations
+  | 'resigned'
+  | 'absconded'
+  | 'dismissed'
+  | 'retrenched'
+  | 'retired'
+  | 'deceased';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'sick' | 'ph' | 'short_time' | 'family';
 export type LoanStatus = 'active' | 'closed';
 export type WarningCategory = 'A' | 'B' | 'C';
@@ -75,6 +85,9 @@ export interface Employee {
   eif_signed: boolean;
   eif_date: string | null;
   status: EmployeeStatus;
+  termination_date: string | null;
+  termination_reason: string | null;
+  termination_doc_id: string | null;
   photo_url: string | null;
   id_document_url: string | null;
   notes: string | null;

@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn, getInitials, formatDate, yearsOfService } from '@/lib/utils';
-import type { Employee, Warning, Loan, LeaveBalance, PaymentMethod } from '@/types/database';
+import type { Employee, EmployeeStatus, Warning, Loan, LeaveBalance, PaymentMethod } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/ui/toast';
@@ -51,6 +51,74 @@ type TabKey = (typeof TABS)[number]['key'];
 interface StatusChip {
   label: string;
   color: 'green' | 'red' | 'amber' | 'blue' | 'purple' | 'yellow' | 'grey';
+}
+
+// End-of-employment statuses that warrant a banner with date / reason / doc link.
+const END_STATUSES: EmployeeStatus[] = [
+  'resigned',
+  'absconded',
+  'dismissed',
+  'retrenched',
+  'retired',
+  'deceased',
+  'terminated', // legacy umbrella — still shown for older rows that haven't been reclassified
+];
+
+const END_STATUS_LABELS: Record<string, string> = {
+  resigned: 'Resigned',
+  absconded: 'Absconded',
+  dismissed: 'Dismissed',
+  retrenched: 'Retrenched',
+  retired: 'Retired',
+  deceased: 'Deceased',
+  terminated: 'Terminated',
+};
+
+function TerminationBanner({
+  status,
+  date,
+  reason,
+  docUrl,
+}: {
+  status: EmployeeStatus;
+  date: string | null;
+  reason: string | null;
+  docUrl: string | null;
+}) {
+  const label = END_STATUS_LABELS[status] ?? status;
+  const formattedDate = date ? formatDate(date) : null;
+  const downloadUrl = docUrl
+    ? docUrl + (docUrl.includes('?') ? '&' : '?') + 'download'
+    : null;
+  return (
+    <div className="mt-3 rounded-lg border border-red-200 bg-red-50/60 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+          <AlertTriangle className="h-4 w-4 text-red-700" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-red-900">
+            {label}
+            {formattedDate && (
+              <span className="font-normal text-red-800"> — last working day {formattedDate}</span>
+            )}
+          </p>
+          {reason && <p className="text-xs text-red-800 mt-0.5">{reason}</p>}
+          {downloadUrl && (
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-red-900 underline hover:text-red-700 mt-1"
+            >
+              <FileText className="h-3 w-3" />
+              View letter / notice
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Edit Employee Modal ─── */
@@ -487,6 +555,7 @@ export default function EmployeeProfilePage({
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [statusChips, setStatusChips] = useState<StatusChip[]>([]);
   const [editOpen, setEditOpen] = useState(false);
+  const [terminationDocUrl, setTerminationDocUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -509,6 +578,19 @@ export default function EmployeeProfilePage({
         return;
       }
       setEmployee(emp);
+
+      // Fetch the source document URL (resignation letter, dismissal notice, etc.)
+      // if termination_doc_id is set. Used by the TerminationBanner below the chips.
+      if (emp.termination_doc_id) {
+        const { data: docData } = await supabase
+          .from('employee_documents')
+          .select('file_url')
+          .eq('id', emp.termination_doc_id)
+          .maybeSingle();
+        setTerminationDocUrl(docData?.file_url ?? null);
+      } else {
+        setTerminationDocUrl(null);
+      }
 
       // Build status chips
       const chips: StatusChip[] = [];
@@ -725,6 +807,16 @@ export default function EmployeeProfilePage({
                   </Badge>
                 ))}
               </div>
+
+              {/* End-of-employment banner — only when status is one of the end states */}
+              {END_STATUSES.includes(employee.status) && (
+                <TerminationBanner
+                  status={employee.status}
+                  date={employee.termination_date}
+                  reason={employee.termination_reason}
+                  docUrl={terminationDocUrl}
+                />
+              )}
 
               {/* Quick actions */}
               <div className="flex flex-wrap gap-2 mt-3">
