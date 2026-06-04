@@ -321,28 +321,37 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
             const expired = isExpired(doc.expiry_date);
             const expiring = !expired && isExpiringSoon(doc.expiry_date);
 
+            // Force download by appending ?download=<filename>. Supabase Storage honours
+            // this and sets Content-Disposition: attachment. Without it, browsers try to
+            // render .docx inline and silently fail.
+            const filename = doc.file_url.split('/').pop()?.split('?')[0] || 'document';
+            const downloadUrl = doc.file_url + (doc.file_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(filename);
+            const openFile = () => window.open(downloadUrl, '_blank');
+
             return (
               <Card key={doc.id} padding="md">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={openFile}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFile(); } }}
+                    className="flex items-start gap-3 min-w-0 flex-1 cursor-pointer rounded-lg -m-1 p-1 hover:bg-stone-50 transition-colors"
+                  >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-100">
                       <FileText className="h-5 w-5 text-stone-500" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--foreground)] truncate">
+                      <p className="text-sm font-semibold text-[var(--foreground)] truncate">
                         {DOC_TYPE_LABELS[doc.doc_type as DocType] ?? doc.doc_type}
                       </p>
-                      <p className="text-xs text-stone-500 mt-0.5">
-                        Uploaded {formatDate(doc.uploaded_at)}
-                      </p>
-                      {doc.expiry_date && (
-                        <p className="text-xs text-stone-400 mt-0.5">
-                          Expires {formatDate(doc.expiry_date)}
-                        </p>
-                      )}
                       {doc.notes && (
-                        <p className="text-xs text-stone-400 mt-0.5 truncate">{doc.notes}</p>
+                        <p className="text-xs text-stone-600 mt-0.5">{doc.notes}</p>
                       )}
+                      <p className="text-xs text-stone-400 mt-0.5">
+                        Uploaded {formatDate(doc.uploaded_at)}
+                        {doc.expiry_date && <> &middot; Expires {formatDate(doc.expiry_date)}</>}
+                      </p>
                     </div>
                   </div>
 
@@ -360,7 +369,8 @@ export default function DocumentsTab({ employeeId }: DocumentsTabProps) {
                       </Badge>
                     )}
                     <button
-                      onClick={() => window.open(doc.file_url, '_blank')}
+                      onClick={openFile}
+                      title="Download"
                       className="flex h-10 w-10 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
                     >
                       <ExternalLink className="h-4 w-4" />

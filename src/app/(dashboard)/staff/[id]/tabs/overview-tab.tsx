@@ -37,7 +37,7 @@ interface OverviewData {
 const REQUIRED_DOCS = [
   { key: 'id_copy', label: 'ID Copy' },
   { key: 'contract', label: 'Contract' },
-  { key: 'eif', label: 'EIF' },
+  { key: 'eif', label: 'Employee Information Form (EIF)' },
   { key: 'bank', label: 'Banking Details' },
 ];
 
