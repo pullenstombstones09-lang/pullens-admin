@@ -54,18 +54,30 @@ export async function POST(request: NextRequest) {
 
   const supabase = await getSupabase();
 
-  // 1. Read existing attendance for this date to detect status TRANSITIONS into 'family'.
-  //    Only newly-family rows trigger leave creation + balance decrement; rows already
-  //    saved as family on a previous save must not double-count.
+  // 1. Read existing attendance for this date. Two purposes:
+  //    a) detect status TRANSITIONS into 'family' for FRL precheck / decrement
+  //    b) detect time_in / time_out CHANGES to flag them as source='manual',
+  //       so the biometric webhook stops overwriting human edits.
   const employeeIds = records.map((r: { employee_id: string }) => r.employee_id);
   const { data: existing } = await supabase
     .from('attendance')
-    .select('employee_id, status')
+    .select('employee_id, status, time_in, time_out, time_in_source, time_out_source')
     .eq('date', date)
     .in('employee_id', employeeIds);
 
+  type ExistingRow = {
+    employee_id: string;
+    status: string;
+    time_in: string | null;
+    time_out: string | null;
+    time_in_source: string | null;
+    time_out_source: string | null;
+  };
+
+  const existingByEmp = new Map<string, ExistingRow>();
   const existingStatusByEmp = new Map<string, string>();
-  for (const e of existing ?? []) {
+  for (const e of (existing ?? []) as ExistingRow[]) {
+    existingByEmp.set(e.employee_id, e);
     existingStatusByEmp.set(e.employee_id, e.status);
   }
 
@@ -111,10 +123,44 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 3. Upsert attendance (existing behaviour, unchanged shape).
+  // 3. Stamp time_in_source / time_out_source on each record so the biometric
+  //    webhook respects human edits. Rule:
+  //      - status with no times (absent / leave / sick / etc.) → both sources null
+  //      - no existing row → both sources 'manual' (fresh manual entry)
+  //      - existing row → only mark the side that actually changed; preserve the
+  //        other side's prior source (so passive re-saves don't lock biometric out).
+  const NO_TIME_STATUSES = new Set(['absent', 'leave', 'sick', 'family', 'ph', 'short_time']);
+  const normTime = (t: string | null | undefined) =>
+    t ? t.slice(0, 5) : null; // DB returns 'HH:MM:SS', UI sends 'HH:MM'
+
+  const stamped = records.map(
+    (r: { employee_id: string; status: string; time_in: string | null; time_out: string | null }) => {
+      if (NO_TIME_STATUSES.has(r.status)) {
+        return { ...r, time_in_source: null, time_out_source: null };
+      }
+      const ex = existingByEmp.get(r.employee_id);
+      const newIn = normTime(r.time_in);
+      const newOut = normTime(r.time_out);
+      if (!ex) {
+        return {
+          ...r,
+          time_in_source: newIn ? 'manual' : null,
+          time_out_source: newOut ? 'manual' : null,
+        };
+      }
+      const exIn = normTime(ex.time_in);
+      const exOut = normTime(ex.time_out);
+      return {
+        ...r,
+        time_in_source: newIn !== exIn ? 'manual' : ex.time_in_source,
+        time_out_source: newOut !== exOut ? 'manual' : ex.time_out_source,
+      };
+    }
+  );
+
   const { error } = await supabase
     .from('attendance')
-    .upsert(records, { onConflict: 'employee_id,date' });
+    .upsert(stamped, { onConflict: 'employee_id,date' });
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
