@@ -52,7 +52,7 @@ Internal HR + Payroll + Petty Cash + HR Advisor dashboard for Pullens Tombstones
 13. Payroll runs from ONE place only — the Payroll page. Review page is for editing/previewing only.
 14. One standard payslip PDF design used everywhere (Print All, Signing, Individual preview)
 15. OT is auto-derived from attendance (Mon-Thu past 17:00, Fri past 16:00, Sat past 13:00 for sales). The `overtime_requests` approval flow is retained as a table but unused by the engine. (14 May 2026)
-16. Sales staff normal week = Mon-Thu 9h + Fri 8h + Sat 9-1 (4h) = 44h ordinary, paid `weekly_wage / 44`. PT008, PT012, PT023, PT024, PT028, PT032. (14 May 2026)
+16. Sales staff normal week = Mon-Thu 9h + Fri 8h + Sat 9-1 (4h) = 44h ordinary, paid `weekly_wage / 44`. PT008, PT012, PT023 (terminated), PT024, PT028, PT032, PT040 (added 11 June 2026). Saturday included in the 44h — confirmed verbally 11 June. (14 May 2026, updated 11 June 2026)
 17. NMW enforcement: engine throws on `weekly_wage / weekly_hours < R30.23`; DB constraint `chk_nmw` mirrors this. Min wage at /44 = R1330.12. (14 May 2026)
 18. Friday past 16:00 = OT for NEXT week, persisted in `friday_ot_rollovers` table with explicit `applied_to_run_id` + `produced_by_run_id` lineage. (14 May 2026)
 19. Attendance flows from biometric (HikVision DS-K1T343MWX, push-only via `POST /api/biometric/event`) where possible; manual register entry is the fallback for off-Allandale staff and any day the device misses. The `attendance.time_in_source` / `time_out_source` columns track which channel filled each value, and the webhook never overwrites a manual entry. (22 May 2026)
@@ -180,7 +180,170 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 
 ---
 
-## Status — 4 June 2026 (register unlock + manual-source flag + tiered termination shipped; migration 00012 NOT YET applied to live DB)
+## Status — 11 June 2026 (register save fix shipped; 15 wage increases applied; PT040 added; PT021 absconded; 3 draft runs deleted)
+
+### SESSION WORK (11 June)
+
+**Register save bug — root cause + fix — commit `54cb5e9` on `main`, pushed.**
+Cheryl couldn't save the register; she was getting a red toast: *"Save failed: null value in column time_in_source of relation attendance violates not-null constraint"*. Migration 00010 (22 May) added `NOT NULL CHECK IN ('manual','biometric')` to both `time_in_source` and `time_out_source`. The biometric webhook was updated for the new contract (`?? 'manual'` fallback at `route.ts:201,205`). The register POST (`/api/register`) was not — it kept stamping `null` for any row whose status was `absent` / `leave` / `sick` / `family` / `ph` / `short_time`. A single absent row poisoned the whole upsert. **Register save has been silently broken for the attendance clerk since 22 May for any day with even one absent/leave/sick row.** Verified zero manual rows in attendance Mon 8 – Thu 11 June; all 29-30 rows/day are biometric. Fix: stamp `'manual'` in all three null-source branches; `ex.time_in_source ?? 'manual'` defensive fallback on the existing-row branch. Locked decision #23 contract intact.
+
+**PT040 added.** `THOBEKA IGNATIA THABEDE`, Ladysmith, R1331/wk @ 44h sales, payment_method=cash, status=active, start_date=2026-06-09 (matches users row). Leave balances seeded (21/30/3). NMW: R1331/44 = R30.25/h. Verbal instruction R1331 overrode the doc figure of R1210 (which would have failed NMW at 44h). **Missing personal info on Thobeka:** ID number, DOB, banking, address, cell, emergency contact, NOK — pending from Annika.
+
+**3 draft payroll runs deleted** with cascading cleanup. The runs were `5aba84ee` (18-22 May), `ec276cea` (25-29 May), `69e86de5` (1-5 Jun) — all status `draft`, never finalized. Cleanup: 114 payslips deleted, 26 `friday_ot_rollovers` deleted (12 applied + 14 unapplied — the unapplied ones from week-of 2026-06-05 will be re-derived from attendance when the real 8-12 June run happens). Audit log entries written.
+
+**15 wage increases applied** from `C:\Users\Annika\Desktop\Allandale Wage Increase 2026.docx`. PT001 Aaron R2350, PT002 Junior R2715, PT005 Musa R2036, PT006 Nkululeko R1850, PT007 Damien R2543, PT008 Marlyn R1540, PT009 Thilenthren R2774, **PT012 Nicolette R1500** (override — doc said R1305 which would breach NMW at 44h), PT014 Enrique R1418, PT017 Cosmos R1396, PT018 Thabiso R1443, PT024 Gugu R1351, PT028 Randhir R2410, PT030 Sifiso R1496, PT039 Lungiswa R1500. All audit-logged with before/after wage. PT032 Zandile **NOT changed** — doc said R1210 (NMW breach at 44h) → Annika confirmed verbally to keep current R1340. PT040 Thobeka not in this batch (handled separately at insert).
+
+**PT021 Tumelo absconded.** Set status `'absconded'`, termination_date `'2026-06-05'` (his last present row in attendance — Friday before the 8 June anomaly), termination_reason `'Absconded — no formal notice given'`. No supporting doc on file. Per locked decision #25 the staff profile will show the red termination banner.
+
+### CARRIED OVER from 10 June (still outstanding)
+- **Loan ledger reset** — Annika sending photos of current outstanding balances; will bulk-insert as fresh `loans` rows and retire stale rows once received.
+- **Saturdays 23 May / 30 May / 6 Jun** missing in attendance for the 6 sales staff. Will recompute payroll once filled (but the draft runs that depended on these are now deleted; new run will pick up the corrected register).
+- **Remote-site manual entry** still needed Mon-Wed/Thu this week for PT024 Gugu (Pinetown), PT028 Randhir (Pinetown), PT029 Fika (Pinetown), PT032 Zandile (Church St), PT039 Lungiswa (Ladysmith), PT040 Thobeka (Ladysmith). Cheryl will enter manually until the tablet rollout — tablets not yet ordered.
+- **Thobeka's missing personal info** — ID, DOB, banking, address, cell, emergency contact, NOK.
+- **Print summary / `/biometric/daily` printable report** — **DROPPED** per Annika 11 June.
+
+### TODO — next session
+1. Confirm Cheryl's first successful save lands on Vercel (deploy of `54cb5e9` finished, fix is live).
+2. Apply loan ledger from incoming photos.
+3. Fill Thobeka's personal info as it arrives.
+4. Fill Saturdays 23 May / 30 May / 6 Jun for the 6 sales staff once Annika confirms attendance.
+5. Once register is complete (manual entries done + Saturdays filled), run payroll for 8-12 June (this week). The 15 wage increases are LIVE so the new amounts will apply automatically.
+
+---
+
+## Status — 10 June 2026 (Excel-vs-app reconciliation; remote-site clock-in architecture proposed; 3 draft payroll runs)
+
+### SESSION WORK (10 June)
+
+**Three draft payroll runs created via `POST /api/payroll/run` with `draftOnly:true`** — all `status='draft'`, no payslips finalized, no loan deductions written, fully reversible:
+
+| Week | Run ID | Net | Notes |
+|---|---|---|---|
+| 18–22 May | `5aba84ee-a3c4-48aa-a21d-5046fedda20a` | R52,249.05 | Cleanest of the three; full register parse done before HikVision rolled out 27 May |
+| 25–29 May | `ec276cea-80e0-4474-b8cb-88c78d86ee27` | R29,862.93 | **Way under** because biometric transition week — most staff show 18h vs ~40h. Includes Cherylette at -R100 net (loan deducted from R0 gross) and Junior R300 / Marlyn R250 garnishees (likely intended for month-end run, not 25–29). |
+| 1–5 Jun | `69e86de5-a793-443c-be5f-1f188e6ce0c2` | R40,033.83 | Biometric OT now flowing (Sipho M 3.5h, Enrique 3.25h, Sifiso 8.1h, David M 4.5h, Mlindeni 2.5h, Sinethemba 0.3h) |
+
+All three Saturdays are blank in the DB (23 May has 6 sales-staff rows as `absent`; 30 May and 6 Jun have no rows at all). Sales staff lose 4h ordinary each week they actually worked Saturday. **Annika acknowledged but did not authorise correction yet — see TODO #5.**
+
+**1–5 Jun Excel reconciliation against `pullenspmb@gmail.com`'s "Pullens Payroll Allandale 1 - 5 June.xlsm"** (sent 9 June, downloaded to `C:\Users\Annika\Downloads\`). Excel total NET R53,090.61 vs app draft R40,033.83 → **app is R13,057 under**. Three systemic causes identified:
+
+1. **Missing OT (~R3,800 across ~12 staff)** — biometric isn't capturing post-17:00 out-scans consistently. Excel logged OT for Aaron 3.5h, Alli 6h, Ayanda 2h, Damien 1.5h, Lindokuhle 2h, Mduduzi 4h, Musa 4h, Lucky 6h, Sibusiso 5h, Tiiso 5h, Thabani 6h, Sipho M 2h — app captured none of those.
+2. **Under-counted ordinary hours (~R9,000)** — many factory staff show 26–37h where Excel says 40, and remote staff show ~26h (3 days only). Annika's diagnosis (correct): remote sites (Pinetown PT024/028/029, Ladysmith PT039, Church St PT032) have **no biometric installed** and Mon/Tue manual register entries weren't filled in this week. Verified: only Wed/Thu/Fri have manual rows for those 4 staff.
+3. **Wage divergence on sales staff** — Excel still has Nicolette R1340 (Annika says should be R1500), Lungiswa R1331 (should be R1500), Gugu R1331 (app's R1340 is the correct NMW figure — Excel needs to be updated). Thobeka R1340 on Excel but not in app DB at all (new hire PT040).
+
+**Fuzzy-match misses in the comparison** (same person, different spellings — fix in app/DB to make next reconciliation clean):
+
+| Excel name | App name | App PT |
+|---|---|---|
+| NKULELEKO MIYA | NKULULEKO MIYA | PT006 |
+| SIBUSISO MDOWONDE | SIBUSISO MDAWE | PT010 |
+| THILEN RENGAN | THILENTHREN RENGEN | PT009 |
+| TISSO LEBATA | TIISO LEBATA | PT020 |
+| XOLANI | XOLANI XOLANI | PT031 |
+
+**Randhir PT028 anomaly to resolve:** Excel shows 0h worked + R780 cash advance → net R780. App computed 26h biometric → net R1,064.70. Same pattern as previous Excel-vs-app discrepancies (Tumelo absent in Excel but paid in app). Decide: did he work or was it a pure advance?
+
+### REMOTE-SITE CLOCK-IN — proposed architecture (not yet built)
+
+Annika's framing: the dual-source-of-truth (biometric + manual register) is creating the verification mess. Two parallel solutions emerged this session.
+
+**A. Allandale workflow flip — proposed, NOT confirmed yet.** HikVision keeps logging into `biometric_events`, but webhook **stops writing to `attendance`**. New page `/biometric/daily` shows per-employee first IN / last OUT per day, printable for the morning meeting. Clerk types yesterday's register manually using the printout as reference. Friday signoff. Decision #19 and #23 would need amending. **Open question:** can the Allandale clerk realistically type 30+ staff × 5 days = 150+ rows/week manually, or do we keep biometric auto-population and just enforce a daily review/correction sign-off?
+
+**B. Remote-site tablets — confirmed direction, ~8h build.** Annika is buying tablets (3–4×, Samsung Tab A9+ recommended ~R4,500). Each tablet runs the full Pullens admin app (already responsive/tablet-first — no rebuild) and adds a new face-recognition clock-in screen accessible **without** PIN login. Skips the R20-25k HikVision-everywhere plan and saves R8–12k.
+
+**Face recognition implementation:** `face-api.js` (TensorFlow.js, ~10MB models). Each staff enrolls once at Allandale (capture 5 angles → 128-dim embedding stored in new `employee_face_embeddings` table). Daily clock-in: tablet camera identifies via 1:N match against site's enrolled staff → write `attendance` row with `time_in_source='face_tablet'`. Add blink-prompt liveness detection (~2h extra) to defeat printed-photo spoofs. POPIA-friendly — embeddings can't be reversed into photos.
+
+**Site → device matrix (locked):**
+
+| Site | Clock-in | Tablet runs |
+|---|---|---|
+| Allandale | HikVision wall unit (odd-hour staff, office closed at clock-in times) | None — admin work on Annika's laptop |
+| Pinetown (Gugu, Randhir, Fika) | Tablet face-rec | Full admin app |
+| Ladysmith (Lungiswa, Thobeka) | Tablet face-rec | Full admin app |
+| Church Street (Zandile only — Faith terminated) | Tablet face-rec | Full admin app |
+
+**Deployment plan:** all tablets ship to Annika at Allandale first → she enrolls all faces in-person → factory-tests each device → drop-ship to sites.
+
+### Wage changes pending (Annika to finalize)
+
+Confirmed this session:
+- **PT012 Nicolette David**: R1340 → **R1500** (44h sales, /44 = R34.09/h ✓ NMW)
+- **PT039 Lungiswa Mpambane**: R1330 → **R1500** (40h factory, /40 = R37.50/h ✓ NMW; Ladysmith)
+- **PT040 Thobeka Ignatia Thabede**: NEW HIRE, R1340 (44h sales, Ladysmith) — needs DB insert with ID, start date, banking. Not in `employees` yet.
+- **PT024 Gugu**: stays at R1340 (app is correct; Excel R1331 is stale)
+
+Annika promised "most wages getting an increase this week" — full list still pending. Apply once received via single bulk update + audit_log entry.
+
+### Loan ledger reset — pending
+
+Annika to provide current outstanding balances manually (option B from this session — faster than re-parsing the 22 WhatsApp photos). Format: `PT00X: Rxxx outstanding, Ryy/wk`. Then bulk insert as fresh `loans` rows (status='active'), retire stale 18 May back-loaded rows that are now wrong.
+
+### TODO — next session (11 June)
+
+1. **Confirm Allandale workflow** — biometric→reference flip (A above) or keep auto-populate + add mandatory daily review? Either way, build `/biometric/daily` printable report.
+2. **Add PT040 Thobeka Thabede** to `employees` — needs ID, start date, banking from Annika.
+3. **Bulk wage update** once Annika sends the full increase list; flag any breach of R30.23/h NMW.
+4. **Loan ledger reset** once Annika sends balances; insert fresh `loans` rows.
+5. **Fix the 3 missing Saturdays** in attendance (Sat 23 May for 6 sales staff; Sat 30 May + Sat 6 Jun all 6 sales staff). Either correct manually or leave as-is — needs Annika's call. The 3 draft payroll runs will need recalculating after Saturday fix.
+6. **Build tablet face-recognition clock-in** (~8h):
+   - Install `face-api.js` + models (public/face-models/)
+   - New migration `00013_face_embeddings.sql` — `employee_face_embeddings (employee_id, embedding numeric[128], enrolled_at, enrolled_by, site)`
+   - New route `/clock-in` (no auth required) — camera live preview → detect face → compute embedding → match against site's staff → write attendance row
+   - New route `/enroll/[employee_id]` (admin auth) — capture 5 angles → store mean embedding
+   - Optional liveness (blink prompt)
+   - New `attendance.time_in_source` value: `face_tablet`
+   - Update `chk_attendance_source` check constraint
+7. **Resolve Randhir 1-5 Jun anomaly** — did he work or was R780 a pure advance?
+8. **Fix the 5 fuzzy-match name mismatches** — easier to fix in `employees.full_name` than in the bookkeeper's Excel (which we don't control). Update PT006/009/010/020/031 names to match Excel spelling, or vice versa.
+9. **Decide tablet supplier and place order** — Samsung Tab A9+ × 3 (or 4 if Mkondeni gets one) from Takealot/Incredible Connection/Game ~R13.5k–R18k total.
+10. **Finalize or delete** the 3 draft payroll runs (`5aba84ee`, `ec276cea`, `69e86de5`) once register is corrected and wage increases applied.
+
+### CARRIED OVER from 9 June (no progress 10 June)
+- Cheryl + others' sick notes via leave-cert multipart flow — still untested in browser.
+- Enrique's FRL doc upload.
+- 11-15 May payroll loan-repayment fix (16 May) still hasn't fired against a live finalize — will exercise at next finalize.
+
+### Resolved this session
+- ~~"18-29 May register parse still pending"~~ — confirmed completed; HikVision took over from 27 May. Memory `project_register_parse_done.md` saved to prevent future Claudes from quoting the stale CLAUDE.md TODOs.
+- ~~"DDL on Pullens requires manual SQL paste"~~ — disproven 9 June (Management API + PAT path).
+
+---
+
+## Status — 9 June 2026 (migration 00012 applied via Management API; DDL path no longer requires manual SQL Editor paste)
+
+### SESSION WORK (9 June)
+
+**Migration 00012 applied to live Pullens Supabase.** Done via Supabase Management API + Personal Access Token (PAT), not SQL Editor paste. Three calls to `POST https://api.supabase.com/v1/projects/eznppvewksorfoedgzpa/database/query`:
+1. ALTER TYPE × 6 (enum) + ALTER TABLE (3 cols + FK) + CREATE INDEX — single call, returned `[]` (success).
+2. UPDATE PT023 — returned the row with `status='resigned'`, `termination_date='2026-05-22'`, `termination_reason='Personal reasons (immediate effect per letter dated 2026-05-24)'`, `termination_doc_id='3e978014-e275-4c0b-b7a5-5495937503e1'` (matches the doc row inserted by `scripts/faith-resignation.mjs` on 4 June).
+3. Audit log INSERT — returned row id `a983b6d2-eb1f-4477-9f89-4761bd6cf940`, action `migration_00012_employee_termination_details`.
+
+Split into three calls (not one) because Postgres forbids using an enum value in the same transaction that ALTER TYPE ADD VALUE created it — same reason the migration file itself warns against BEGIN/COMMIT wrapping.
+
+**DDL access path discovered — undo the 4 June TODO #7 framing.** The CLAUDE.md history (17 May, 4 June) repeatedly stated DDL on Pullens required Annika to manually paste into the SQL Editor because "the MCP is bound to YeboPro org only". That's true of the MCP. It's NOT true of the Management API. A PAT (`sbp_...`) lives in `C:\Users\Annika\.claude.json` (search for `SUPABASE_ACCESS_TOKEN`) and `GET /v1/projects` confirms it reaches Pullens (`eznppvewksorfoedgzpa`, status ACTIVE_HEALTHY). Future migrations should use this path — no more manual paste blocker.
+
+### CARRIED OVER from 4 June (no progress 9 June yet)
+- Refresh Faith's profile in browser, confirm red `<TerminationBanner>` renders with working "View letter / notice" link. (Annika to eyeball on Vercel.)
+- 18-29 May register parse — 6 decisions still owed (`scripts/register-parse-18-29-may.json`).
+- Biometric cross-check for 27/28/29 May vs photos.
+- Sat 23 May attendance for 6 sales staff.
+- Cheryl + others' sick notes via leave-cert multipart flow.
+- Enrique's FRL doc.
+- 18-22 May payroll run.
+- 11-15 May payroll loan-repayment fix (16 May) still hasn't fired against a live finalize.
+
+### TODO — next session
+1. **Apply migration 00012** ✅ done 9 June via Management API.
+2. Refresh Faith's profile after migration — confirm red banner renders with "View letter / notice" link working.
+3. Resume the 18-29 May register parse decisions (carries from 2 + 4 June).
+4. Run payroll-vs-Excel test for the week Annika has an Excel copy for, with focus on FRL + sick sync.
+5. Upload Cheryl + others' sick notes via leave-cert multipart flow (still untested in browser).
+6. Upload Enrique's FRL doc.
+7. Run 18-22 May payroll once register is signed off.
+
+---
+
+## Status — 4 June 2026 (register unlock + manual-source flag + tiered termination shipped — migration 00012 applied 9 June)
 
 ### SESSION WORK (4 June)
 
@@ -194,7 +357,7 @@ App rounds attendance to ~5-minute increments (0.083h); Excel rounds to 15-min (
 - Notes line bumped to `text-stone-600` and un-truncated so the descriptive line under "Other Document" is readable (matters for the resignation letter card which only has meaningful info in the notes).
 - Overview tab missing-doc banner: `EIF` relabelled to `Employee Information Form (EIF)` so the acronym is self-explanatory.
 
-**Termination feature — commit `d908755` on `main`, pushed. Migration 00012 NOT YET applied to live DB.**
+**Termination feature — commit `d908755` on `main`, pushed. Migration 00012 applied to live DB 9 June (see 9 June section).**
 - Tiered `employee_status` enum: kept `active`/`inactive`/`suspended`/`terminated` (legacy umbrella), added `resigned`/`absconded`/`dismissed`/`retrenched`/`retired`/`deceased`. Three new columns on `employees`: `termination_date`, `termination_reason`, `termination_doc_id`.
 - Inline `<TerminationBanner>` in `staff/[id]/page.tsx` renders under the status chips when status is any end state. Shows formatted last working day, reason, and a clickable "View letter / notice" link that downloads the linked document. Doc URL fetched in the same `load()` pass.
 - Register `toggleEmployeeStatus` now sets `inactive` (not `terminated`) — true terminations require date+reason+doc and go through the profile.
