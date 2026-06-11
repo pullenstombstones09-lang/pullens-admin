@@ -133,27 +133,27 @@ export async function POST(request: NextRequest) {
   const normTime = (t: string | null | undefined) =>
     t ? t.slice(0, 5) : null; // DB returns 'HH:MM:SS', UI sends 'HH:MM'
 
+  // `time_in_source` / `time_out_source` are NOT NULL CHECK IN ('manual','biometric').
+  // The register POST is always a manual action — even when the saved status carries no
+  // times (absent / leave / etc.), the row was authored by a human, so 'manual' is correct.
+  // Only preserve 'biometric' on the specific side whose value didn't change vs the existing row.
   const stamped = records.map(
     (r: { employee_id: string; status: string; time_in: string | null; time_out: string | null }) => {
       if (NO_TIME_STATUSES.has(r.status)) {
-        return { ...r, time_in_source: null, time_out_source: null };
+        return { ...r, time_in_source: 'manual', time_out_source: 'manual' };
       }
       const ex = existingByEmp.get(r.employee_id);
       const newIn = normTime(r.time_in);
       const newOut = normTime(r.time_out);
       if (!ex) {
-        return {
-          ...r,
-          time_in_source: newIn ? 'manual' : null,
-          time_out_source: newOut ? 'manual' : null,
-        };
+        return { ...r, time_in_source: 'manual', time_out_source: 'manual' };
       }
       const exIn = normTime(ex.time_in);
       const exOut = normTime(ex.time_out);
       return {
         ...r,
-        time_in_source: newIn !== exIn ? 'manual' : ex.time_in_source,
-        time_out_source: newOut !== exOut ? 'manual' : ex.time_out_source,
+        time_in_source: newIn !== exIn ? 'manual' : (ex.time_in_source ?? 'manual'),
+        time_out_source: newOut !== exOut ? 'manual' : (ex.time_out_source ?? 'manual'),
       };
     }
   );
